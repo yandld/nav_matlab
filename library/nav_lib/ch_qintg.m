@@ -1,18 +1,19 @@
 
-        function qo = ch_qintg(qi, gyr, dt)
-            % v = norm(gyr);
-             
-%              q_temp(1) = cos(v * dt / 2);
-%              q_temp(2) = sin(v * dt / 2) * gyr(1) / v;
-%              q_temp(3) = sin(v * dt / 2) * gyr(2) / v;
-%              q_temp(4) = sin(v * dt / 2) * gyr(3) / v;
+function out = ch_qintg(in, gyr, dt)
+    theta = gyr * dt;
+    n = norm(theta);
 
-             qsmall(1) = 1;
-             qsmall(2) = gyr(1)*dt*0.5;
-             qsmall(3) = gyr(2)*dt*0.5;
-             qsmall(4) = gyr(3)*dt*0.5;
-             
-             qo = ch_qmul(qi, qsmall);
-             qo = ch_qnormlz(qo);
-        end
+    dq(1) = cos(n / 2);
+    dq(2) = sin(n / 2) * theta(1) / n;
+    dq(3) = sin(n / 2) * theta(2) / n;
+    dq(4) = sin(n / 2) * theta(3) / n;
+
+    %                  dq(1) = 1;
+    %                  dq(2) = theta(1)*0.5;
+    %                  dq(3) = theta(2)*0.5;
+    %                  dq(4) = theta(3)*0.5;
+
+    out = ch_qmul(in, dq);
+    out = ch_qnormlz(out);
+end
 
