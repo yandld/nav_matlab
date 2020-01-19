@@ -154,18 +154,18 @@ end
 
 %%  State transition matrix
 function [F,G] = state_space_model(x, u, t)
-Rb2n = ch_q2m(x(7:10))';
+Cb2n = ch_q2m(x(7:10));
 
 % Transform measured force to force in the tangent plane coordinate system.
-sf = Rb2n * u(1:3);
+sf = Cb2n * u(1:3);
 St = ch_askew(sf);
 
 % Only the standard errors included
 O = zeros(3);
 I = eye(3);
 F = [ O I   O O       O;
-         O O St Rb2n O;
-         O O O O       -Rb2n;
+         O O St Cb2n O;
+         O O O O       -Cb2n;
          O O O O       O;
          O O O O       O];
 
@@ -175,8 +175,8 @@ F = eye(15) + t*F;
 
 % Noise gain matrix
 G=t*[O       O         O  O; 
-         Rb2n  O         O  O; 
-         O        -Rb2n O  O;
+         Cb2n  O         O  O; 
+         O        -Cb2n O  O;
          O        O         I   O; 
          O        O        O   I];
 end
