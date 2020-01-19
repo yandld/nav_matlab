@@ -23,7 +23,8 @@ u = [G + accb ; gyrb];
 
 p = zeros(3,N);
 
-for n=1:N
+
+for n=2:N
    x = ch_nav_equ_local_tan(x, u, dt, G);
    p(:,n) = x(1:3);
 end
