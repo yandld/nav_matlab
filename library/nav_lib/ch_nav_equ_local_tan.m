@@ -8,27 +8,23 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function x = ch_nav_equ_local_tan(x ,u, dt, g_t)
 
-%%          Position and velocity        %%
-p = x(1:3);
+%%          Position and velocity
 old_v = x(4:6);
 sf =u(1:3); % specfic force
 
+%  attitude
+gyr = u(4:6);
+x(7:10) = ch_qintg(x(7:10), gyr, dt);
 
+% vel
 q = x(7:10);
-sf = ch_q2m(q)' * sf;
-
-% Subtract gravity, to obtain accelerations in tangent plane coordinates
+sf = ch_qrotate(ch_qconj(q), sf);
 sf = sf - g_t;
+x(4:6) = old_v + dt *sf;
 
-% Position and velocity update
-v = eye(3)*dt *sf;
-x(4:6) = old_v + v;
-x(1:3) = x(1:3) + old_v*dt + v*dt/2;
+% pos
+x(1:3) = x(1:3) + (old_v + x(4:6)) *dt/2;
 
-%%        Attitude Quaternion 
-
-omega=u(4:6);
-x(7:10) = ch_qintg(x(7:10), omega, dt);
 
 end
 

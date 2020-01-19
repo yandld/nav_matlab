@@ -69,7 +69,7 @@ for k=2:N
     
     % Time update of the Kalman filter state covariance.
     P = F*P*F' + G*blkdiag(Q1, Q2)*G';
-    
+
     % measument update
     if abs(imu_t(k) - gnss_time(ctr_gnss_data)) < 0.01
         if imu_t(k)<settings.outagestart || imu_t(k) > settings.outagestop || ~strcmp(settings.gnss_outage,'on')
@@ -88,7 +88,7 @@ for k=2:N
              
             %correct attitude
             q = x(7:10);
-            q = ch_qmul(ch_qconj(q), [1; z(7:9)/2]);
+            q = ch_qmul(ch_qconj(q), ch_rv2q(z(7:9)));
             q = ch_qconj(q);
              x(7:10) = q;
              
@@ -153,13 +153,12 @@ end
 
 
 %%  State transition matrix
-function [F,G]=state_space_model(x, u, t)
+function [F,G] = state_space_model(x, u, t)
 Rb2n = ch_q2m(x(7:10))';
 
-% Transform measured force to force in
-% the tangent plane coordinate system.
-f_t = Rb2n*u(1:3);
-St = skew_symmetric(f_t);
+% Transform measured force to force in the tangent plane coordinate system.
+sf = Rb2n * u(1:3);
+St = ch_askew(sf);
 
 % Only the standard errors included
 O = zeros(3);
