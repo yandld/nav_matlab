@@ -11,3 +11,9 @@ function q = ch_qnormlz(q)
 % Northwestern Polytechnical University, Xi An, P.R.China
 % 23/09/2012
     q = q/norm(q);
+    if(q(1)<0)
+        q(1) = -q(1);
+        q(2) = -q(2);
+        q(3) = -q(3);
+        q(4) = -q(4);
+    end

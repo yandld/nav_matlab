@@ -7,6 +7,11 @@ close all;
 %% Load data
 disp('Loads data')
 
+AA = 
+fid=fopen('test.txt','wt'); %写的方式打开文件（若不存在，建立文件）；
+fprintf(fid,'%d ',ytt);  % %d 表示以整数形式写入数据，这正是我想要的；
+fclose(fid);  %关闭文件；
+
 %%  Load 瑞典data
 load('GNSSaidedINS_data.mat');
 u = [in_data.IMU.acc; in_data.IMU.gyro];

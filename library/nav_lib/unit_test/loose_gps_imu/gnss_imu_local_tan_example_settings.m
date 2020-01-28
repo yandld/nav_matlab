@@ -15,7 +15,7 @@ function settings = gnss_imu_local_tan_example_settings()
 %%              GENERAL PARAMETERS         %% 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 settings.gnss_outage = 'on'; 
-settings.outagestart = 169; 
+settings.outagestart = 130; 
 settings.outagestop = 170;
 settings.non_holonomic = 'off';
 settings.speed_aiding = 'off';
@@ -46,7 +46,7 @@ settings.sigma_non_holonomic = 20; %[m/s] Trim here
 % Initial Kalman filter uncertainties (standard deviations)  
 settings.factp(1) = 10;                                 % Position [m]
 settings.factp(2) = 5;                                  % Velocity [m/s]
-settings.factp(3:5) = (pi/180*[10 10 50]');     % Attitude (roll,pitch,yaw) [rad]
+settings.factp(3:5) = (pi/180*[10 10 10]');     % Attitude (roll,pitch,yaw) [rad]
 settings.factp(6) = 0.02;                               % Accelerometer biases [m/s^2]
 settings.factp(7) = deg2rad(0.5);                     % Gyro biases [rad/s]                               
 

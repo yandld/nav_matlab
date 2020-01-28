@@ -26,4 +26,9 @@ z=r*sin(l);
 J = jacobian([x;y;z],[r l f]);
 
 
+clc;
+clear;
+syms x a real
+f(x) = sqrt((a-x)^(2) );
+diff(f(x))
 
