@@ -16,13 +16,13 @@ gnss_time = in_data.GNSS.t;
 imu_t = in_data.IMU.t;
 
 AA = u(:,2:102);
- fid=fopen('test.txt','wt'); %写的方式打开文件（若不存在，建立文件）；
- for i = 1:length(AA)
+fid=fopen('test.txt','wt'); %写的方式打开文件（若不存在，建立文件）；
+for i = 1:length(AA)
     fprintf(fid,'%d, ',AA(:,i));  % %d 表示以整数形式写入数据，这正是我想要的；
-     fprintf(fid,'\n'); 
- end
+    fprintf(fid,'\n');
+end
 
- fclose(fid);  %关闭文件
+fclose(fid);  %关闭文件
 
 %%  load couersera data
 % load('p1_data.mat');
@@ -37,7 +37,7 @@ AA = u(:,2:102);
 % in_data.GNSS.pos_ned = p1_data.gnss.data';
 % in_data.GNSS.t = p1_data.gnss.t;
 % in_data.IMU.t = p1_data.imu_w.t';
-% 
+%
 % u = [in_data.IMU.acc; in_data.IMU.gyro];
 % gnss = in_data.GNSS.pos_ned;
 % gnss_time = in_data.GNSS.t;
@@ -68,27 +68,25 @@ for k=2:N
     dt = imu_t(k)-imu_t(k-1);
     
     % correction
-	u_h = u(:,k) + delta_u_h;
+    u_h = u(:,k) + delta_u_h;
     
     
     % nav_equ
     x = ch_nav_equ_local_tan(x, u_h, dt, settings.gravity);
-    p(:, k) = x(1:3);
     
-    
-   cntr = cntr+1;
-   if cntr == 1
-      
+    cntr = cntr+1;
+    if cntr == 1
+        
         %Get state space model matrices
         [F, G] = state_space_model(x, u_h, dt*cntr);
         
         %Time update of the Kalman filter state covariance.
         P = F*P*F' + G*blkdiag(Q1, Q2)*G';
         
-       cntr = 0;
-   end
-
-
+        cntr = 0;
+    end
+    
+    
     % measument update
     if abs(imu_t(k) - gnss_time(ctr_gnss_data)) < 0.01
         if imu_t(k)<settings.outagestart || imu_t(k) > settings.outagestop || ~strcmp(settings.gnss_outage,'on')
@@ -98,19 +96,19 @@ for k=2:N
             R = [settings.sigma_gps^2*eye(3)];
             
             % Calculate the Kalman filter gain.
-             K=(P*H')/(H*P*H'+R);
+            K=(P*H')/(H*P*H'+R);
             
-             z = [zeros(9,1); delta_u_h] + K*(y - x(1:3));
-
+            z = [zeros(9,1); delta_u_h] + K*(y - x(1:3));
+            
             % Correct the navigation states using current perturbation estimates.
-             x(1:6) = x(1:6)+z(1:6);
-             
+            x(1:6) = x(1:6)+z(1:6);
+            
             %correct attitude
             q = x(7:10);
             q = ch_qmul(ch_qconj(q), ch_rv2q(z(7:9)));
             q = ch_qconj(q);
-             x(7:10) = q;
-             
+            x(7:10) = q;
+            
             delta_u_h = z(10:15);
             
             % Update the Kalman filter state covariance.
@@ -118,14 +116,14 @@ for k=2:N
         end
         ctr_gnss_data = min(ctr_gnss_data+1, length(gnss_time));
     end
-
-	% Save the data to the output data structure
-	out_data.x(:,k) = x;
-	out_data.diag_P(:,k) = diag(P);
-	out_data.delta_u_h(:,k) = delta_u_h;
+    
+    % Save the data to the output data structure
+    out_data.x(:,k) = x;
+    out_data.diag_P(:,k) = diag(P);
+    out_data.delta_u_h(:,k) = delta_u_h;
 end
 
- gnss_imu_local_tan_plot(in_data, out_data, 'True');
+gnss_imu_local_tan_plot(in_data, out_data, 'True');
 
 
 
@@ -141,7 +139,7 @@ x = [zeros(6,1); q];
 
 end
 
-%%  Init filter  
+%%  Init filter
 function [P, Q1, Q2, R, H] = init_filter(settings)
 
 
@@ -183,21 +181,21 @@ St = ch_askew(sf);
 O = zeros(3);
 I = eye(3);
 F = [ O I   O O       O;
-         O O St Cb2n O;
-         O O O O       -Cb2n;
-         O O O O       O;
-         O O O O       O];
+    O O St Cb2n O;
+    O O O O       -Cb2n;
+    O O O O       O;
+    O O O O       O];
 
 % Approximation of the discret
 % time state transition matrix
 F = eye(15) + t*F;
 
 % Noise gain matrix
-G=t*[O       O         O  O; 
-         Cb2n  O         O  O; 
-         O        -Cb2n O  O;
-         O        O         I   O; 
-         O        O        O   I];
+G=t*[O       O         O  O;
+    Cb2n  O         O  O;
+    O        -Cb2n O  O;
+    O        O         I   O;
+    O        O        O   I];
 end
 
 

@@ -64,10 +64,9 @@ for k=2:N
     
     % nav_equ
     x = ch_nav_equ_local_tan(x, u_h, dt, settings.gravity);
-    p(:, k) = x(1:3);
     
    cntr = cntr+1;
-   if cntr == 1
+   if cntr == 10
       
         %Get state space model matrices
         [F, G] = state_space_model(x, u_h, dt*cntr);
