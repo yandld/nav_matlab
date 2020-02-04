@@ -83,6 +83,9 @@ for k=2:N
         %Time update of the Kalman filter state covariance.
         P = F*P*F' + G*blkdiag(Q1, Q2)*G';
         
+        % Symmetrize P at each time step:
+        P = (P + P')/2;
+        
         cntr = 0;
     end
     
