@@ -15,14 +15,7 @@ gnss = in_data.GNSS.pos_ned;
 gnss_time = in_data.GNSS.t;
 imu_t = in_data.IMU.t;
 
-AA = u(:,2:102);
-fid=fopen('test.txt','wt'); %写的方式打开文件（若不存在，建立文件）；
-for i = 1:length(AA)
-    fprintf(fid,'%d, ',AA(:,i));  % %d 表示以整数形式写入数据，这正是我想要的；
-    fprintf(fid,'\n');
-end
 
-fclose(fid);  %关闭文件
 
 %%  load couersera data
 % load('p1_data.mat');
@@ -134,7 +127,7 @@ roll = 0;
 pitch = 0;
 
 % Initial coordinate rotation matrix
-q = ch_eul2q([roll pitch settings.init_heading])';
+q = ch_eul2q([roll pitch settings.init_heading]);
 x = [zeros(6,1); q];
 
 end

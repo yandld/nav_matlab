@@ -13,4 +13,5 @@ function q = eul2q(eul)
         q(2) = -cr*sp*sy + cp*cy*sr;
         q(3) =  cr*cy*sp + sr*cp*sy;
         q(4) =  cr*cp*sy - sr*cy*sp;
+        q = q';
 % Ends

@@ -16,7 +16,7 @@ function settings = gnss_imu_local_tan_example_settings()
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 settings.gnss_outage = 'on';
 settings.outagestart = 170;
-settings.outagestop = inf;
+settings.outagestop = 180;
 settings.non_holonomic = 'off';
 settings.speed_aiding = 'off';
 
