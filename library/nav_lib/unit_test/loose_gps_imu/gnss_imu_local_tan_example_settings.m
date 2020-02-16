@@ -20,7 +20,7 @@ settings.outagestop = 180;
 settings.non_holonomic = 'off';
 settings.speed_aiding = 'off';
 
-settings.init_heading = 320*pi/180;
+settings.init_heading = 0*pi/180;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%             FILTER PARAMETERS           %%
@@ -28,10 +28,10 @@ settings.init_heading = 320*pi/180;
 
 % Process noise covariance (Q)
 % Standard deviations, need to be squared
-settings.sigma_acc = 0.02; % [m/s^2]
-settings.sigma_gyro = deg2rad(0.08); % [rad/s]
-settings.sigma_acc_bias = 0.005; % [m/s^2.5]
-settings.sigma_gyro_bias = deg2rad(0.001); % [rad/s^1.5]
+settings.sigma_acc = 0.06; % [m/s^2]
+settings.sigma_gyro = deg2rad(0.8); % [rad/s]
+settings.sigma_acc_bias = 0.04; % [m/s^2.5]
+settings.sigma_gyro_bias = deg2rad(0.05); % [rad/s^1.5]
 
 
 % GNSS position measurement noise covariance (R)
@@ -44,9 +44,9 @@ settings.sigma_non_holonomic = 20; %[m/s] Trim here
 
 
 % Initial Kalman filter uncertainties (standard deviations)
-settings.factp(1) = 10;                                 % Position [m]
-settings.factp(2) = 5;                                  % Velocity [m/s]
-settings.factp(3:5) = (pi/180*[500 500 500]');     % Attitude (roll,pitch,yaw) [rad]
+settings.factp(1) = 100;                                 % Position [m]
+settings.factp(2) = 100;                                  % Velocity [m/s]
+settings.factp(3:5) = (pi/180*[50 50 50]');     % Attitude (roll,pitch,yaw) [rad]
 settings.factp(6) = 0.02;                               % Accelerometer biases [m/s^2]
 settings.factp(7) = deg2rad(0.5);                     % Gyro biases [rad/s]
 

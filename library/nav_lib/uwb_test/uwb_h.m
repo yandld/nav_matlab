@@ -7,12 +7,13 @@
 % Licence.txt, included with the software, for details.
 
 function [Y,H] = ekf_uwb_h(x, param)
-    global UKF;
+    global dataset;
+    
     position = x(1:3);	
-    bSPcs = UKF.AnchorPcs;
+    n = dataset.uwb.cnt;
 	Zpred = [];
-	TM = repmat(position,1,bSPcs) - UKF.AnchorPosition(:,1:bSPcs);
-	for ki=1:bSPcs
+	TM = repmat(position,1,n) - dataset.uwb.anchor(1:n,:)';
+	for ki=1:n
 	    Zpred = [Zpred ;norm(TM(:,ki))];
 	end
 	   Y = Zpred;

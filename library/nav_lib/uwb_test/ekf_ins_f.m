@@ -6,11 +6,12 @@
 % Licence (version 2 or later); please refer to the file 
 % Licence.txt, included with the software, for details.
 
-function x_n = ekf_ins_f(x,param)
+function x_n = ekf_ins_f(x, param)
     g = [0;0;9.7803698];
     dT = param(1);
 	accel_meas = param(2:4);
 	gyro_meas = param(5:7);
+    
 	roll = x(7);pitch = x(8);head = x(9);
 	I = eye(3,3);
 	O = zeros(3,3);
@@ -34,7 +35,7 @@ function x_n = ekf_ins_f(x,param)
              dT*I,O;
              O,dT*I];
     R = Cbn';  %%%b->n
-    x_n = A*x(1:9) +B*[R*accel_meas-g;Lnb*gyro_meas];
+    x_n = A*x(1:9) + B*[R*accel_meas-g; Lnb*gyro_meas];
 	while x_n(9) >= 2*pi     x_n(9) = x_n(9) - 2*pi;end
 	while x_n(8) >= 2*pi     x_n(8) = x_n(8) - 2*pi;end
 	while x_n(7) >= 2*pi     x_n(7) = x_n(7) - 2*pi;end

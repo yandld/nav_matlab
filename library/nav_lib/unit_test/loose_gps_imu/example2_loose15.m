@@ -70,12 +70,11 @@ for k=2:N
     % correction
     u_h = u(:,k) + delta_u_h;
     
-    
     % nav_equ
     x = ch_nav_equ_local_tan(x, u_h, dt, settings.gravity);
     
     cntr = cntr+1;
-    if cntr == 1
+    if cntr == 10
         
         %Get state space model matrices
         [F, G] = state_space_model(x, u_h, dt*cntr);
