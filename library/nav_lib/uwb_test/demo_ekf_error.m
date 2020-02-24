@@ -23,21 +23,21 @@ dt = 0.005;
 section1 = [5000  7000]*4;
 
 
-u = [dataset.imu.acc'; dataset.imu.gyr'];
+u = [dataset.imu.acc; dataset.imu.gyr];
 l = length(u);
 
 u = u(:,section1(1) :section1(2));
 
 l = length(dataset.imu.time);
-dataset.imu.time = dataset.imu.time(section1(1) :section1(2),:);
+dataset.imu.time = dataset.imu.time(1,section1(1) :section1(2));
 
 l = length(dataset.uwb.time);
-dataset.uwb.time =  dataset.uwb.time(section1(1)/4 :section1(2)/4, :);
+dataset.uwb.time =  dataset.uwb.time(1,section1(1)/4 :section1(2)/4);
 
 l = length( dataset.uwb.tof);
-dataset.uwb.tof = dataset.uwb.tof(section1(1)/4 : section1(2)/4, :);
+dataset.uwb.tof = dataset.uwb.tof(:,section1(1)/4 : section1(2)/4);
 
-dataset.uwb.anchor = [dataset.uwb.anchor(1:5,:), [0.004 0 0 0 0]'];
+dataset.uwb.anchor = [dataset.uwb.anchor(:,1:5); [0.004 0 0 0 0]];
 dataset.uwb.cnt = 5;
 N = length(u);
 
@@ -96,7 +96,7 @@ for k=1:N
     %   if  uwb_iter <= length(UWBBroadTime_vector) && UWBBroadTime_vector(uwb_iter)== SampleTimePoint(imu_iter)
     if uwb_iter < length(dataset.uwb.time)  && abs(dataset.imu.time(imu_iter) - dataset.uwb.time(uwb_iter))  < 0.01
         
-        y = dataset.uwb.tof(uwb_iter,:)';
+        y = dataset.uwb.tof(:,uwb_iter);
         y = y(1:dataset.uwb.cnt);
         
         % bypass Nan
@@ -111,7 +111,7 @@ for k=1:N
             t = h_func(x);
             if uwb_iter > 50
                 for i = 1:length(y)
-                    if abs(y(i) - t(i))  > 0.6
+                    if abs(y(i) - t(i))  > 1.2
                         y(i) = t(i);
                     end
                 end
@@ -150,7 +150,7 @@ end
 %% UWB Ω‚À„
 cnt = 1;
 for uwb_iter=1:length(dataset.uwb.time)
-    y = dataset.uwb.tof(uwb_iter,:)';
+    y = dataset.uwb.tof(:, uwb_iter);
     
     uwbxyz = triangulate(y);
     

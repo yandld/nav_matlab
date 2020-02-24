@@ -15,7 +15,7 @@ station = station';
 x = zeros(4,1);
 
 %% generate measuement 
-persdo_range = vecnorm(station - true_user_states(1:3))+true_user_states(4) ;
+pr = vecnorm(station - true_user_states(1:3))+ true_user_states(4) ;
 
 for i = 1:5
     range = vecnorm(station - x(1:3));
@@ -26,9 +26,9 @@ for i = 1:5
     H(5,1:3) = -(station(:,5) -  x(1:3))/range(5);
     H = [H(:,1:3),  [1 1 1 1 1]'];
     
-    b= ((persdo_range - range) - x(4))';
+    b = ((pr - range) - x(4))';
     
-    x = x + inv(H'*H)*H'*b;
+    x = x + (H'*H)^(-1)*H'*b;
     
 end
 

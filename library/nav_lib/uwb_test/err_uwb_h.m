@@ -13,7 +13,7 @@ function [Y,H] = ekf_err_uwb_h(x,param)
     n = dataset.uwb.cnt;
     
 	H = [];
-	TM = repmat(position,1,n) - dataset.uwb.anchor(1:n,:)';
+	TM = repmat(position,1,n) - dataset.uwb.anchor(:,1:n);
 	for ki=1:n
 	       H = [H ;TM(:,ki)'/norm(TM(:,ki)),zeros(1,12)];
 	end

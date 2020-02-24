@@ -9,11 +9,11 @@ disp('Loads data')
 
 
 %%  Load 瑞典data
-load('GNSSaidedINS_data.mat');
-u = [in_data.IMU.acc; in_data.IMU.gyro];
-gnss = in_data.GNSS.pos_ned;
-gnss_time = in_data.GNSS.t;
-imu_t = in_data.IMU.t;
+load('dataset1.mat');
+u = [dataset.imu.acc; dataset.imu.gyro];
+gnss = dataset.gnss.pos_ned;
+gnss_time = dataset.gnss.time;
+imu_t = dataset.imu.time;
 
 AA = u(:,2:102);
 fid=fopen('test.txt','wt'); %写的方式打开文件（若不存在，建立文件）；
@@ -125,7 +125,7 @@ for k=2:N
     out_data.delta_u_h(:,k) = delta_u_h;
 end
 
-gnss_imu_local_tan_plot(in_data, out_data, 'True');
+gnss_imu_local_tan_plot(dataset, out_data, 'True');
 
 
 

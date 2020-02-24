@@ -12,7 +12,7 @@
 function xyz = triangulate(rangings)
 global dataset;
 
-bSCoordinate = dataset.uwb.anchor;
+bSCoordinate = dataset.uwb.anchor';
 constantValue = sum(abs(bSCoordinate).^2,2).^(1/2);
 
 bSPcs = 5;

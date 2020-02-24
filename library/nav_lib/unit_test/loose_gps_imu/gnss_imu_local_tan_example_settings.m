@@ -15,8 +15,8 @@ function settings = gnss_imu_local_tan_example_settings()
 %%              GENERAL PARAMETERS         %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 settings.gnss_outage = 'on';
-settings.outagestart = 170;
-settings.outagestop = 180;
+settings.outagestart = 120;
+settings.outagestop = 150;
 settings.non_holonomic = 'off';
 settings.speed_aiding = 'off';
 
@@ -28,10 +28,10 @@ settings.init_heading = 0*pi/180;
 
 % Process noise covariance (Q)
 % Standard deviations, need to be squared
-settings.sigma_acc = 0.06; % [m/s^2]
-settings.sigma_gyro = deg2rad(0.8); % [rad/s]
-settings.sigma_acc_bias = 0.04; % [m/s^2.5]
-settings.sigma_gyro_bias = deg2rad(0.05); % [rad/s^1.5]
+settings.sigma_acc = 0.02; % [m/s^2]
+settings.sigma_gyro = deg2rad(0.9); % [rad/s]
+settings.sigma_acc_bias = 0.02; % [m/s^2.5]
+settings.sigma_gyro_bias = deg2rad(0.09); % [rad/s^1.5]
 
 
 % GNSS position measurement noise covariance (R)

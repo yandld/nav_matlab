@@ -12,7 +12,7 @@ function [Y,H] = ekf_uwb_h(x, param)
     position = x(1:3);	
     n = dataset.uwb.cnt;
 	Zpred = [];
-	TM = repmat(position,1,n) - dataset.uwb.anchor(1:n,:)';
+	TM = repmat(position,1,n) - dataset.uwb.anchor(:,1:n);
 	for ki=1:n
 	    Zpred = [Zpred ;norm(TM(:,ki))];
 	end
