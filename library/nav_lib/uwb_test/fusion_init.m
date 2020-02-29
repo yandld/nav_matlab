@@ -23,7 +23,7 @@ for ki=1:size(matfile)
     load(matfile(ki).name)
 end
 
-u = [a_vector'; g_vector'/180*pi];
+% u = [a_vector'; g_vector'/180*pi];
 clear  a_vector  g_vector Temperature ki stationnumber_vector matfi Uwbranging_vector UWBBroadTime_vector SampleTimePoint;
 
 % global UKF;

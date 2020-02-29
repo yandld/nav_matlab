@@ -1,4 +1,4 @@
-function [r_eb_e,v_eb_e,C_b_e] = ch_ned2ecef(L_b,lambda_b,h_b,v_eb_n,C_b_n)
+function [r_eb_e, v_eb_e, C_b_e] = ch_ned2ecef(lat, lon, ght, v_eb_n, C_b_n)
 %NED_to_ECEF - Converts curvilinear to Cartesian position, velocity
 %resolving axes from NED to ECEF and attitude from NED- to ECEF-referenced
 %
@@ -26,22 +26,22 @@ function [r_eb_e,v_eb_e,C_b_e] = ch_ned2ecef(L_b,lambda_b,h_b,v_eb_n,C_b_n)
 % License: BSD; see license.txt for details
 
 % Parameters
-R_0 = 6378137; %WGS84 Equatorial radius in meters
+R0 = 6378137; %WGS84 Equatorial radius in meters
 e = 0.0818191908425; %WGS84 eccentricity
 
 % Begins
 
 % Calculate transverse radius of curvature using (2.105)
-R_E = R_0 / sqrt(1 - (e * sin(L_b))^2);
+R_E = R0 / sqrt(1 - (e * sin(lat))^2);
 
 % Convert position using (2.112)
-cos_lat = cos(L_b);
-sin_lat = sin(L_b);
-cos_long = cos(lambda_b);
-sin_long = sin(lambda_b);
-r_eb_e = [(R_E + h_b) * cos_lat * cos_long;...
-          (R_E + h_b) * cos_lat * sin_long;...
-          ((1 - e^2) * R_E + h_b) * sin_lat];
+cos_lat = cos(lat);
+sin_lat = sin(lat);
+cos_long = cos(lon);
+sin_long = sin(lon);
+r_eb_e = [(R_E + ght) * cos_lat * cos_long;...
+                 (R_E + ght) * cos_lat * sin_long;...
+                 ((1 - e^2) * R_E + ght) * sin_lat];
       
 % Calculate ECEF to NED coordinate transformation matrix using (2.150)
 C_e_n = [-sin_lat * cos_long, -sin_lat * sin_long,  cos_lat;...

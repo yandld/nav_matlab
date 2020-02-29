@@ -1,22 +1,21 @@
-%%
-% anchor_pos: anchor pos:  3xN (Næ˜¯åŸºç«™æ•°é‡)
-% p ç”¨æˆ·ä½ç½®
-% pr ä¼ªè·
+% µü´úÊ½¶à±ß²â¾à
 
 function p = ch_triangulate(anchor_pos, p,  pr)
 
-% åŸºç«™ä¸ªæ•°
+% »ùÕ¾¸öÊý
 n = size(anchor_pos, 2);
 
-% å½“å‰ä¼°è®¡çš„åˆ°å„ä¸ªåŸºç«™çš„è·ç¦»
+% »ñµÃµ±Ç°Î»ÖÃÓë¸÷¸ö»ùÕ¾µÄ¾àÀë
 r = vecnorm(anchor_pos - p);
 
-% è®¡ç®—å‡ ä½•çŸ©é˜µ
+% ÇóµÃH¾ØÕó
 H = (anchor_pos - p) ./ r;
 H =-H';
 
-% æ›´æ–°ä½ç½®
+% µü´úÓÃ»§¾àÀë
 p =  p + (H'*H)^(-1)*H'*(pr - r)';
+
+
 end
 
 

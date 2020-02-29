@@ -4,8 +4,8 @@ clear;
 clc;
 
 lat = 0.785398;
-lon = 0.685398;
-ght = 0;
+lon = 0.523599;
+ght = 1000;
 
 Vned = [5 5 5]';
 Cb2n = eye(3);
@@ -28,7 +28,7 @@ Cb2e = eye(3);
 
 %% Radii_of_curvature test
 
-[R_N,R_E]= Radii_of_curvature(0.78);
+[R_N,R_E]= ch_earth(deg2rad(45), 0);
 
 %% Gravity_NED
 lat = 0.785398163;

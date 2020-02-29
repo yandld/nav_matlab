@@ -24,17 +24,13 @@ section1 = [5000  7000]*4;
 
 
 u = [dataset.imu.acc; dataset.imu.gyr];
-l = length(u);
 
 u = u(:,section1(1) :section1(2));
 
-l = length(dataset.imu.time);
 dataset.imu.time = dataset.imu.time(1,section1(1) :section1(2));
 
-l = length(dataset.uwb.time);
 dataset.uwb.time =  dataset.uwb.time(1,section1(1)/4 :section1(2)/4);
 
-l = length( dataset.uwb.tof);
 dataset.uwb.tof = dataset.uwb.tof(:,section1(1)/4 : section1(2)/4);
 
 dataset.uwb.anchor = [dataset.uwb.anchor(:,1:5); [0.004 0 0 0 0]];
@@ -152,7 +148,7 @@ cnt = 1;
 for uwb_iter=1:length(dataset.uwb.time)
     y = dataset.uwb.tof(:, uwb_iter);
     
-    uwbxyz = triangulate(y);
+    uwbxyz = ch_multilateration(dataset.uwb.anchor,  y');
     
     out_data.uwb.pos(cnt,:) = uwbxyz';
     cnt = cnt+1;
@@ -237,15 +233,15 @@ end
 
 
 %% corrdinate transformation
-function out = corrd_transfmation(in)
-out(1) =  -in(1);
-out(2) = -in(2);
-out(3) = -in(3);
-end
-
-function out = cut_data(in, start_precent, end_percent)
-len =length(in);
-s = start_precent * len;
-e = end_percent * len;
-out = in(s: e, :);
-end
+% function out = corrd_transfmation(in)
+% out(1) =  -in(1);
+% out(2) = -in(2);
+% out(3) = -in(3);
+% end
+% 
+% function out = cut_data(in, start_precent, end_percent)
+% len =length(in);
+% s = start_precent * len;
+% e = end_percent * len;
+% out = in(s: e, :);
+% end
