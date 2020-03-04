@@ -16,28 +16,8 @@ x = zeros(4,1);
 
 %% presduo range
 pr = vecnorm(station - true_user_states(1:3)) + true_user_states(4) ;
-
-
-for i = 1:4
-    % 获得当前位置与各个基站的距离
-    r = vecnorm(station - x(1:3));
-    
-    % 求得H矩阵
-    H = (station - x(1:3)) ./ r;
-    H =-H';
-    
-    H = [H(:,1:3),  [1 1 1 1 1]'];
-    
-    b = ((pr - r) - x(4))';
-    
-    % 迭代用户距离 
-    x = x + (H'*H)^(-1)*H'*b;
-    
-end
-
-
-
-
+x = ch_gpsls(x, station,  pr);
+x
 
 
 

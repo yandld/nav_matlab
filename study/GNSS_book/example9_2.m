@@ -10,8 +10,8 @@ addpath('../../library/nav_lib');
 theta = deg2rad([0 0 0 -90]); % 仰角
 alpha = deg2rad([0 120 240 0]); %方位角
 
-theta = deg2rad([-30 -30 -30 -60]);
-alpha = deg2rad([60 90 120 90]);
+theta = deg2rad([-30 -30 -30 -60]); %Elevation
+alpha = deg2rad([60 90 120 90]);% Azimuth
 
 %% calculate Geometry matrix
 %% 注意这里使用NED坐标系！！
