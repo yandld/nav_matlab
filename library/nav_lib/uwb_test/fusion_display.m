@@ -3,10 +3,15 @@ function fusion_display(out_data, gt)
 %% -------------- figure 1: display trajectory
 fusion_pos = out_data.x(:,1:3);
 fusion_speed = out_data.x(:,4:6);
-fusion_q = out_data.x(:,7:10);
+fusion_quat = out_data.x(:,7:10);
+
+
 
 
 figure(10)
+
+plotanchors(out_data.uwb.anchor)
+
 if( gt ~= [])
     plot(gt.pos(:,1), gt.pos(:,2),  'g.')
 end
@@ -151,9 +156,9 @@ legend('Real Trajectory','UWB-IMU Trajectory','UWB Trajectory')
 % title('Speed z Axis');xlabel('T:s');ylabel('z axis:m');grid on;
 
 %-------------- figure 4: display Pose state  -----------------%
-eul = zeros(length(fusion_q), 3);
-for i = 1: length(fusion_q)
-    eul(i,:) = rad2deg(ch_q2eul(fusion_q(i,:)));
+eul = zeros(length(fusion_quat), 3);
+for i = 1: length(fusion_quat)
+    eul(i,:) = rad2deg(ch_q2eul(fusion_quat(i,:)));
 end
 
 
@@ -241,3 +246,14 @@ legend('Real Error','UWB-IMU  Error')
 
 
 end
+
+
+function plotanchors(Anchor)
+    hold all;
+    scatter(Anchor(1, :),Anchor(2, :),'k');
+    for i=1:size(Anchor,2);
+        text(Anchor(1, i),Anchor(2, i),"Anchor "+(i-1))
+    end
+end
+
+

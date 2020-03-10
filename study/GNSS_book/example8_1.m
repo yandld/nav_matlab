@@ -16,22 +16,10 @@ c = 299792458;
 
 [~, RE ] = ch_earth(lat, ght);
 
- [r,~,Cn2e] = ch_ned2ecef(lat, lon, ght, [0 0 0]',eye(3));
-%% delta XYZ
-delta = SV_pos_ecef - r;
-n = norm(delta);
-%% Line-Of-Sight unit vector
-I_ecef = delta/n;
-
-%% Range rate
-r_rate = I_ecef'*SV_vel_evef;
-
-%% Transformation of line of sight to north, east, down
-I_ned = Cn2e'*I_ecef;
-
-%% Elevation and azimuth
-theta = rad2deg(-asin (I_ned(3)));
-psi = rad2deg(atan2(I_ned(2), I_ned(1)));
-
-
+usr_ecef = ch_lla2ecef(lat, lon, ght);
+ 
+ [az, el] = satellite_az_el(SV_pos_ecef, usr_ecef);
+ rad2deg(el)
+ rad2deg(az)
+ 
 

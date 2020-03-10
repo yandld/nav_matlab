@@ -12,12 +12,15 @@ station(:,2) = [9799722.428 -11678854.4 21773061.34]';
 station(:,3) = [15014045.82 2647381.37 21773061.34]';
 station(:,4) = [17020279.96 -20283979.8 2316599.642]';
 station(:,5) = [26076581.77 4598004.93 2316599.642]';
-x = zeros(4,1);
+pos = zeros(3,1);
+bias = 0;
 
 %% presduo range
 pr = vecnorm(station - true_user_states(1:3)) + true_user_states(4) ;
-x = ch_gpsls(x, station,  pr);
-x
+[pos, bias, dp, G] = ch_gpsls(pos, bias, station,  pr);
+
+pos
+bias
 
 
 

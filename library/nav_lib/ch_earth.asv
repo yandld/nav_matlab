@@ -1,5 +1,5 @@
 
-function [R_meridian, R_transverse, Cecef2ned, Cecef2enu, gravity]= ch_earth(lat, lon, hgt)
+function [R_meridian, R_transverse, Cecef2ned, Cecef2enu]= ch_earth(lat, hgt)
 % R_meridian： 南北向地球曲率半径
 % R_transverse：东西向地球曲率半径
 
@@ -18,16 +18,12 @@ clon = cos(lon);
 slon = sin(lon);
 
 Cecef2enu(1,:) =  [-slon ,             clon,                 0];
-Cecef2enu(2,:) = [ -slat*clon,    -slat*slon          clat];
+Cecef2enu(2,:) = [ -slat*cosl,    -slat*slon          clat];
 Cecef2enu(3,:) = [ clat*clon,      clat*slon,          slat];
            
 
-Cecef2ned(1,:) = [-slat*clon,     -slat * slon,       clat];
-Cecef2ned(2,:) = [-slon,             clon,                    0];
-Cecef2ned(3,:) = [ -clat*clon,   -clat*slon,        -slat];
-
-% Calculate surface gravity using the Somigliana model, (2.134)
-sinsqL = slat^2;
-gravity = 9.7803253359 * (1 + 0.001931853 * sinsqL) / sqrt(1 - e^2 * sinsqL);
-
+Cecef2ned(1，)
+Cecef2ned = [-slat * clon,  -slat * slon   clat;       -slon,           clon,               0;       -clat*clon,   -clat * slon,  -slat];
+                   
+        
 end

@@ -48,7 +48,7 @@ uwb_div = 0;
 out_data.uwb = [];
 out_data.uwb.time = dataset.uwb.time;
 out_data.imu.time = dataset.imu.time;
-
+out_data.uwb.anchor = dataset.uwb.anchor;
 
 %% load settings
 settings = gnss_imu_local_tan_example_settings();
