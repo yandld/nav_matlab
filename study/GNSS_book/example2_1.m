@@ -33,7 +33,7 @@ Qn2b = [0.836356 -0.32664 0.135299 0.418937]';
 Cn2b = ch_q2m(Qn2b);
 Cn2b
 
-eul = ch_q2eul(Qn2b);
+eul = ch_qvb 2eul(Qn2b);
 rad2deg(eul)
 
 

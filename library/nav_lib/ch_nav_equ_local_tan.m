@@ -4,7 +4,7 @@
 % x         Current navigation state [position (NED), velocity (NED), attitude (Quaternion, b2n)]
 % u         Measured inertial quantities [Specific force (m/s^2), Angular velocity (rad/s)]
 % dt        Sampling period (s)
-% g_t      Graivity(-9.81x)
+% g_t      Graivity
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function x = ch_nav_equ_local_tan(x ,u, dt, g_t)
 

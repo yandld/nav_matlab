@@ -1,4 +1,3 @@
-
 run fusion_init.m
 
 %% Motion Process, Measurement model and it's derivative
@@ -10,39 +9,34 @@ dh_dx_func = @err_uwb_h;
 %N = size(u,2);
 imu_iter = 1;
 uwb_iter = 1;
-dt = 0.02;
 ISPUTCHAR = 0;
 
 %% load data set
 load dataset2;
-
+% dataset = datasets;
 global dataset;
 
-dt = 0.005;
+dt = dataset.imu.time(2) - dataset.imu.time(1);
 
-section1 = [5000  7000]*4;
+section = [5000  7000]*4;
 
 
 u = [dataset.imu.acc; dataset.imu.gyr];
 
-u = u(:,section1(1) :section1(2));
+u = u(:,section(1) :section(2));
 
-dataset.imu.time = dataset.imu.time(1,section1(1) :section1(2));
-
-dataset.uwb.time =  dataset.uwb.time(1,section1(1)/4 :section1(2)/4);
-
-dataset.uwb.tof = dataset.uwb.tof(:,section1(1)/4 : section1(2)/4);
+dataset.imu.time = dataset.imu.time(1,section(1) :section(2));
+dataset.uwb.time =  dataset.uwb.time(1,section(1)/4 :section(2)/4);
+dataset.uwb.tof = dataset.uwb.tof(:,section(1)/4 : section(2)/4);
 
 dataset.uwb.anchor = [dataset.uwb.anchor(:,1:5); [0.004 0 0 0 0]];
 dataset.uwb.cnt = 5;
 N = length(u);
 
-
 MeasureNoiseVariance = [2.98e-03, 2.9e-03,1.8e-03, 1.2e-03, 2.4e-03];  %%%%  UWB Ranging noise
 
 R = diag(MeasureNoiseVariance(1:dataset.uwb.cnt));
 p_div = 0;
-uwb_div = 0;
 
 %% out data init
 out_data.uwb = [];
