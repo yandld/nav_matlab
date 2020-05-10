@@ -7,6 +7,7 @@ END_LOOP=100;
 sv_num = size(sv_pos, 2);
 max_retry = 5;
 last_pos = pos;
+
 if sv_num < 3
     return
 end
@@ -23,6 +24,8 @@ while (END_LOOP > B1 && max_retry > 0)
     
     % 迭代用户距离
     delta =  (H'*H)^(-1)*H'*dp;
+    
+    %计算残差
     END_LOOP = vnorm(delta);
     
     pos = pos + delta;
@@ -36,3 +39,25 @@ while (END_LOOP > B1 && max_retry > 0)
 end
 
 end
+
+
+
+% 
+% % 最小二乘法多边测距
+% 
+% function pos = ch_multilateration(anchor_pos,  pos, pr)
+% 
+% pr = pr(1:size(anchor_pos, 2));
+% 
+% b = vecnorm(anchor_pos).^(2) - pr.^(2);
+% b = b(1:end-1) - b(end);
+% b = b';
+% 
+% A =  anchor_pos - anchor_pos(:,end);
+% A = A(:,1:end-1)'*2;
+% 
+% pos = (A'*A)^(-1)*A'*b;
+% 
+% 
+% end
+
