@@ -1,6 +1,6 @@
 %% init
 clc
-clear all
+clear
 close all
 
 %% Motion Process, Measurement model and it's derivative
@@ -14,7 +14,6 @@ ISPUTCHAR = 0;
 
 %% load data set
 load dataset2;
-global dataset;
 
 dt = dataset.imu.time(2) - dataset.imu.time(1);
 
@@ -83,7 +82,7 @@ for k=1:N
     
     
     %% Update
-    %   if  uwb_iter <= length(UWBBroadTime_vector) && UWBBroadTime_vector(uwb_iter)== SampleTimePoint(imu_iter)
+
     if uwb_iter < length(dataset.uwb.time)  && abs(dataset.imu.time(imu_iter) - dataset.uwb.time(uwb_iter))  < 0.01
         
         y = dataset.uwb.tof(:,uwb_iter);
@@ -143,18 +142,19 @@ uwbxyz = [1 2 3]';
 
 for uwb_iter=1:length(dataset.uwb.time)
     y = dataset.uwb.tof(:, uwb_iter);
-    
+    % remove NaN points
     if all(~isnan(y)) == true
         uwbxyz = ch_multilateration(dataset.uwb.anchor, uwbxyz,  y');
-        out_data.uwb.pos(cnt,:) = uwbxyz';
+        out_data.uwb.pos(:,cnt) = uwbxyz;
          cnt = cnt+1;
     end
-   
-    
+
 end
 
 
 %% show all data
+out_data.uwb.tof = dataset.uwb.tof;
+
 fusion_display(out_data, []);
 
 %%  Init navigation state

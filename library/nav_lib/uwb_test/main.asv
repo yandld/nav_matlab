@@ -1,0 +1,58 @@
+%%
+clc;
+close all;
+clear;
+
+
+anch_pos = [0,0; 2.5, 0; 0, 8]';
+
+
+% 
+% test_line = AA(:,2);
+% 
+% %test_line = [57 59 60 100 59 58 57 58 300 61 62 60 62 58 57];
+% t = 1:length(test_line);
+% 
+% %[B,TF,U,L,C] = filloutliers(test_line, 'clip','movmedian',200);
+% %B = medfilt1(test_line, 30);
+% B = movmean(test_line,20);
+% 
+% plot(t,test_line, '.',t,B,'o')
+% legend('Original Data','Filled 4Data')
+% 
+% norm(test_line-B)
+load('uwb_test_dataset1.mat');
+
+plot(dataset.uwb.tof');
+
+legend('an0','an1','an2');
+
+dataset.uwb.cnt = 3;
+dataset.uwb.anchor = anch_pos;
+
+
+
+pos = [ 1 0]';
+
+for i = 1:length(dataset.uwb.tof)
+    dataset.uwb.tof(:,1
+    pos =  ch_multilateration(anch_pos, pos, dataset.uwb.tof(:,1));
+    res(i,:)   =pos;
+end
+
+x = res(:,1);
+y = res(:,2);
+figure;
+plot(x,y,'.');
+hold on;
+plotanchors(anch_pos);
+axis equal
+
+
+function plotanchors(anch)
+hold all;
+scatter(anch(1, :),anch(2, :),'k');
+for i=1:size(anch,2);
+    text(anch(1, i),anch(2, i),"Anchor "+(i-1))
+end
+end

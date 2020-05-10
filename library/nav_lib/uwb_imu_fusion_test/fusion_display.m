@@ -5,8 +5,8 @@ fusion_pos = out_data.x(:,1:3);
 fusion_speed = out_data.x(:,4:6);
 fusion_quat = out_data.x(:,7:10);
 
-
-
+%% plot uwb information
+ch_plot_uwb(out_data.uwb);
 
 figure(10)
 
@@ -18,7 +18,7 @@ end
 hold on;
 plot(fusion_pos(:,1), fusion_pos(:,2), 'm');
 hold on;
-plot(out_data.uwb.pos(:,1), out_data.uwb.pos(:,2), 'k.');
+plot(out_data.uwb.pos(1,:), out_data.uwb.pos(2,:), 'k.');
 xlim([-20 20])
 ylim([-20 20])
 title('Trajectory');xlabel('x:m');ylabel('y:m');grid on;
