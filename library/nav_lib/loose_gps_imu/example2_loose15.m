@@ -3,45 +3,24 @@ clear;
 clc;
 close all;
 
-
 %% Load data
 disp('Loads data')
 
 
-%%  Load 瑞典data
-load('dataset1.mat');
-u = [dataset.imu.acc; dataset.imu.gyro];
+% %  Load 瑞典data
+ load('gps_ins_dataset1.mat');
+
+%  load couersera data
+%load('gps_ins_dataset2.mat');
+
+
+
+
+
+u = [dataset.imu.acc; dataset.imu.gyr];
 gnss = dataset.gnss.pos_ned;
 gnss_time = dataset.gnss.time;
 imu_t = dataset.imu.time;
-
-AA = u(:,2:102);
-fid=fopen('test.txt','wt'); %写的方式打开文件（若不存在，建立文件）；
-for i = 1:length(AA)
-    fprintf(fid,'%d, ',AA(:,i));  % %d 表示以整数形式写入数据，这正是我想要的；
-    fprintf(fid,'\n');
-end
-
-fclose(fid);  %关闭文件
-
-%%  load couersera data
-% load('p1_data.mat');
-% in_data.IMU.acc = p1_data.imu_f.data';
-% in_data.IMU.gyro = p1_data.imu_w.data';
-
-%add noise
-% in_data.IMU.acc = in_data.IMU.acc + rand(3, length(in_data.IMU.acc))*1;
-% in_data.IMU.gyro = in_data.IMU.gyro + deg2rad( rand(3, length(in_data.IMU.gyro))*4 );
-% in_data.IMU.gyro(3,:) = in_data.IMU.gyro(3,:)  + deg2rad(1);
-
-% in_data.GNSS.pos_ned = p1_data.gnss.data';
-% in_data.GNSS.t = p1_data.gnss.t;
-% in_data.IMU.t = p1_data.imu_w.t';
-%
-% u = [in_data.IMU.acc; in_data.IMU.gyro];
-% gnss = in_data.GNSS.pos_ned;
-% gnss_time = in_data.GNSS.t;
-% imu_t = in_data.IMU.t;
 
 
 %% load settings
