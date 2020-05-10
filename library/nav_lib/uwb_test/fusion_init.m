@@ -12,7 +12,7 @@ clear all
 close all
 
 addpath('ekfukf');
-load('ground_truth.mat')
+
 %% download the sensor data
 matfile = dir('*_HandledFileToMatData.mat');
 if isempty(matfile)

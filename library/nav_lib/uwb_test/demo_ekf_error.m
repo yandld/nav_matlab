@@ -1,8 +1,6 @@
 run fusion_init.m
 
 %% Motion Process, Measurement model and it's derivative
-%f_func = @ekf_ins_f;
-%df_dx_func = @ekf_err_ins_f;
 h_func = @uwb_h;
 dh_dx_func = @err_uwb_h;
 
@@ -13,7 +11,6 @@ ISPUTCHAR = 0;
 
 %% load data set
 load dataset2;
-% dataset = datasets;
 global dataset;
 
 dt = dataset.imu.time(2) - dataset.imu.time(1);
@@ -29,7 +26,7 @@ dataset.imu.time = dataset.imu.time(1,section(1) :section(2));
 dataset.uwb.time =  dataset.uwb.time(1,section(1)/4 :section(2)/4);
 dataset.uwb.tof = dataset.uwb.tof(:,section(1)/4 : section(2)/4);
 
-dataset.uwb.anchor = [dataset.uwb.anchor(:,1:5); [0.004 0 0 0 0]];
+dataset.uwb.anchor = [dataset.uwb.anchor(:,1:5); [0.01 0 0 0 0]];
 dataset.uwb.cnt = 5;
 N = length(u);
 
@@ -139,21 +136,20 @@ end
 
 %% UWB Ω‚À„
 cnt = 1;
+uwbxyz = [1 2 3]';
+
 for uwb_iter=1:length(dataset.uwb.time)
     y = dataset.uwb.tof(:, uwb_iter);
     
-    uwbxyz = ch_multilateration(dataset.uwb.anchor,  y');
+    if all(~isnan(y)) == true
+        uwbxyz = ch_multilateration(dataset.uwb.anchor, uwbxyz,  y');
+        out_data.uwb.pos(cnt,:) = uwbxyz';
+         cnt = cnt+1;
+    end
+   
     
-    out_data.uwb.pos(cnt,:) = uwbxyz';
-    cnt = cnt+1;
 end
 
-%% ground true
-gt.pos = TraceData(:,2:4);
-gt.acc_bias = TraceData(:,11:13);
-gt.speed = TraceData(:,5:7);
-gt.time = TraceData(:,1);
-gt.eul = TraceData(:,8:10);
 
 %% show all data
 fusion_display(out_data, []);
@@ -167,7 +163,6 @@ pitch = 0;
 % Initial coordinate rotation matrix
 q = ch_eul2q([roll pitch settings.init_heading]);
 x = [zeros(6,1); q];
-
 end
 
 
@@ -226,16 +221,3 @@ G=t*[O       O         O  O;
 end
 
 
-%% corrdinate transformation
-% function out = corrd_transfmation(in)
-% out(1) =  -in(1);
-% out(2) = -in(2);
-% out(3) = -in(3);
-% end
-% 
-% function out = cut_data(in, start_precent, end_percent)
-% len =length(in);
-% s = start_precent * len;
-% e = end_percent * len;
-% out = in(s: e, :);
-% end

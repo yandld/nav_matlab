@@ -40,7 +40,7 @@ if( gt ~= [])
 end
 hold on
 plot(out_data.imu.time, fusion_pos(:,1),'m')
-plot(out_data.uwb.time, out_data.uwb.pos(:,1),'k')
+plot(length(out_data.uwb.pos), out_data.uwb.pos(:,1),'k')
 title('Position x Axis');xlabel('T:s');ylabel('X axis:m');grid on;
 legend('Real Trajectory','UWB-IMU Trajectory','UWB Trajectory')
 
@@ -50,7 +50,7 @@ if( gt ~= [])
 end
 hold on
 plot(out_data.imu.time, fusion_pos(:,2),'m')
-plot(out_data.uwb.time, out_data.uwb.pos(:,2),'k')
+plot(length(out_data.uwb.pos), out_data.uwb.pos(:,2),'k')
 title('Position y Axis');xlabel('T:s');ylabel('Y axis:m');grid on;
 legend('Real Trajectory','UWB-IMU Trajectory','UWB Trajectory')
 
@@ -60,7 +60,7 @@ if( gt ~= [])
 end
 hold on
 plot(out_data.imu.time, fusion_pos(:,3),'m')
-plot(out_data.uwb.time, out_data.uwb.pos(:,3),'k')
+plot(length(out_data.uwb.pos), out_data.uwb.pos(:,3),'k')
 title('Position z Axis');xlabel('T:s');ylabel('Z axis:m');grid on;
 legend('Real Trajectory','UWB-IMU Trajectory','UWB Trajectory')
 
@@ -248,11 +248,11 @@ legend('Real Error','UWB-IMU  Error')
 end
 
 
-function plotanchors(Anchor)
+function plotanchors(anch)
     hold all;
-    scatter(Anchor(1, :),Anchor(2, :),'k');
-    for i=1:size(Anchor,2);
-        text(Anchor(1, i),Anchor(2, i),"Anchor "+(i-1))
+    scatter(anch(1, :),anch(2, :),'k');
+    for i=1:size(anch,2)
+        text(anch(1, i),anch(2, i),"anch "+(i-1))
     end
 end
 
