@@ -7,16 +7,14 @@ close all;
 disp('Loads data')
 
 
-% %  Load Èðµädata
+%%  Load Èðµädata
  load('gps_ins_dataset1.mat');
 
-%  load couersera data
+%%  load couersera data
 %load('gps_ins_dataset2.mat');
 
 
-
-
-
+%% extract data 
 u = [dataset.imu.acc; dataset.imu.gyr];
 gnss = dataset.gnss.pos_ned;
 gnss_time = dataset.gnss.time;
@@ -32,7 +30,7 @@ cntr = 0;
 x = init_navigation_state(u, settings);
 
 % Initialize the sensor bias estimate
-delta_u_h = zeros(6, 1);
+delta_u = zeros(6, 1);
 
 % Initialize the Kalman filter
 [P, Q1, Q2, ~, ~] = init_filter(settings);
@@ -47,7 +45,7 @@ for k=2:N
     dt = imu_t(k)-imu_t(k-1);
     
     % correction
-    u_h = u(:,k) + delta_u_h;
+    u_h = u(:,k) + delta_u;
     
     % nav_equ
     x = ch_nav_equ_local_tan(x, u_h, dt, settings.gravity);
@@ -79,7 +77,7 @@ for k=2:N
             % Calculate the Kalman filter gain.
             K=(P*H')/(H*P*H'+R);
             
-            z = [zeros(9,1); delta_u_h] + K*(y - x(1:3));
+            z = [zeros(9,1); delta_u] + K*(y - x(1:3));
             
             % Correct the navigation states using current perturbation estimates.
             x(1:6) = x(1:6)+z(1:6);
@@ -90,7 +88,7 @@ for k=2:N
             q = ch_qconj(q);
             x(7:10) = q;
             
-            delta_u_h = z(10:15);
+            delta_u = z(10:15);
             
             % Update the Kalman filter state covariance.
             P=(eye(15)-K*H)*P;
@@ -101,11 +99,10 @@ for k=2:N
     % Save the data to the output data structure
     out_data.x(:,k) = x;
     out_data.diag_P(:,k) = diag(P);
-    out_data.delta_u_h(:,k) = delta_u_h;
+    out_data.delta_u_h(:,k) = delta_u;
 end
 
 gnss_imu_local_tan_plot(dataset, out_data, 'True');
-
 
 
 %%  Init navigation state     %%

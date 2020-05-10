@@ -1,4 +1,7 @@
-run fusion_init.m
+%% init
+clc
+clear all
+close all
 
 %% Motion Process, Measurement model and it's derivative
 h_func = @uwb_h;
