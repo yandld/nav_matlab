@@ -1,9 +1,15 @@
 %%  plot UWB data
 
-function ch_plot_uwb(data)
+function ch_plot_uwb(data, varargin)
 
-dim = size(data.pos, 1);
+if nargin == 2
+    dim =  cell2mat(varargin(1));
+else
+    dim = size(data.pos, 1);
+end
 
+
+%% plot Trajectory
 figure;
 if dim == 2
     x = data.pos(1,:);
@@ -15,14 +21,22 @@ elseif dim == 3
     z = data.pos(3,:);
     plot3(x,y,z,'.');
 end
+xlim([-20 20])
+ylim([-20 20])
+title('Trajectory');xlabel('x:m');ylabel('y:m');grid on;
+
 hold on;
 plotanchors(data.anchor);
 axis equal
 
+%% plot TOF
 figure;
 plot(data.tof');
 legend();
 end
+
+
+
 
 function plotanchors(anch)
 hold all;

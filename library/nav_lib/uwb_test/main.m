@@ -3,38 +3,47 @@ clc;
 close all;
 clear;
 
-%
-% test_line = AA(:,2);
-%
-% %test_line = [57 59 60 100 59 58 57 58 300 61 62 60 62 58 57];
-% t = 1:length(test_line);
-%
-% %[B,TF,U,L,C] = filloutliers(test_line, 'clip','movmedian',200);
-% %B = medfilt1(test_line, 30);
-% B = movmean(test_line,20);
-%
-% plot(t,test_line, '.',t,B,'o')
-% legend('Original Data','Filled 4Data')
-%
-% norm(test_line-B)
-
+%%
 load('uwb_test_dataset1.mat');
 
+%% remove outliler
+tof = dataset.uwb.tof;
+t = 1:length(tof);
+line = tof(:,:)';
+old = line;
 
-dataset.uwb.cnt = 3;
-dataset.uwb.anchor = [0,0; 2.5, 0; 0, 8]';
-n = length(dataset.uwb.tof);
+for i = 1:4
+    d = diff(line);
+    outliter =  find(abs(d)>0.1);
+    
+    for n= 1:length(outliter)
+        j = 1;
+        while( abs(line(outliter(n)) -  line(outliter(n)-j)) <0.1)
+            j =j +1;
+        end
+          line(outliter(n)) = mean( line(outliter(n)-j));
+    end
+end
+
+norm(old - line)
+% figure;
+% plot(line, '.');
+
+tof = line';
 
 
-pos = [ 1 0]';
+%% ½âËãÎ»ÖÃ
+n = length(tof);
+
+pos = [0.5 0.5]';
 dataset.uwb.pos = zeros(2,n);
 
 for i = 1:n
-    pos =  ch_multilateration(dataset.uwb.anchor, pos, dataset.uwb.tof(:,i)');
+    pos =  ch_multilateration(dataset.uwb.anchor, pos, tof(:,i)');
     dataset.uwb.pos(:,i)   =pos;
 end
 
 %% plot data
-ch_plot_uwb(dataset.uwb);
+ch_plot_uwb(dataset.uwb, 2);
 
 

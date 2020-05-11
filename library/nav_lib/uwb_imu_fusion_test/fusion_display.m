@@ -6,31 +6,8 @@ fusion_speed = out_data.x(:,4:6);
 fusion_quat = out_data.x(:,7:10);
 
 %% plot uwb information
-ch_plot_uwb(out_data.uwb);
+ch_plot_uwb(out_data.uwb, 2);
 
-figure(10)
-
-plotanchors(out_data.uwb.anchor)
-
-if( gt ~= [])
-    plot(gt.pos(:,1), gt.pos(:,2),  'g.')
-end
-hold on;
-plot(fusion_pos(:,1), fusion_pos(:,2), 'm');
-hold on;
-plot(out_data.uwb.pos(1,:), out_data.uwb.pos(2,:), 'k.');
-xlim([-20 20])
-ylim([-20 20])
-title('Trajectory');xlabel('x:m');ylabel('y:m');grid on;
-legend('UWB-IMU Trajectory', 'UWB');
-
-if( gt ~= [])
-    errx = gt.pos(:,1) - fusion_pos(:,1);
-    errx = sum(errx.*errx);
-    erry = gt.pos(:,2) - fusion_pos(:,2);
-    erry = sum(erry.*erry);
-    sqrt(errx+erry)
-end
 
 
 figure(1)
@@ -246,14 +223,4 @@ legend('Real Error','UWB-IMU  Error')
 
 
 end
-
-
-function plotanchors(anch)
-    hold all;
-    scatter(anch(1, :),anch(2, :),'k');
-    for i=1:size(anch,2)
-        text(anch(1, i),anch(2, i),"anch "+(i-1))
-    end
-end
-
 
