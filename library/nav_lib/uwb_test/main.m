@@ -3,11 +3,12 @@ clc;
 close all;
 clear;
 
-%%
+%% load data
 load('uwb_test_dataset1.mat');
+uwb = dataset.uwb;
 
 %% remove outliler
-tof = dataset.uwb.tof;
+tof = uwb.tof;
 t = 1:length(tof);
 line = tof(:,:)';
 old = line;
@@ -36,14 +37,14 @@ tof = line';
 n = length(tof);
 
 pos = [0.5 0.5]';
-dataset.uwb.pos = zeros(2,n);
+uwb.pos = zeros(2,n);
 
 for i = 1:n
-    pos =  ch_multilateration(dataset.uwb.anchor, pos, tof(:,i)');
-    dataset.uwb.pos(:,i)   =pos;
+    pos =  ch_multilateration(uwb.anchor, pos, tof(:,i)');
+    uwb.pos(:,i)   =pos;
 end
 
 %% plot data
-ch_plot_uwb(dataset.uwb, 2);
+ch_plot_uwb(uwb, 2);
 
 

@@ -6,13 +6,12 @@
 % Licence (version 2 or later); please refer to the file 
 % Licence.txt, included with the software, for details.
 
-function [Y,H] = ekf_uwb_h(x, param)
-    global dataset;
+function [Y,H] = ekf_uwb_h(x, uwb)
     
     position = x(1:3);	
-    n = dataset.uwb.cnt;
+    n = uwb.cnt;
 	Zpred = [];
-	TM = repmat(position,1,n) - dataset.uwb.anchor(:,1:n);
+	TM = repmat(position,1,n) - uwb.anchor(:,1:n);
 	for ki=1:n
 	    Zpred = [Zpred ;norm(TM(:,ki))];
 	end

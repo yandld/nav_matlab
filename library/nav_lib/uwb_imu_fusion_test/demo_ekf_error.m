@@ -82,7 +82,6 @@ for k=1:N
     
     
     %% Update
-
     if uwb_iter < length(dataset.uwb.time)  && abs(dataset.imu.time(imu_iter) - dataset.uwb.time(uwb_iter))  < 0.01
         
         y = dataset.uwb.tof(:,uwb_iter);
@@ -90,14 +89,13 @@ for k=1:N
         
         % bypass Nan
         if sum(isnan(y)) == 0
-            
-            [~,H] = dh_dx_func(x);
+            [~,H] = dh_dx_func(x, dataset.uwb);
             
             % Calculate the Kalman filter gain.
             K=(P*H')/(H*P*H'+R);
             
             % NLOS elimation
-            t = h_func(x);
+            t = h_func(x, dataset.uwb);
             if uwb_iter > 50
                 for i = 1:length(y)
                     if abs(y(i) - t(i))  > 1.2
@@ -106,7 +104,7 @@ for k=1:N
                 end
             end
             
-            z = [zeros(9,1); delta_u_h] + K*(y - h_func(x));
+            z = [zeros(9,1); delta_u_h] + K*(y - h_func(x, dataset.uwb));
             
             % Correct the navigation states using current perturbation estimates.
             x(1:6) = x(1:6) + z(1:6);
