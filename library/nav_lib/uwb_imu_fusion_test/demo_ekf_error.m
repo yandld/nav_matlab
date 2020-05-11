@@ -152,6 +152,7 @@ end
 
 %% show all data
 out_data.uwb.tof = dataset.uwb.tof;
+out_data.uwb.fusion_pos = out_data.x(:,1:3)';
 
 fusion_display(out_data, []);
 

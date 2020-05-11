@@ -8,13 +8,8 @@ fusion_quat = out_data.x(:,7:10);
 %% plot uwb information
 ch_plot_uwb(out_data.uwb, 2);
 
-
-
-figure(1)
+figure;
 subplot(311)
-if( gt ~= [])
-    plot(gt.time, gt.pos(:,1),'g.')
-end
 hold on
 plot(out_data.imu.time, fusion_pos(:,1),'m')
 plot(length(out_data.uwb.pos), out_data.uwb.pos(:,1),'k')
@@ -139,7 +134,7 @@ for i = 1: length(fusion_quat)
 end
 
 
-figure(4)
+figure;
 subplot(311)
 if( gt ~= [])
 plot(gt.time, gt.eul(:,1),'r*')
@@ -169,7 +164,7 @@ title('Euler');grid on;
 legend('Real Atti','UWB-IMU  Atti')
 
 %-------------- figure 5: display estimated accel bias  ----------%
-figure(5)
+figure;
 subplot(311)
 if( gt ~= [])
 plot(gt.time, gt.acc_bias(:,1),'r*')

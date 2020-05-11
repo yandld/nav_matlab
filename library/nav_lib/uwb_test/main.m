@@ -32,19 +32,20 @@ norm(old - line)
 
 tof = line';
 
+uwb.anchor = [uwb.anchor;[1 1 1]];
 
 %% Ω‚À„Œª÷√
 n = length(tof);
 
-pos = [0.5 0.5]';
-uwb.pos = zeros(2,n);
+pos = [0.5 0.5, 0.9]';
+uwb.pos = zeros(size(uwb.anchor,1),n);
 
 for i = 1:n
-    pos =  ch_multilateration(uwb.anchor, pos, tof(:,i)');
-    uwb.pos(:,i)   =pos;
+    pos =  ch_multilateration(uwb.anchor, pos, tof(:,i)', 3);
+    uwb.pos(:,i)   =pos ;
 end
 
 %% plot data
-ch_plot_uwb(uwb, 2);
+ch_plot_uwb(uwb, 3);
 
 

@@ -15,12 +15,19 @@ if dim == 2
     x = data.pos(1,:);
     y = data.pos(2,:);
     plot(x,y,'.');
+if( isfield(data, 'fusion_pos'))
+    hold on;
+    x = data.fusion_pos(1,:);
+    y = data.fusion_pos(2,:);
+    plot(x,y);
+end
 elseif dim == 3
     x = data.pos(1,:);
     y = data.pos(2,:);
     z = data.pos(3,:);
     plot3(x,y,z,'.');
 end
+
 xlim([-20 20])
 ylim([-20 20])
 title('Trajectory');xlabel('x:m');ylabel('y:m');grid on;
