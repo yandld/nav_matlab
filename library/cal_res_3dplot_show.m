@@ -41,9 +41,10 @@ function cal_res_3dplot_show(X, v)
     end
 
     view( -70, 40 );
-    axis vis3d equal;
+    axis equal
     camlight;
     lighting phong;
     alpha(0.4);
+    grid  on;
 end
         

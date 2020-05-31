@@ -31,13 +31,10 @@ norm(old - line)
 % plot(line, '.');
 
 tof = line';
-
-uwb.anchor = [uwb.anchor;[1 1 1]];
-
 %% Ω‚À„Œª÷√
 n = length(tof);
 
-pos = [0.5 0.5, 0.9]';
+pos = [1 1 1]';
 uwb.pos = zeros(size(uwb.anchor,1),n);
 
 for i = 1:n

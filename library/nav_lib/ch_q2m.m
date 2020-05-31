@@ -1,3 +1,4 @@
+% Qn2b ->Cb2n
 function Cnb = ch_q2m(qnb)
     q11 = qnb(1)*qnb(1); q12 = qnb(1)*qnb(2); q13 = qnb(1)*qnb(3); q14 = qnb(1)*qnb(4); 
     q22 = qnb(2)*qnb(2); q23 = qnb(2)*qnb(3); q24 = qnb(2)*qnb(4);     

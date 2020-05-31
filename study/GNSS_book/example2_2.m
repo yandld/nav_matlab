@@ -2,7 +2,6 @@ clear;
 clc
 close all;
 
-
 %% EXAMPLE 2.2(a) Conversion of Curvilinear Position to Cartesian ECEF Position
 
 lat = deg2rad(45);
@@ -21,8 +20,4 @@ xyz = [3912960.837 2259148.993 4488055.516]';
 lat 
 lon 
 hgt
-
-
-
-
 

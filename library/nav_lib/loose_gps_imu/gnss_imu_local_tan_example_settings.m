@@ -28,10 +28,10 @@ settings.init_heading = 0*pi/180;
 
 % Process noise covariance (Q)
 % Standard deviations, need to be squared
-settings.sigma_acc = 0.02; % [m/s^2]
-settings.sigma_gyro = deg2rad(0.9); % [rad/s]
-settings.sigma_acc_bias = 0.02; % [m/s^2.5]
-settings.sigma_gyro_bias = deg2rad(0.09); % [rad/s^1.5]
+settings.sigma_acc = 0.1; 
+settings.sigma_gyro = deg2rad(0.5); 
+settings.sigma_acc_bias = 0.01; 
+settings.sigma_gyro_bias = deg2rad(0.1); 
 
 
 % GNSS position measurement noise covariance (R)

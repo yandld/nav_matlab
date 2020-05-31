@@ -13,7 +13,8 @@ Cn2b = ch_eul2m(eul);
 Cn2b
 
 % Conversion to Quaternions
-Qn2b = ch_eul2q(eul);
+Cb2n = [0.612372 -0.78915 -0.04737;  0.612372 0.435596 0.65974 ; -0.5 -0.43301 0.75];
+Qn2b = ch_m2q(Cb2n);
 Qn2b
 
 
@@ -30,10 +31,10 @@ Qn2b
 %% EXAMPLE 2.1(c)
 %% Conversion of Quaternions to Coordinate Transformation Matrix and Euler attitude 
 Qn2b = [0.836356 -0.32664 0.135299 0.418937]';
-Cn2b = ch_q2m(Qn2b);
-Cn2b
+Cb2n = ch_q2m(Qn2b);
+Cb2n
 
-eul = ch_qvb 2eul(Qn2b);
+eul = ch_q2eul(Qn2b);
 rad2deg(eul)
 
 

@@ -8,13 +8,13 @@ disp('Loads data')
 
 
 %%  Load Èðµädata
- %load('gps_ins_dataset1.mat');
+load('gps_ins_dataset1.mat');
 
 %%  load couersera data
-load('gps_ins_dataset2.mat');
+%load('gps_ins_dataset2.mat');
 
 
-%% extract data 
+%% extract data
 u = [dataset.imu.acc; dataset.imu.gyr];
 gnss = dataset.gnss.pos_ned;
 gnss_time = dataset.gnss.time;
@@ -43,7 +43,7 @@ for k=2:N
     
     % Sampling period
     dt = imu_t(k)-imu_t(k-1);
-    
+
     % correction
     u_h = u(:,k) + delta_u;
     
@@ -76,18 +76,16 @@ for k=2:N
             
             z = [zeros(9,1); delta_u] + K*(y - x(1:3));
             
-            % Correct the navigation states using current perturbation estimates.
-            x(1:6) = x(1:6)+z(1:6);
+            %% Correct the navigation states using current perturbation estimates.
+            x(1:6) = x(1:6)+z(1:6); % correct pos and vel
             
-            %correct attitude
-            q = x(7:10);
-            q = ch_qmul(ch_qconj(q), ch_rv2q(z(7:9)));
-            q = ch_qconj(q);
+            q = x(7:10); % correct attitude
+            q = ch_qmul(ch_qconj(ch_rv2q(z(7:9))), q);
             x(7:10) = q;
             
             delta_u = z(10:15);
             
-            % Update the Kalman filter state covariance.
+            %% Update the Kalman filter state covariance.
             P=(eye(15)-K*H)*P;
         end
         ctr_gnss_data = min(ctr_gnss_data+1, length(gnss_time));
@@ -150,16 +148,16 @@ Cb2n = ch_q2m(x(7:10));
 
 % Transform measured force to force in the tangent plane coordinate system.
 sf = Cb2n * u(1:3);
-St = ch_askew(sf);
+sk = ch_askew(sf);
 
 % Only the standard errors included
 O = zeros(3);
 I = eye(3);
-F = [ O I   O O       O;
-    O O St Cb2n O;
-    O O O O       -Cb2n;
-    O O O O       O;
-    O O O O       O];
+F = [  O I   O O       O;
+          O O sk Cb2n O;
+          O O O O       -Cb2n;
+          O O O O       O;
+          O O O O       O];
 
 % Approximation of the discret
 % time state transition matrix
