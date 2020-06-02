@@ -1,4 +1,4 @@
-function imu_data_plot(varargin)
+function ch_imu_data_plot(varargin)
 %%  plot imu data
 
 	param= inputParser; 
@@ -11,6 +11,7 @@ function imu_data_plot(varargin)
     %然后将输入的参数进行处理，如果有不同于默认值的那就覆盖掉
     param.parse(varargin{:});
     r = param.Results;
+
 
     if(r.time == 0 )
            error('no time data');
@@ -66,7 +67,7 @@ function imu_data_plot(varargin)
         legend('Y', 'P', 'R');
         xlabel('Time (s)');
         ylabel('Angle(°)');
-        title('Eular Angler');
+        title('Eular Angle');
      hold off;
     end
 

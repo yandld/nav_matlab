@@ -158,7 +158,7 @@ I = eye(3);
 F = [  O I   O O       O;
           O O -sk -Cb2n O;
           O O O O       -Cb2n;
-          O O O O       O;
+          O O O -0.5       O;
           O O O O       O];
 
 % Approximation of the discret
