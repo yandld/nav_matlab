@@ -22,7 +22,7 @@ for i = 1:n
     
     %强制加一个bias : 11 dps
 %     imu.gyr(2,i) =  imu.gyr(2,i) + deg2rad(20);
-    imu.gyr(1,i) =  imu.gyr(1,i) - deg2rad(10);
+    imu.gyr(1,i) =  imu.gyr(1,i) - deg2rad(10) + deg2rad( rand()*10);
  
      % 陀螺仪零偏反馈
     imu.gyr(:,i)  = imu.gyr(:,i) - 0;
