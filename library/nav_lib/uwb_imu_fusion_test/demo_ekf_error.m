@@ -1,4 +1,3 @@
-%% init
 clc
 clear
 close all
@@ -18,7 +17,6 @@ load dataset2;
 dt = dataset.imu.time(2) - dataset.imu.time(1);
 
 section = [5000  7000]*4;
-
 
 u = [dataset.imu.acc; dataset.imu.gyr];
 

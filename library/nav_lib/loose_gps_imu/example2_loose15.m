@@ -86,8 +86,9 @@ for k=2:N
             
             delta_u = z(10:15);
             
-            %% Update the Kalman filter state covariance.
-            P=(eye(15)-K*H)*P;
+            %更新P 使用Joseph 形式，取代 (I-KH)*P, 这么数值运算更稳定
+            I_KH = (eye(size(P,1))-K*H);
+            P= I_KH*P*I_KH' + K*R*K';
 
         end
         ctr_gnss_data = min(ctr_gnss_data+1, length(gnss_time));

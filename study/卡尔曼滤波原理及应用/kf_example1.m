@@ -1,5 +1,7 @@
 addpath('../../library');
-clc; clear; close all;
+clc; 
+clear;
+close all;
 
 N=100;
 
@@ -19,9 +21,9 @@ R=0.25; %测量噪声
 W=sqrt(Q)*randn(1,N); %过程误差
 V=sqrt(R)*randn(1,N);  %测量误差
 
-F=1; % 过程矩阵
-G=1; % 噪声驱动矩阵
-H=1; % 观测矩阵
+F=1; 
+G=1;
+H=1; 
 
 for k = 2:N
     X(k)=F*X(k-1)+G*W(k-1);

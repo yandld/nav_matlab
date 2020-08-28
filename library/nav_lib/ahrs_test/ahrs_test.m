@@ -1,4 +1,3 @@
-%% Start of script
 close all;
 clear;
 clc;
@@ -6,26 +5,25 @@ clc;
 %% Import and plot sensor data
 load('imu_dataset.mat');
 
-%%  plot sensor data 
+%%  plot sensor data  gyr单位为dps
 imu = dataset.imu;
 dt = mean(diff(imu.time));
 n = length(imu.time);
 
 q(:,1) = [1 0 0 0]';
-err_state = zeros(6, 1);%失准角， 陀螺误差
-wb = [0 0 0]'; %陀螺零偏
-[P, Q] = init_filter(dt);
+err_stat = zeros(6, 1);%失准角， 陀螺误差, ESKF的状态量
+wb = [0 0 0]'; %初始gyr零偏
 
+[P, Q] = init_filter(dt);
 
 for i = 1:n
     
-    
-    %强制加一个bias : 11 dps
-%     imu.gyr(2,i) =  imu.gyr(2,i) + deg2rad(20);
-    imu.gyr(1,i) =  imu.gyr(1,i) - deg2rad(10) + deg2rad( rand()*10);
+    %强制加一个bias测试 
+     imu.gyr(2,i) =  imu.gyr(2,i) + deg2rad(3);
  
      % 陀螺仪零偏反馈
-    imu.gyr(:,i)  = imu.gyr(:,i) - 0;
+   % imu.gyr(:,i)  = imu.gyr(:,i) - err_stat(4:6);
+    
 %     
 %     imu.gyr(1,i) = deg2rad(1);
 %     imu.gyr(2,i) = deg2rad(2);
@@ -42,8 +40,6 @@ for i = 1:n
 %	q = ch_mahony.imu(q, imu.gyr(:,i), imu.acc(:,i), dt, 1);
 %    q = ch_mahony.ahrs(q, imu.gyr(:,i), imu.acc(:,i), imu.mag(:,i), dt, 1);
     
-
-    
   % 导航方程
     q = ch_qintg(q, imu.gyr(:,i), dt);
     
@@ -51,59 +47,72 @@ for i = 1:n
 	[F, G] = state_space_model(q, dt);
      
     %状态递推
-    err_state = F*err_state;
+    err_stat = F*err_stat;
     
     %误差传播
     P = F*P*F' + G*Q*G';
     
-
      % 重力量测更新
-    [P, q, err_state]=  measurement_update_gravity(q, err_state,  imu.acc(:,i), P);
+    [P, q, err_stat]=  measurement_update_gravity(q, err_stat,  imu.acc(:,i), P);
 
     %磁量测更新
-    [P, q, err_state]=  measurement_update_mag(q, err_state,  imu.mag(:,i), P);
+ %  [P, q, err_state]=  measurement_update_mag(q, err_state,  imu.mag(:,i), P);
 
     %P阵强制正定
     P = (P + P')/2;
     
     %记录估计处理的零偏
-    wb = err_state(4:6);
-
     outdata.eul(:,i) = ch_q2eul(q);
-    outdata.wb(:,i) = wb;
+    outdata.wb(:,i) = err_stat(4:6);
+    outdata.P(:,:,i) = P;
 end
 
-ch_imu_data_plot('acc', imu.acc', 'gyr', imu.gyr', 'mag', imu.mag', 'time', imu.time');
-
-figure('Name', 'Euler Angles');
-hold on;
-plot(imu.time, outdata.eul(1,:), 'r');
-plot(imu.time, outdata.eul(2,:), 'g');
-plot(imu.time, outdata.eul(3,:), 'b');
-title('Euler angles');
-xlabel('Time (s)');
-ylabel('Angle (deg)');
-legend('\phi', '\theta', '\psi');
-hold off;
+ch_imu_data_plot('acc', imu.acc', 'gyr', imu.gyr', 'mag', imu.mag',  'eul', outdata.eul', 'time',  imu.time', 'sub', 1);
 
 rad2deg( outdata.eul(:,end))
 
 figure;
-plot(rad2deg(outdata.wb'));
-title('零偏');
+plot((1:n) *dt  ,rad2deg(outdata.wb'));
+title('kalman预测的gyr bias');
+xlabel('时间(s)');
+ylabel('dps');
+
+P_wb = zeros(3, n);
+P_phi = zeros(3, n);
+for i = 1: length(outdata.P)
+    P = outdata.P(:,:,i);
+    P_wb(1, i) = P(4,4);
+    P_wb(2, i) = P(5,5);
+    P_wb(3, i) = P(6,6);
+    
+    P_phi(1, i) = P(1,1);
+    P_phi(2, i) = P(2,2);
+    P_phi(3, i) = P(3,3);
+end
+
+figure;
+plot((1:n) *dt, P_wb);
+xlabel('时间(s)');
+title("P零偏方差");
+legend("X", "Y", "Z");
+
+figure;
+plot((1:n) *dt, P_phi);
+xlabel('时间(s)');
+title("P失准角方差");
+legend("X", "Y", "Z");
+
 
 % F和G
 function [F,G] = state_space_model(x, dt)
 
 Cb2n = ch_q2m(x(1:4));
 
-I = eye(3);
 O = zeros(3);
 
 F = [ O -Cb2n; O O];
 %离散化
 F = eye(6) + F*dt;
-
 G = eye(6);
 end
 
@@ -111,14 +120,15 @@ end
 function [P, Q] = init_filter(dt)
 
 Q_att = 2;
-Q_wb = 1;
+Q_wb = 0.1;
 
-P = eye(6)*2;
+P = eye(6)*0.1;
 
 Q = zeros(6);
 Q(1:3,1:3) = Q_att*eye(3);
 Q(4:6,4:6) = Q_wb*eye(3);
 Q = Q*dt^(2);
+
 end
 
 
@@ -144,10 +154,12 @@ function [P, q, err_state]= measurement_update_gravity(q, err_state, acc, P)
 	K=(P*H')/(H*P*H'+R);
     
      %更新状态
-	err_state = err_state +  K*(z(1:2));
+	err_state = err_state +  K*(z(1:2) - H*err_state);
 
-    %更新P
-    P=(eye(6)-K*H)*P;
+    %更新P 使用Joseph 形式，取代 (I-KH)*P, 这么数值运算更稳定
+    I_KH = (eye(size(P,1))-K*H);
+    P= I_KH*P*I_KH' + K*R*K';
+    
     
     %误差状态反馈及误差清零
     %对于重力矢量量测，只纠正俯仰横滚
@@ -178,16 +190,20 @@ H = [H zeros(3)];
 K=(P*H')/(H*P*H'+R);
 
 %更新状态
-err_state = err_state +  K*(h);
+err_state = err_state +  K*(h - H*err_state);
 
-%更新P
-P = (eye(6)-K*H)*P;
+
+%更新P 使用Joseph 形式，取代 (I-KH)*P, 这么数值运算更稳定
+I_KH = (eye(size(P,1)) - K*H);
+P= I_KH*P*I_KH' + K*R*K';
 
 %误差状态反馈及误差清零
 
 %对于地磁，只纠正航向角
 % err_state(1) = 0;
 % err_state(2) = 0;
+
+%误差反馈及清0
 q(1:4) = ch_qmul(ch_rv2q(err_state(1:3)), q);
 err_state(1:3) = 0;
 
