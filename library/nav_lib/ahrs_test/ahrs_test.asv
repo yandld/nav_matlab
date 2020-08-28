@@ -52,8 +52,6 @@ for i = 1:n
     %误差传播
     P = F*P*F' + G*Q*G';
     
-    outdata.phi(:,i) = err_stat(1:3);
-    
      % 重力量测更新
     [P, q, err_stat]=  measurement_update_gravity(q, err_stat,  imu.acc(:,i), P);
 
@@ -71,11 +69,16 @@ end
 
 outdata.eul = rad2deg(outdata.eul);
 
-outdata.eul(:,end)
+outdata.eul(:,end))
+ch_imu_data_plot('acc', imu.acc', 'gyr', imu.gyr', 'mag', imu.mag',  'eul', outdata.eul', 'time',  imu.time', 'sub', 1);
 
-ch_imu_data_plot('acc', imu.acc', 'gyr', imu.gyr', 'mag', imu.mag',  'eul', outdata.eul', 'time',  imu.time', 'subplot', 1);
-ch_imu_data_plot('wb',rad2deg(outdata.wb'), 'phi', rad2deg(outdata.phi'), 'time',  imu.time', 'subplot', 1);
 
+
+figure;
+plot((1:n) *dt  ,rad2deg(outdata.wb'));
+title('kalman预测的gyr bias');
+xlabel('时间(s)');
+ylabel('dps');
 
 P_wb = zeros(3, n);
 P_phi = zeros(3, n);
@@ -199,7 +202,7 @@ P= I_KH*P*I_KH' + K*R*K';
 
 %误差状态反馈及误差清零
 
-%对于地磁，只纠正航向角9
+%对于地磁，只纠正航向角
 % err_state(1) = 0;
 % err_state(2) = 0;
 
