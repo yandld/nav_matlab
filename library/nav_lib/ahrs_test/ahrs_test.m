@@ -90,17 +90,7 @@ for i = 1: length(outdata.P)
     P_phi(3, i) = P(3,3);
 end
 
-figure;
-plot((1:n) *dt, P_wb);
-xlabel('时间(s)');
-title("P零偏方差");
-legend("X", "Y", "Z");
-
-figure;
-plot((1:n) *dt, P_phi);
-xlabel('时间(s)');
-title("P失准角方差");
-legend("X", "Y", "Z");
+ch_imu_data_plot('P_phi', P_phi', 'P_wb', P_wb', 'time',  imu.time', 'subplot', 1);
 
 
 % F和G

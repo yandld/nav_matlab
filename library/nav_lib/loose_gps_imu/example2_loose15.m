@@ -96,9 +96,15 @@ for k=2:N
     
     % Save the data to the output data structure
     out_data.x(:,k) = x;
+    outdata.eul(:,k) = ch_q2eul(x(7:10));
+    
     out_data.diag_P(:,k) = diag(P);
     out_data.delta_u_h(:,k) = delta_u;
 end
+
+outdata.eul = rad2deg(outdata.eul);
+imu = dataset.imu;
+ch_imu_data_plot('acc', imu.acc', 'gyr', imu.gyr',  'eul', outdata.eul', 'time',  imu.time', 'subplot', 1);
 
 gnss_imu_local_tan_plot(dataset, out_data, 'True');
 
