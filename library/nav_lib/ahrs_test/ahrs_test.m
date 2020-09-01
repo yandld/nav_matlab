@@ -79,15 +79,15 @@ ch_imu_data_plot('wb',rad2deg(outdata.wb'), 'phi', rad2deg(outdata.phi'), 'time'
 
 P_wb = zeros(3, n);
 P_phi = zeros(3, n);
+
 for i = 1: length(outdata.P)
     P = outdata.P(:,:,i);
+    P_phi(1, i) = P(1,1);;
+    P_phi(2, i) = P(2,2);
+    P_phi(3, i) = P(3,3);
     P_wb(1, i) = P(4,4);
     P_wb(2, i) = P(5,5);
     P_wb(3, i) = P(6,6);
-    
-    P_phi(1, i) = P(1,1);
-    P_phi(2, i) = P(2,2);
-    P_phi(3, i) = P(3,3);
 end
 
 ch_imu_data_plot('P_phi', P_phi', 'P_wb', P_wb', 'time',  imu.time', 'subplot', 1);

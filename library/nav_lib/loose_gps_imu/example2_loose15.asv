@@ -33,7 +33,7 @@ x = init_navigation_state(u, settings);
 delta_u = zeros(6, 1);
 
 % Initialize the Kalman filter
-[P, Q, ~, ~] = init_filter(settings);
+[P, Q1, Q2, ~, ~] = init_filter(settings);
 
 n = size(u,2);
 
@@ -57,7 +57,7 @@ for k=2:n
         [F, G] = state_space_model(x, u_h, dt*cntr);
         
         %Time update of the Kalman filter state covariance.
-        P = F*P*F' + G*Q*G';
+        P = F*P*F' + G*blkdiag(Q1, Q2)*G';
         
         cntr = 0;
     end
@@ -76,8 +76,8 @@ for k=2:n
             
             z = [zeros(9,1); delta_u] + K*(y - x(1:3));
             
-         %% Correct the navigation states using current perturbation estimates.
-            x(1:6) = x(1:6) + z(1:6); % correct pos and vel
+            %% Correct the navigation states using current perturbation estimates.
+            x(1:6) = x(1:6)+z(1:6); % correct pos and vel
             
             q = x(7:10); % correct attitude
             q = ch_qmul(ch_rv2q(z(7:9)), q);
@@ -140,9 +140,11 @@ P(13:15,13:15) = settings.factp(7)^2*eye(3);
 % Process noise covariance
 Q = zeros(12);
 Q(1:3,1:3) = diag(settings.sigma_acc).^2*eye(3);
-Q(4:6,4:6) = diag(settings.sigma_gyro).^2*eye(3);
-Q(7:9,7:9) = settings.sigma_acc_bias^2*eye(3);
-Q(10:12,10:12) = settings.sigma_gyro_bias^2*eye(3);
+Q1(4:6,4:6) = diag(settings.sigma_gyro).^2*eye(3);
+
+Q2 = zeros(6);
+Q2(1:3,1:3) = settings.sigma_acc_bias^2*eye(3);
+Q2(4:6,4:6) = settings.sigma_gyro_bias^2*eye(3);
 
 % GNSS-receiver position measurement noise
 R = settings.sigma_gps^2*eye(3);
@@ -176,10 +178,10 @@ F = eye(15) + dt*F;
 
 % Noise gain matrix
 G=dt*[O       O         O  O;
-            Cb2n  O         O  O;
-              O        -Cb2n O  O;
-                O        O         I   O;
-                O        O        O   I];
+    Cb2n  O         O  O;
+    O        -Cb2n O  O;
+    O        O         I   O;
+    O        O        O   I];
 end
 
 

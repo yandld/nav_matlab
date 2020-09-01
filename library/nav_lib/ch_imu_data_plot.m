@@ -5,14 +5,17 @@ function ch_imu_data_plot(varargin)
 i = 1;
 param= inputParser;
 param.addOptional('time', []);
+param.addOptional('pos_fusion', []);
 param.addOptional('acc', []);
 param.addOptional('gyr', []);
 param.addOptional('mag', []);
 param.addOptional('eul', []);
+param.addOptional('gb', []); % 加速度零偏
 param.addOptional('wb', []); % 陀螺零偏
 param.addOptional('phi', []); %失准角
 param.addOptional('P_phi', []); %失准角方差
 param.addOptional('P_wb', []); %陀螺方差
+param.addOptional('P_pos', []); %位置方差
 param.addOptional('subplot', []);
 
 %然后将输入的参数进行处理，如果有不同于默认值的那就覆盖掉
@@ -25,13 +28,26 @@ end
 
 figure('Name', 'Sensor Data');
 
+if(~isempty(r.pos_fusion))
+    if(r.subplot == 1)
+        subplot(2,2,i);
+    else
+        if i ~= 1; figure; end
+    end
+plot(r.pos_fusion(:,2), r.pos_fusion(:,1))
+xlabel('X(m)');
+ylabel('Y(m)');
+title('Trajectory');
+    i = i+1;
+end
+
 if(~isempty(r.gyr))
     if(r.subplot == 1)
         subplot(2,2,i);
     else
         if i ~= 1; figure; end
     end
-    interial_display(r.time,  r.gyr, {'X', 'Y', 'Z'}, 'Time (s)', 'Angular rate (deg/s)', 'Gyroscope');
+    interial_display(r.time,  r.gyr, {'X', 'Y', 'Z'}, 'Time (s)', 'Angular rate (dps(deg /s))', 'Gyroscope');
     i = i+1;
 end
 
@@ -71,7 +87,17 @@ if(~isempty(r.wb))
     else
         if i ~= 1; figure; end
     end
-    interial_display(r.time,  r.wb, {'X', 'Y', 'Z'}, 'Time (s)', 'Angle(deg)', 'Gyr Bias');
+    interial_display(r.time,  r.wb, {'X', 'Y', 'Z'}, 'Time (s)', 'Angle(deg)', '陀螺零偏');
+    i = i+1;
+end
+
+if(~isempty(r.gb))
+    if(r.subplot == 1)
+        subplot(2,2,i);
+    else
+        if i ~= 1; figure; end
+    end
+    interial_display(r.time,  r.gb, {'X', 'Y', 'Z'}, 'Time (s)', 'm/s^(2)', '加速度零偏');
     i = i+1;
 end
 
@@ -95,13 +121,25 @@ if(~isempty(r.P_phi))
     i = i+1;
 end
     
+
 if(~isempty(r.P_wb))
     if(r.subplot == 1)
         subplot(2,2,i);
     else
         if i ~= 1; figure; end
     end
-    interial_display(r.time,  r.P_wb, {'X', 'Y', 'Z'}, 'Time (s)', '-', 'Gyr Bias Var');
+    interial_display(r.time,  r.P_wb, {'X', 'Y', 'Z'}, 'Time (s)', '-', '陀螺零偏方差');
+    i = i+1;
+end
+
+
+if(~isempty(r.P_pos))
+    if(r.subplot == 1)
+        subplot(2,2,i);
+    else
+        if i ~= 1; figure; end
+    end
+    interial_display(r.time,  r.P_pos, {'X', 'Y', 'Z'}, 'Time (s)', '-', '位置方差');
     i = i+1;
 end
 
