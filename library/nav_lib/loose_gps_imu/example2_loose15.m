@@ -40,23 +40,24 @@ n = size(u,2);
 ctr_gnss_data = 1;
 
 for k=2:n
-    
-    % Sampling period
     dt = imu_t(k)-imu_t(k-1);
     
-    % correction
+    % ÍÓÂİÁãÆ«£¬ÈËÎªÔëÉù
+    u(5,k) = u(5,k) + deg2rad(5);
+    
+    % ÁãÆ«×´Ì¬·´À¡
     u_h = u(:,k) - delta_u;
     
-    % nav_equ
+    % ½İÁª¹ßµ¼½âËã
     x = ch_nav_equ_local_tan(x, u_h, dt, settings.gravity);
     
     cntr = cntr+1;
     if cntr == 10
         
-        %Get state space model matrices
+        % Get state space model matrices
         [F, G] = state_space_model(x, u_h, dt*cntr);
         
-        %Time update of the Kalman filter state covariance.
+        % ·½²îµİÍÆ
         P = F*P*F' + G*Q*G';
         
         cntr = 0;
@@ -75,7 +76,7 @@ for k=2:n
             K=(P*H')/(H*P*H'+R);
             
             z = [zeros(9,1); delta_u] + K*(y - x(1:3));
-            
+
          %% Correct the navigation states using current perturbation estimates.
             x(1:6) = x(1:6) + z(1:6); % correct pos and vel
             
@@ -102,19 +103,27 @@ for k=2:n
 end
 
 
-%% Plot
+%% »æÍ¼
 outdata.eul = rad2deg(outdata.eul);
 imu = dataset.imu;
-ch_imu_data_plot('wb', outdata.delta_u_h(4:6,:)', 'gb', outdata.delta_u_h(1:3,:)', 'time',  imu.time', 'subplot', 1);
-ch_imu_data_plot('acc', imu.acc', 'gyr', imu.gyr',  'eul', outdata.eul', 'time',  imu.time', 'subplot', 1);
-ch_imu_data_plot('P_phi', outdata.diag_P(7:9,:)', 'P_wb', outdata.diag_P(10:12,:)', 'P_pos', outdata.diag_P(1:3,:)', 'time',  imu.time', 'subplot', 1);
+imu.gyr = rad2deg(imu.gyr);
 
-ch_imu_data_plot('pos_fusion',outdata.x(1:3,:)', 'time',  imu.time', 'subplot', 0);
+% ÁãÆ«¹À¼Æplot
+ ch_imu_data_plot('wb', rad2deg(outdata.delta_u_h(4:6,:))', 'gb', outdata.delta_u_h(1:3,:)', 'time',  imu.time', 'subplot', 1);
+ 
+ % Ô­Ê¼Êı¾İ
+ ch_imu_data_plot('acc', imu.acc', 'gyr', imu.gyr',  'eul', outdata.eul', 'time',  imu.time', 'subplot', 1);
+ 
+ % PÕó·½²î
+ ch_imu_data_plot('P_phi', outdata.diag_P(7:9,:)', 'P_wb', outdata.diag_P(10:12,:)', 'P_pos', outdata.diag_P(1:3,:)', 'time',  imu.time', 'subplot', 1);
+
+ % ¹ì¼£
+ch_imu_data_plot('pos_fusion',outdata.x(1:3,:)', 'pos_gnss', dataset.gnss.pos_ned',  'time',  imu.time', 'subplot', 1);
 gnss_imu_local_tan_plot(dataset, outdata, 'True');
 
 
 %%  Init navigation state     %%
-function x = init_navigation_state(u, settings)
+function x = init_navigation_state(~, settings)
 
 roll = 0;
 pitch = 0;

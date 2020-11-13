@@ -6,6 +6,7 @@ i = 1;
 param= inputParser;
 param.addOptional('time', []);
 param.addOptional('pos_fusion', []);
+param.addOptional('pos_gnss', []);
 param.addOptional('acc', []);
 param.addOptional('gyr', []);
 param.addOptional('mag', []);
@@ -18,6 +19,7 @@ param.addOptional('P_wb', []); %陀螺方差
 param.addOptional('P_pos', []); %位置方差
 param.addOptional('subplot', []);
 
+
 %然后将输入的参数进行处理，如果有不同于默认值的那就覆盖掉
 param.parse(varargin{:});
 r = param.Results;
@@ -29,15 +31,27 @@ end
 figure('Name', 'Sensor Data');
 
 if(~isempty(r.pos_fusion))
-    if(r.subplot == 1)
-        subplot(2,2,i);
-    else
-        if i ~= 1; figure; end
-    end
-plot(r.pos_fusion(:,2), r.pos_fusion(:,1))
-xlabel('X(m)');
-ylabel('Y(m)');
-title('Trajectory');
+    subplot(2,1,1);
+    
+    h=zeros(1,3);
+    plot(r.pos_gnss(:,2), r.pos_gnss(:,1),'b-');
+    hold on;
+    h(1) = plot(r.pos_gnss(:,2), r.pos_gnss(:,1),'b.');
+    h(2) = plot(r.pos_fusion(:,2), r.pos_fusion(:,1), 'r-');
+    h(3) = plot(r.pos_fusion(1,1), r.pos_fusion(1,2),'ks');
+    legend(h,'GNSS position estimate','GNSS aided INS trajectory','Start point')
+    axis equal
+    hold off;
+    xlabel('X(m)'); ylabel('Y(m)');  title('Trajectory');
+
+    subplot(2,1,2);
+    h=zeros(1,2);
+    hold on;
+    h(1) = plot(1:length(r.pos_gnss), -r.pos_gnss(:,3),'b.');
+    h(2) = plot(r.time, -r.pos_fusion(:,3),'r');
+    legend(h, 'GNSS estimate','GNSS aided INS estimate')
+    title('Height versus time');  xlabel('Time [s]');  ylabel('Height [m]');
+    hold off;
     i = i+1;
 end
 
@@ -120,7 +134,7 @@ if(~isempty(r.P_phi))
     interial_display(r.time,  r.P_phi, {'X', 'Y', 'Z'}, 'Time (s)', '-', 'Phi Var(失准角方差)');
     i = i+1;
 end
-    
+
 
 if(~isempty(r.P_wb))
     if(r.subplot == 1)

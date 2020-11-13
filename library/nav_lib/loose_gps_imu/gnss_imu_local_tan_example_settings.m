@@ -48,7 +48,7 @@ settings.factp(1) = 100;                                 % Position [m]
 settings.factp(2) = 100;                                  % Velocity [m/s]
 settings.factp(3:5) = (pi/180*[50 50 50]');     % Attitude (roll,pitch,yaw) [rad]
 settings.factp(6) = 0.02;                               % Accelerometer biases [m/s^2]
-settings.factp(7) = deg2rad(0.5);                     % Gyro biases [rad/s]
+settings.factp(7) = deg2rad(2);                     % Gyro biases [rad/s]
 
 settings.gravity  = [0, 0, -9.8184]';
 

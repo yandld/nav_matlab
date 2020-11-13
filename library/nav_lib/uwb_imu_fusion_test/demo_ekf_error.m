@@ -43,30 +43,25 @@ out_data.uwb.anchor = dataset.uwb.anchor;
 
 %% load settings
 settings = gnss_imu_local_tan_example_settings();
-
-x = init_navigation_state(u, settings);
-
-% Initialize the sensor bias estimate
+noimal_state = init_navigation_state(settings);
 delta_u_h = zeros(6, 1);
-
-% Initialize the Kalman filter
 [P, Q1, Q2, ~, ~] = init_filter(settings);
 
 
 for k=1:N
-    % correction
+   
     u_h = u(:,k);
     
-    %u_h(4:6) = corrd_transfmation(u_h(4:6));
+     % 反馈
     u_h = u_h + delta_u_h;
     
-    % nav_equ
-    x = ch_nav_equ_local_tan(x, u_h, dt,  [0, 0, 9.7803698]');
+    % 捷联惯导
+    noimal_state = ch_nav_equ_local_tan(noimal_state, u_h, dt,  [0, 0, 9.7803698]');
     
     p_div = p_div+1;
     if p_div == 1
         %Get state space model matrices
-        [F, G] = state_space_model(x, u_h, dt*p_div);
+        [F, G] = state_space_model(noimal_state, u_h, dt*p_div);
         
         %Time update of the Kalman filter state covariance.
         P = F*P*F' + G*blkdiag(Q1, Q2)*G';
@@ -79,7 +74,7 @@ for k=1:N
     end
     
     
-    %% Update
+    %% EKF UWB量测更新
     if uwb_iter < length(dataset.uwb.time)  && abs(dataset.imu.time(imu_iter) - dataset.uwb.time(uwb_iter))  < 0.01
         
         y = dataset.uwb.tof(:,uwb_iter);
@@ -87,13 +82,13 @@ for k=1:N
         
         % bypass Nan
         if sum(isnan(y)) == 0
-            [~,H] = dh_dx_func(x, dataset.uwb);
+            [~,H] = dh_dx_func(noimal_state, dataset.uwb);
             
             % Calculate the Kalman filter gain.
             K=(P*H')/(H*P*H'+R);
             
             % NLOS elimation
-            t = h_func(x, dataset.uwb);
+            t = h_func(noimal_state, dataset.uwb);
             if uwb_iter > 50
                 for i = 1:length(y)
                     if abs(y(i) - t(i))  > 1.2
@@ -102,18 +97,18 @@ for k=1:N
                 end
             end
             
-            z = [zeros(9,1); delta_u_h] + K*(y - h_func(x, dataset.uwb));
+            err_state = [zeros(9,1); delta_u_h] + K*(y - h_func(noimal_state, dataset.uwb));
             
-            % Correct the navigation states using current perturbation estimates.
-            x(1:6) = x(1:6) + z(1:6);
+            % 反馈速度位置
+            noimal_state(1:6) = noimal_state(1:6) + err_state(1:6);
             
-            %correct attitude
-            q = x(7:10);
-            q = ch_qmul(ch_qconj(q), ch_rv2q(z(7:9)));
+            % 反馈姿态
+            q = noimal_state(7:10);
+            q = ch_qmul(ch_qconj(q), ch_rv2q(err_state(7:9)));
             q = ch_qconj(q);
-            x(7:10) = q;
+            noimal_state(7:10) = q;
             
-            delta_u_h = z(10:15);
+            delta_u_h = err_state(10:15);
             
             % Update the Kalman filter state covariance.
             P=(eye(15)-K*H)*P;
@@ -126,7 +121,7 @@ for k=1:N
         uwb_iter = uwb_iter + 1;
     end
     
-    out_data.x(k,:)  = x;
+    out_data.x(k,:)  = noimal_state;
     out_data.delta_u(k,:) = delta_u_h';
     out_data.diag_P(k,:) = trace(P);
     imu_iter = imu_iter + 1;
@@ -155,7 +150,7 @@ out_data.uwb.fusion_pos = out_data.x(:,1:3)';
 fusion_display(out_data, []);
 
 %%  Init navigation state
-function x = init_navigation_state(u, settings)
+function x = init_navigation_state(settings)
 
 roll = 0;
 pitch = 0;

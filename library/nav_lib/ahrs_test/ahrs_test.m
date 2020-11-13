@@ -19,10 +19,10 @@ wb = [0 0 0]'; %初始gyr零偏
 for i = 1:n
     
     %强制加一个bias测试 
-     imu.gyr(2,i) =  imu.gyr(2,i) + deg2rad(3);
+     imu.gyr(3,i) =  imu.gyr(3,i) + deg2rad(5);
  
      % 陀螺仪零偏反馈
-   % imu.gyr(:,i)  = imu.gyr(:,i) - err_stat(4:6);
+   % imu.gyr(:,i)  = imu.gyr(:,i) -  err_stat(4:6);
     
 %     
 %     imu.gyr(1,i) = deg2rad(1);
@@ -82,7 +82,7 @@ P_phi = zeros(3, n);
 
 for i = 1: length(outdata.P)
     P = outdata.P(:,:,i);
-    P_phi(1, i) = P(1,1);;
+    P_phi(1, i) = P(1,1);
     P_phi(2, i) = P(2,2);
     P_phi(3, i) = P(3,3);
     P_wb(1, i) = P(4,4);
@@ -109,8 +109,8 @@ end
 
 function [P, Q] = init_filter(dt)
 
-Q_att = 2;
-Q_wb = 0.1;
+Q_att = 1;
+Q_wb = 0.0;
 
 P = eye(6)*0.1;
 
