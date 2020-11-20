@@ -70,15 +70,15 @@ accelReading = M(:,1);
             
 %% 运行陀螺allan
 [avar1, tau1 , N, K, B] = ch_allan(gyroReading , Fs, true);
-fprintf('GYR: 零偏不稳定性                                                   %frad/s                    或   %fdeg/h \n', B, rad2deg(B)*3600);
-fprintf('GYR: 噪声密度(角度随机游走, ARW, Noise density)    %f(rad/s)/sqrt(Hz)     或  %f deg/sqrt(h)\n', N, rad2deg(N)*3600^(0.5));
-fprintf('GYR: 角速率随机游走                                               %f(rad/s)sqrt(Hz)       或  %f deg/h/sqrt(h)\n', K, rad2deg(K) * (3600^(1.5)));
+fprintf('GYR: 零偏不稳定性                                                             %frad/s                    或   %fdeg/h \n', B, rad2deg(B)*3600);
+fprintf('GYR: 噪声密度(角度随机游走, ARW, Noise density)              %f(rad/s)/sqrt(Hz)     或  %f deg/sqrt(h)\n', N, rad2deg(N)*3600^(0.5));
+fprintf('GYR: 角速率随机游走, bias variations ("random walks")       %f(rad/s)sqrt(Hz)       或  %f deg/h/sqrt(h)\n', K, rad2deg(K) * (3600^(1.5)));
 
 
 
 %% 运行加速度计 allan
 [avar1, tau1 , N, K, B] = ch_allan(accelReading, Fs, true);
 
-fprintf('ACC: 零偏不稳定性                                          %fm/s^(2)                        或   %fmg  或  %fug\n', B, B / 9.80665 *1000,  B / 9.80665 *1000*1000);
-fprintf('ACC: 速率随机游走(VRW, Noise density)          %f(m/s^(2))/sqrt(Hz)        或   %f m/s/sqrt(hr)\n', N, N * 3600^(0.5));
-
+fprintf('ACC: 零偏不稳定性                                                                                       %fm/s^(2)                       或   %fmg  或  %fug\n', B, B / 9.80665 *1000,  B / 9.80665 *1000*1000);
+fprintf('ACC: 噪声密度(速率随机游走,VRW, Noise Density, Rate Noise Density)          %f(m/s^(2))/sqrt(Hz)        或   %f m/s/sqrt(hr)\n', N, N * 3600^(0.5));
+fprintf('ACC: 加速度随机游走，bias variations ("random walks")                               %f(m/s^(2)sqrt(Hz))\n',  K);
