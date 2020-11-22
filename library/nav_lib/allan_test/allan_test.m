@@ -12,12 +12,17 @@ close all;
 % gyroReading = deg2rad(gyroReading);
 
 %%  ch00   deg/s    m/s^(2)
+
 % load('ch100.mat');
-% gyroReading = gyr(:,1);
+% gyroReading = gyroReading(:,3);
 % gyroReading = deg2rad(gyroReading);
-% accelReading = acc(:,1);
+% accelReading = accelReading(:,3);
 % accelReading = accelReading *  9.8066;
 % Fs = 400;
+
+
+%% 
+% data = ch_data_import('UranusData.csv');
 
 
 %% https://github.com/Aceinna/gnss-ins-sim
