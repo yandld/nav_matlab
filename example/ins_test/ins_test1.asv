@@ -51,6 +51,6 @@ title('2D位置');
 legend('GNSS-SIM真值', 'GNSS-SIM仿真结果', 'matlab仿真结果');
 axis equal
 
-fprintf('最终位置差:%f\n', norm(pos_gt(N, :) - pos_matlab(N, :)));
-
+fprintf('最终位置差:')
+norm(pos_gt(N, :) - pos_matlab(N, :))
 
