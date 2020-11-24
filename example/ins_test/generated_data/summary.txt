@@ -1,0 +1,46 @@
+
+------------------------------------------------------------
+Sample frequency of IMU: [fs] = 100.0 Hz
+Reference frame: 1
+Simulation time duration: 33.0 s
+Simulation runs: 1
+
+------------------------------------------------------------
+Simulation results are saved to C:\Users\YX\Desktop\gitResp\gnss-ins-sim\demo_saved_data\2020-11-24-08-42-28
+The following results are saved:
+	time: sample time
+	ref_pos: true position in the local NED frame
+	ref_vel: true vel in the NED frame
+	ref_att_euler: true attitude (Euler angles, ZYX)
+	ref_accel: true accel in the body frame
+	ref_gyro: true angular velocity in the body frame
+	ref_odo: true odometer velocity
+	accel: accel measurements
+	gyro: gyro measurements
+	odo: odometer velocity measurement
+	pos: simulation position from algo
+	att_euler: simulation attitude (Euler, ZYX)  from algo
+	vel: simulation velocity from algo
+	ref_att_quat: true attitude (quaternion)
+	att_quat: simulation attitude (quaternion)  from algo
+
+------------------------------------------------------------
+The following are error statistics.
+-----------statistics for simulation attitude (Euler, ZYX)  from algo (in units of ['deg', 'deg', 'deg'])
+	Simulation run algo0_0:
+		--Max error: [166.26235606   0.79934505 166.22219016]
+		--Avg error: [0.13419256 0.3880361  0.45293942]
+		--Std of error: [4.02476361 0.33364663 4.03319308]
+
+-----------statistics for simulation position from algo (in units of ['m', 'm', 'm'])
+	Simulation run algo0_0:
+		--Max error: [ 5.81534201 47.37151755  6.81333892]
+		--Avg error: [ 3.33852736 12.77095734  1.71205313]
+		--Std of error: [ 2.08543043 13.78740532  1.86388415]
+
+-----------statistics for simulation velocity from algo (in units of ['m/s', 'm/s', 'm/s'])
+	Simulation run algo0_0:
+		--Max error: [0.64964007 3.7777009  0.63218188]
+		--Avg error: [0.06533993 1.43664529 0.20665639]
+		--Std of error: [0.33485544 1.16565311 0.20162595]
+

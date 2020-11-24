@@ -1,7 +1,7 @@
 
 function out = ch_qintg(in, gyr, dt)
 
-%专业的做法
+% 单子样旋转矢量
  rv = gyr*dt;
  dq = ch_rv2q(rv);
 

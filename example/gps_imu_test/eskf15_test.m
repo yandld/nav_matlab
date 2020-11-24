@@ -2,8 +2,7 @@
 clear;
 clc;
 close all;
-%% Load data
-%  Load Èğµädata
+%% Load data Èğµädata
 load('gps_ins_dataset1.mat');
 
 %%  load couersera data
@@ -39,7 +38,7 @@ for k=2:n
     dt = imu_t(k)-imu_t(k-1);
     
     % ÍÓÂİÁãÆ«£¬ÈËÎªÔëÉù
-    u(5,k) = u(5,k) + deg2rad(5);
+   %  u(5,k) = u(5,k) + deg2rad(5);
     
     % ÁãÆ«×´Ì¬·´À¡
     u_h = u(:,k) - delta_u;
