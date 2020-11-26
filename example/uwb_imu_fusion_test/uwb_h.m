@@ -6,6 +6,7 @@
 % Licence (version 2 or later); please refer to the file 
 % Licence.txt, included with the software, for details.
 
+% Y: 根据当前位置和UWB基站坐标预测出来的伪距， H量测矩阵
 function [Y,H] = ekf_uwb_h(x, uwb)
     
     position = x(1:3);	

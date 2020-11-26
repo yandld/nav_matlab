@@ -91,8 +91,8 @@ for k=1:N
             t = h_func(noimal_state, dataset.uwb);
             if uwb_iter > 50
                 for i = 1:length(y)
-                    if abs(y(i) - t(i))  > 1.2
-                        y(i) = t(i);
+                    if abs(y(i) - t(i))  > 0.9
+                        y(i) = t(i); %丢弃这次量测，直接认为这次量测就是预测误差
                     end
                 end
             end
