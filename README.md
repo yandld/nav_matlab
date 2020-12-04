@@ -1,10 +1,10 @@
-# 超核电子 基于的matlab导航科学计算库
+# 基于的matlab导航科学计算库
 
 
 
-运行环境： matlab2020a
+运行环境： matlab2020a+ sensor fusion toolbox
 
-
+需要将\lib加入matlab预设目录
 
 | 目录                         | 说明                          |
 | ---------------------------- | ----------------------------- |
@@ -19,9 +19,12 @@
 
 
 
-有问题欢迎提 git issue 反馈哦！
+有问题欢迎提 git issue 或者加我微信反馈:
+
+![](img/wechat.png)
 
 更多内容请访问：
 
+> * 知乎：https://www.zhihu.com/people/yang-xi-97-90
 > * 网站：www.hipnuc.com
 
