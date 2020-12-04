@@ -3,8 +3,8 @@ clc;
 close all;
 
 %% : read matlabe internal dataset 
-load('LoggedSingleAxisGyroscope', 'omega', 'Fs')
-gyroReading = omega;
+% load('LoggedSingleAxisGyroscope', 'omega', 'Fs')
+% gyroReading = omega;
 
 %% ADIS16488 dataset
 % load('adis16488_gyr.mat');
@@ -13,12 +13,12 @@ gyroReading = omega;
 
 %%  ch00   deg/s    m/s^(2)
 
-% load('ch100.mat');
-% gyroReading = gyroReading(:,2);
-% gyroReading = deg2rad(gyroReading);
-% accelReading = accelReading(:,2);
-% accelReading = accelReading *  9.8066;
-% Fs = 400;
+load('./allan_plot_ch100/ch100.mat');
+gyroReading = gyroReading(:,2);
+gyroReading = deg2rad(gyroReading);
+accelReading = accelReading(:,2);
+accelReading = accelReading *  9.8066;
+Fs = 400;
 
 
 %% 
@@ -81,12 +81,12 @@ fprintf('GYR: 角速率随机游走, bias variations ("random walks")       %f(rad/s)sq
 
 
 
-% %% 运行加速度计 allan
-% [avar1, tau1 , N, K, B] = ch_allan(accelReading, Fs, true);
-% 
-% fprintf('ACC: 零偏不稳定性                                                                                       %fm/s^(2)                       或   %fmg  或  %fug\n', B, B / 9.80665 *1000,  B / 9.80665 *1000*1000);
-% fprintf('ACC: 噪声密度(速率随机游走,VRW, Noise Density, Rate Noise Density)          %f(m/s^(2))/sqrt(Hz)        或   %f m/s/sqrt(hr)\n', N, N * 3600^(0.5));
-% fprintf('ACC: 加速度随机游走，bias variations ("random walks")                               %f(m/s^(2)sqrt(Hz))\n',  K);
+%% 运行加速度计 allan
+[avar1, tau1 , N, K, B] = ch_allan(accelReading, Fs, true);
+
+fprintf('ACC: 零偏不稳定性                                                                                       %fm/s^(2)                       或   %fmg  或  %fug\n', B, B / 9.80665 *1000,  B / 9.80665 *1000*1000);
+fprintf('ACC: 噪声密度(速率随机游走,VRW, Noise Density, Rate Noise Density)          %f(m/s^(2))/sqrt(Hz)        或   %f m/s/sqrt(hr)\n', N, N * 3600^(0.5));
+fprintf('ACC: 加速度随机游走，bias variations ("random walks")                               %f(m/s^(2)sqrt(Hz))\n',  K);
 
 
 

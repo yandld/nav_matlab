@@ -3,6 +3,10 @@ clc;
 close all;
 
 %%  ch00   deg/s    m/s^(2)
+
+%data = csvread("UranusData.csv", 1, 1);
+
+
 load('ch100.mat');
 gyroReading = (gyroReading)*3600;
 accelReading = accelReading *  1000;
@@ -26,7 +30,9 @@ legend('X','Y','Z');
 xlabel('\tau(s)');
 ylabel('Allan standard deviation [deg/h]');
 grid on
-axis equal
+
+
+
     
 figure
 [avar, tau , ~, ~, ~] = ch_allan(accelReading(:,1) , Fs, false);
@@ -45,5 +51,4 @@ title('Accelerometer -- Allan variance');
 xlabel('\tau(s)');
 ylabel('Allan standard deviation [mg]');
 grid on
-axis equal
 

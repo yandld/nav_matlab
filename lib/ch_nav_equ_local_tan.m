@@ -11,7 +11,7 @@ old_v = x(4:6);
 sf =u(1:3); 
 %sf = sf + 0.5*cross(u(4:6)*dt, sf);
 
-%  姿态解算
+%  姿态结算
 gyr = u(4:6);
 
 x(7:10) = ch_qintg(x(7:10), gyr, dt);
