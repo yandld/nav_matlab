@@ -1,5 +1,5 @@
-function vo = ch_qmulv(q, vi)
-    qi = [0;vi];
+function out = ch_qmulv(q, in)
+    qi = [0;in];
     qo = ch_qmul(ch_qmul(q,qi),ch_qconj(q));
-    vo = qo(2:4,1);
+    out = qo(2:4,1);
     

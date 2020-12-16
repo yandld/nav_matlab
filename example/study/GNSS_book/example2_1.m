@@ -2,6 +2,7 @@ clear;
 clc
 close all;
 
+
 %% EXAMPLE 2.1(a) 
 %% Conversion of Euler attitude to Coordinate Transformation Matrices and Quaternions
 roll = deg2rad(-30);
@@ -34,10 +35,7 @@ Qn2b = [0.836356 -0.32664 0.135299 0.418937]';
 Cb2n = ch_q2m(Qn2b);
 Cb2n
 
-eul = ch_q2eul(Qn2b);
+eul = ch_q2eul(Qn2b, '321');
 rad2deg(eul)
-
-
-
 
 
