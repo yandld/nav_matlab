@@ -2,6 +2,16 @@
 
 
 
+* 定姿态IMU/AHRS算法
+
+* 捷联惯导解算
+
+* GPS IMU 经典ESKF融合
+
+* UWB IMU融合
+
+  
+
 运行环境： matlab2020a+ sensor fusion toolbox
 
 需要将\lib加入matlab预设目录
@@ -16,6 +26,7 @@
 | \example\gps_imu_test        | 15维经典ESKF GPS+IMU组合导航  |
 | \example\uwb_imu_fusion_test | UWB+IMU EKF 紧组合导航        |
 | \example\uwb_test            | 纯UWB三角测距定位测试         |
+| \example\basic               | 一些基础函数测试和入门例程    |
 
 
 

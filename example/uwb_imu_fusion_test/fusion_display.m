@@ -8,6 +8,7 @@ fusion_quat = out_data.x(:,7:10);
 %% plot uwb information
 ch_plot_uwb(out_data.uwb, 2);
 
+
 figure;
 subplot(311)
 hold on

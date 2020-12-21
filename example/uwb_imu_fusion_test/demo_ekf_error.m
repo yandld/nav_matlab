@@ -20,6 +20,8 @@ section = [5000  7000]*4;
 
 u = [dataset.imu.acc; dataset.imu.gyr];
 
+ch_imu_data_plot('time', 1:length(dataset.imu.acc), 'acc', dataset.imu.acc');
+
 u = u(:,section(1) :section(2));
 
 dataset.imu.time = dataset.imu.time(1,section(1) :section(2));
