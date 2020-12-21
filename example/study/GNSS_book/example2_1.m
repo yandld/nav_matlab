@@ -2,6 +2,7 @@ clear;
 clc
 close all;
 
+format 
 
 %% EXAMPLE 2.1(a) 
 %% Conversion of Euler attitude to Coordinate Transformation Matrices and Quaternions
@@ -18,13 +19,11 @@ Cb2n = [0.612372 -0.78915 -0.04737;  0.612372 0.435596 0.65974 ; -0.5 -0.43301 0
 Qn2b = ch_m2q(Cb2n);
 Qn2b
 
-
 %% EXAMPLE 2.1(b)
 %% Conversion of Coordinate Transformation Matrix to Euler attitude and Quaternions
 Cb2n = [0.612372 -0.78915 -0.04737; 0.612372 0.435596 0.65974; -0.5 -0.43301 0.75];
 eul = ch_m2eul(Cb2n');
 eul
-
 
 Qn2b = ch_m2q(Cb2n);
 Qn2b

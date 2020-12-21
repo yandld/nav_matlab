@@ -1,5 +1,7 @@
-clear; clc; close all;
-addpath('../../library');
+clear;
+clc;
+close all;
+
 %% https://www.coursera.org/learn/spacecraft-dynamics-kinematics/lecture/UFIBv/4-1-example-of-devenports-q-method
  
 

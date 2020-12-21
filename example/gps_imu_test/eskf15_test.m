@@ -38,7 +38,7 @@ for k=2:n
     dt = imu_t(k)-imu_t(k-1);
     
     % 陀螺零偏，人为噪声
-   %  u(5,k) = u(5,k) + deg2rad(5);
+    u(5,k) = u(5,k) + deg2rad(5);
     
     % 零偏状态反馈
     u_h = u(:,k) - delta_u;
@@ -59,7 +59,7 @@ for k=2:n
     end
     
     
-    % measument update
+    % 量测更新
     if abs(imu_t(k) - gnss_time(ctr_gnss_data)) < 0.01
         if imu_t(k)<settings.outagestart || imu_t(k) > settings.outagestop || ~strcmp(settings.gnss_outage, 'on')
             
@@ -71,14 +71,14 @@ for k=2:n
             K=(P*H')/(H*P*H'+R);
             
             z = [zeros(9,1); delta_u] + K*(y - x(1:3));
-
-         %% Correct the navigation states using current perturbation estimates.
-         
-           % 位置速度反馈
-            x(1:6) = x(1:6) + z(1:6); 
+            
+            %% Correct the navigation states using current perturbation estimates.
+            
+            % 位置速度反馈
+            x(1:6) = x(1:6) + z(1:6);
             
             % 失准角反馈到姿态
-            q = x(7:10); 
+            q = x(7:10);
             q = ch_qmul(ch_rv2q(z(7:9)), q);
             x(7:10) = q;
             
@@ -107,15 +107,15 @@ imu = dataset.imu;
 imu.gyr = rad2deg(imu.gyr);
 
 % 零偏估计plot
- ch_imu_data_plot('wb', rad2deg(outdata.delta_u_h(4:6,:))', 'gb', outdata.delta_u_h(1:3,:)', 'time',  imu.time', 'subplot', 1);
- 
- % 原始数据
- ch_imu_data_plot('acc', imu.acc', 'gyr', imu.gyr',  'eul', outdata.eul', 'time',  imu.time', 'subplot', 1);
- 
- % P阵方差
- ch_imu_data_plot('P_phi', outdata.diag_P(7:9,:)', 'P_wb', outdata.diag_P(10:12,:)', 'P_pos', outdata.diag_P(1:3,:)', 'time',  imu.time', 'subplot', 1);
+ch_imu_data_plot('wb', rad2deg(outdata.delta_u_h(4:6,:))', 'gb', outdata.delta_u_h(1:3,:)', 'time',  imu.time', 'subplot', 1);
 
- % 轨迹
+% 原始数据
+ch_imu_data_plot('acc', imu.acc', 'gyr', imu.gyr',  'eul', outdata.eul', 'time',  imu.time', 'subplot', 1);
+
+% P阵方差
+ch_imu_data_plot('P_phi', outdata.diag_P(7:9,:)', 'P_wb', outdata.diag_P(10:12,:)', 'P_pos', outdata.diag_P(1:3,:)', 'time',  imu.time', 'subplot', 1);
+
+% 轨迹
 ch_imu_data_plot('pos_fusion',outdata.x(1:3,:)', 'pos_gnss', dataset.gnss.pos_ned',  'time',  imu.time', 'subplot', 1);
 gnss_imu_local_tan_plot(dataset, outdata, 'True');
 
@@ -172,20 +172,20 @@ sk = ch_askew(sf);
 O = zeros(3);
 I = eye(3);
 F = [  O I   O O        O;
-         O O -sk -Cb2n O;
-         O O O O       -Cb2n;
-         O O O O       O;
-         O O O O       O];
+    O O -sk -Cb2n O;
+    O O O O       -Cb2n;
+    O O O O       O;
+    O O O O       O];
 
 % 离散化
 F = eye(15) + dt*F;
 
 % Noise gain matrix
 G=dt*[O       O         O  O;
-            Cb2n  O         O  O;
-              O        -Cb2n O  O;
-                O        O         I   O;
-                O        O        O   I];
+    Cb2n  O         O  O;
+    O        -Cb2n O  O;
+    O        O         I   O;
+    O        O        O   I];
 end
 
 

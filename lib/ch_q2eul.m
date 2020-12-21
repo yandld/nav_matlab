@@ -1,16 +1,16 @@
-function eul = ch_q2eul(q, seq)
+function eul = ch_q2eul(Qb2n, seq)
 % ch_q2eul: transforms quaternion to Euler angles.
 %
 % INPUT
-%   qin: 4x1 quaternion.
+%   qin: 4x1 quaternion. b->n
 %
 % OUTPUT
 %   euler: 3x1 Euler angles [roll pitch yaw] (rad, rad, rad).
 
-q0 = q(1);
-q1 = q(2);
-q2 = q(3);
-q3 = q(4);
+q0 = Qb2n(1);
+q1 = Qb2n(2);
+q2 = Qb2n(3);
+q3 = Qb2n(4);
 
 if nargin == 2
     
@@ -33,9 +33,9 @@ else
 end
 
 
-eul(1,1) = roll;
-eul(2,1) = pitch;
-eul(3,1) = yaw;
+eul(1) = roll;
+eul(2) = pitch;
+eul(3) = yaw;
 
 
 
