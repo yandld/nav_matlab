@@ -290,7 +290,11 @@ hold off
 
 
 figure;
+subplot(1,2,1);
+
 plot(D(:,1), D(:,3) ,'LineStyle','none','Marker','X','MarkerSize',2);
+xlabel('X(uT)'); ylabel('Z(uT)');
+
 hold on;
 grid(gca,'on')
 plot(C(:,1), C(:,3),'LineStyle','none','Marker',   'o','MarkerSize',2,'MarkerFaceColor','r');
@@ -299,8 +303,10 @@ title("Uncalibrated vs Calibrated" + newline + "Magnetometer Measurements")
 axis equal
 hold off
 
-figure;
+subplot(1,2,2);
+
 plot(D(:,2), D(:,3) ,'LineStyle','none','Marker','X','MarkerSize',2);
+xlabel('Y(uT)'); ylabel('Z(uT)');
 hold on;
 grid(gca,'on')
 plot(C(:,2), C(:,3),'LineStyle','none','Marker',   'o','MarkerSize',2,'MarkerFaceColor','r');
