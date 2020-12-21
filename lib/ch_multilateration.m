@@ -1,7 +1,7 @@
 %% 最小二乘法多边测距
 % sv_pos: 基站位置 mxn m: 维:2 or 3, n 基站个数
 % pos:  mx1  m:2or3
-%pr:  伪距 mx1
+% pr:  伪距 mx1
 %dim : 2 or 3 : 2:2D定位  3: 3D定位
 function pos = ch_multilateration(sv_pos, pos, pr, dim)
 

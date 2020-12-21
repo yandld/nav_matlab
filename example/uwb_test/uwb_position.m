@@ -8,7 +8,7 @@ uwb = dataset.uwb;
 
 %% remove outliler
 tof = uwb.tof';
-f_tof = smoothdata(tof,'movmedian', 25);
+f_tof = smoothdata(tof,'rlowess', 100);
 
 figure;
 plot(tof, '.');
@@ -32,6 +32,6 @@ for i = 1:n
 end
 
 %% plot data
-ch_plot_uwb(uwb, 3);
+ch_plot_uwb(uwb.anchor, uwb.pos, 3);
 
 

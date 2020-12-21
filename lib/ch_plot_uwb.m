@@ -1,30 +1,25 @@
 %%  plot UWB data
 
-function ch_plot_uwb(data, varargin)
+function ch_plot_uwb(anchor_pos, tag_pos, varargin)
 
 if nargin == 2
     dim =  cell2mat(varargin(1));
 else
-    dim = size(data.pos, 1);
+    dim = size(tag_pos, 1);
 end
 
 
 %% plot Trajectory
 figure;
 if dim == 2
-    x = data.pos(1,:);
-    y = data.pos(2,:);
+    x = tag_pos(1,:);
+    y = tag_pos(2,:);
     plot(x,y,'.');
-if( isfield(data, 'fusion_pos'))
-    hold on;
-    x = data.fusion_pos(1,:);
-    y = data.fusion_pos(2,:);
-    plot(x,y);
-end
+
 elseif dim == 3
-    x = data.pos(1,:);
-    y = data.pos(2,:);
-    z = data.pos(3,:);
+    x = tag_pos(1,:);
+    y = tag_pos(2,:);
+    z = tag_pos(3,:);
     plot3(x,y,z,'.');
 end
 
@@ -33,13 +28,9 @@ ylim([-20 20])
 title('Trajectory');xlabel('x:m');ylabel('y:m');grid on;
 
 hold on;
-plotanchors(data.anchor);
+plotanchors(anchor_pos);
 axis equal
 
-%% plot TOF
-figure;
-plot(data.tof');
-legend();
 end
 
 
