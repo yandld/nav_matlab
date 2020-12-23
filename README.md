@@ -2,9 +2,9 @@
 
 
 
-* 定姿态IMU/AHRS算法
+* VRU/AHRS姿态融合算法
 
-* 捷联惯导解算
+* 捷联惯导速度位置姿态解算
 
 * GPS IMU 经典ESKF融合
 
@@ -38,4 +38,10 @@
 
 > * 知乎：https://www.zhihu.com/people/yang-xi-97-90
 > * 网站：www.hipnuc.com
+
+
+
+参考
+> * 捷联惯导算法与组合导航原理_严恭敏
+> * 多传感器融合-深蓝学院
 
