@@ -106,17 +106,20 @@ outdata.eul = rad2deg(outdata.eul);
 imu = dataset.imu;
 imu.gyr = rad2deg(imu.gyr);
 
-% 零偏估计plot
-ch_imu_data_plot('wb', rad2deg(outdata.delta_u_h(4:6,:))', 'gb', outdata.delta_u_h(1:3,:)', 'time',  imu.time', 'subplot', 1);
-
 % 原始数据
 ch_imu_data_plot('acc', imu.acc', 'gyr', imu.gyr',  'eul', outdata.eul', 'time',  imu.time', 'subplot', 1);
+
+% 零偏估计plot
+ch_imu_data_plot('wb', rad2deg(outdata.delta_u_h(4:6,:))', 'gb', outdata.delta_u_h(1:3,:)', 'time',  imu.time', 'subplot', 1);
 
 % P阵方差
 ch_imu_data_plot('P_phi', outdata.diag_P(7:9,:)', 'P_wb', outdata.diag_P(10:12,:)', 'P_pos', outdata.diag_P(1:3,:)', 'time',  imu.time', 'subplot', 1);
 
 % 轨迹
 ch_imu_data_plot('pos_fusion',outdata.x(1:3,:)', 'pos_gnss', dataset.gnss.pos_ned',  'time',  imu.time', 'subplot', 1);
+
+ch_plot_pos3d('p1', outdata.x(1:3,:)', 'p2', dataset.gnss.pos_ned', 'legend', ["融合", "GNSS"] )
+
 gnss_imu_local_tan_plot(dataset, outdata, 'True');
 
 

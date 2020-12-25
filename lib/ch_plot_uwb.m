@@ -2,7 +2,7 @@
 
 function ch_plot_uwb(anchor_pos, tag_pos, varargin)
 
-if nargin == 2
+if nargin == 3
     dim =  cell2mat(varargin(1));
 else
     dim = size(tag_pos, 1);

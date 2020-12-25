@@ -5,8 +5,17 @@ fusion_pos = out_data.x(:,1:3);
 fusion_speed = out_data.x(:,4:6);
 fusion_quat = out_data.x(:,7:10);
 
-%% plot uwb information
-ch_plot_uwb(out_data.uwb, 2);
+
+%% 打印伪距
+plot(out_data.uwb.tof');
+legend('X', 'Y', 'Z');
+title('伪距');
+
+%% 打印UWB轨迹
+ch_plot_uwb(out_data.uwb.anchor, out_data.uwb.pos, 2);
+hold on;
+plot(out_data.uwb.fusion_pos(1,:), out_data.uwb.fusion_pos(2,:));
+
 
 
 figure;
@@ -128,7 +137,6 @@ legend('Real Trajectory','UWB-IMU Trajectory','UWB Trajectory')
 % plot(SampleTimePoint(1:N), fusion_speed(:,3),'k')
 % title('Speed z Axis');xlabel('T:s');ylabel('z axis:m');grid on;
 
-%-------------- figure 4: display Pose state  -----------------%
 eul = zeros(length(fusion_quat), 3);
 for i = 1: length(fusion_quat)
     eul(i,:) = rad2deg(ch_q2eul(fusion_quat(i,:)));

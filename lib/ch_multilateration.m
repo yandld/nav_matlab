@@ -5,7 +5,7 @@
 %dim : 2 or 3 : 2:2D定位  3: 3D定位
 function pos = ch_multilateration(sv_pos, pos, pr, dim)
 
-B1=1;
+B1= 0.1;
 END_LOOP=100;
 sv_num = size(sv_pos, 2);
 max_retry = 5;

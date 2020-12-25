@@ -129,13 +129,13 @@ for k=1:N
     imu_iter = imu_iter + 1;
 end
 
-%% UWB 解算
+%% 纯 UWB 位置解算
 cnt = 1;
 uwbxyz = [1 2 3]';
 
 for uwb_iter=1:length(dataset.uwb.time)
     y = dataset.uwb.tof(:, uwb_iter);
-    % remove NaN points
+    % 去除NaN点
     if all(~isnan(y)) == true
         uwbxyz = ch_multilateration(dataset.uwb.anchor, uwbxyz,  y');
         out_data.uwb.pos(:,cnt) = uwbxyz;
