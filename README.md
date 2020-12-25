@@ -30,6 +30,14 @@
 
 
 
+
+
+其中UWB+IMU 融合和 GPS+IMU融合就是经典的15维误差卡尔曼滤波(EKSF)，没有什么论文参考，就是N年一直用的经典的框架。见参考部分.
+
+
+
+
+
 有问题欢迎提 git issue 或者加我微信反馈:
 
 ![](img/wechat.png)
@@ -44,4 +52,6 @@
 参考
 > * 捷联惯导算法与组合导航原理_严恭敏
 > * 多传感器融合-深蓝学院
+> * https://kth.instructure.com/files/677996/download?download_frd=1
+> * https://www.coursera.org/learn/state-estimation-localization-self-driving-cars
 
