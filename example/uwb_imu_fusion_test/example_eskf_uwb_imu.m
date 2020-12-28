@@ -20,8 +20,6 @@ section = [5000  7000]*4;
 
 u = [dataset.imu.acc; dataset.imu.gyr];
 
-ch_imu_data_plot('time', 1:length(dataset.imu.acc), 'acc', dataset.imu.acc');
-
 u = u(:,section(1) :section(2));
 
 dataset.imu.time = dataset.imu.time(1,section(1) :section(2));
@@ -36,6 +34,9 @@ MeasureNoiseVariance = [2.98e-03, 2.9e-03,1.8e-03, 1.2e-03, 2.4e-03];  %%%%  UWB
 
 R = diag(MeasureNoiseVariance(1:dataset.uwb.cnt));
 p_div = 0;
+
+%% 打印原始数据
+ch_plot_imu('time', 1:length(dataset.imu.acc), 'acc', dataset.imu.acc' / 9.8, 'gyr', rad2deg(dataset.imu.gyr'));
 
 %% out data init
 out_data.uwb = [];
@@ -205,8 +206,7 @@ F = [ O I   O O       O;
     O O O O       O;
     O O O O       O];
 
-% Approximation of the discret
-% time state transition matrix
+% Approximation of the discret  time state transition matrix
 F = eye(15) + t*F;
 
 % Noise gain matrix

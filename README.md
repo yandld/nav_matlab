@@ -12,9 +12,9 @@
 
   
 
-运行环境： matlab2020a+ sensor fusion toolbox
+* 运行环境： matlab2020a 必须安装 sensor fusion toolbox
 
-需要将\lib加入matlab预设目录
+* 需要将\lib及其子目录加入matlab预设目录
 
 | 目录                         | 说明                          |
 | ---------------------------- | ----------------------------- |
@@ -27,8 +27,6 @@
 | \example\uwb_imu_fusion_test | UWB+IMU EKF 紧组合导航        |
 | \example\uwb_test            | 纯UWB三角测距定位测试         |
 | \example\basic               | 一些基础函数测试和入门例程    |
-
-
 
 
 

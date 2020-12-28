@@ -41,7 +41,7 @@ for i = 1:n
 %    q = ch_mahony.ahrs(q, imu.gyr(:,i), imu.acc(:,i), imu.mag(:,i), dt, 1);
     
   % 导航方程
-    q = ch_qintg(q, imu.gyr(:,i), dt);
+    q = ch_att_upt (q, imu.gyr(:,i), dt);
     
     %计算F阵
 	[F, G] = state_space_model(q, dt);
@@ -73,8 +73,8 @@ outdata.eul = rad2deg(outdata.eul);
 
 outdata.eul(:,end)
 
-ch_imu_data_plot('acc', imu.acc', 'gyr', imu.gyr', 'mag', imu.mag',  'eul', outdata.eul', 'time',  imu.time', 'subplot', 1);
-ch_imu_data_plot('wb',rad2deg(outdata.wb'), 'phi', rad2deg(outdata.phi'), 'time',  imu.time', 'subplot', 1);
+ch_plot_imu('acc', imu.acc', 'gyr', imu.gyr', 'mag', imu.mag',  'eul', outdata.eul', 'time',  imu.time');
+ch_plot_imu('wb',rad2deg(outdata.wb'), 'phi', rad2deg(outdata.phi'), 'time',  imu.time');
 
 
 P_wb = zeros(3, n);
@@ -90,7 +90,7 @@ for i = 1: length(outdata.P)
     P_wb(3, i) = P(6,6);
 end
 
-ch_imu_data_plot('P_phi', P_phi', 'P_wb', P_wb', 'time',  imu.time', 'subplot', 1);
+ch_plot_imu('P_phi', P_phi', 'P_wb', P_wb', 'time',  imu.time');
 
 
 % F和G

@@ -16,7 +16,7 @@ fprintf("example1: 加速度读值转到n系，结果: %.3f %.3f %.3f 可以看�
 Gn = ch_qmulv(Qb2n, accReading);
 fprintf("example1: 使用四元数旋转函数，可以得到相同结果：  %.3f %.3f %.3f \n", Gn(1), Gn(2), Gn(3));
 
-Gn = [0 0 1]'; %Gn: 静止下，N系下加速度值，应该是重力:
+Gn = [0 0 1]'; %Gn: 静止下，N系下加速度值，应该是静止下的比力(和重力大小相等，方向相反):
 Qn2b = ch_qconj(Qb2n);
 Cn2b = ch_q2m(Qn2b);
 

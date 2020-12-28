@@ -32,6 +32,15 @@ for i = 1:n
 end
 
 %% plot data
-ch_plot_uwb(uwb.anchor, uwb.pos, 3);
+
+ch_plot_pos3d('p1', uwb.pos',  'legend', ["UWB¹ì¼£"]);
+anch = uwb.anchor;
+hold all;
+scatter(anch(1, :),anch(2, :),'k');
+for i=1:size(anch,2)
+    text(anch(1, i),anch(2, i),"A"+(i-1))
+end
+hold off;
+
 
 

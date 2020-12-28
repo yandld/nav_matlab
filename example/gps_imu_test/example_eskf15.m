@@ -1,7 +1,8 @@
-%% 当地切平面坐标系 GPS IMU 组合导航，经典15维ESKF
 clear;
 clc;
 close all;
+%% 当地切平面坐标系 GPS IMU 组合导航，经典15维ESKF
+
 %% Load data 瑞典data
 load('gps_ins_dataset1.mat');
 
@@ -107,21 +108,39 @@ imu = dataset.imu;
 imu.gyr = rad2deg(imu.gyr);
 
 % 原始数据
-ch_imu_data_plot('acc', imu.acc', 'gyr', imu.gyr',  'eul', outdata.eul', 'time',  imu.time', 'subplot', 1);
+ch_plot_imu('acc', imu.acc', 'gyr', imu.gyr',  'eul', outdata.eul', 'time',  imu.time');
 
 % 零偏估计plot
-ch_imu_data_plot('wb', rad2deg(outdata.delta_u_h(4:6,:))', 'gb', outdata.delta_u_h(1:3,:)', 'time',  imu.time', 'subplot', 1);
+ch_plot_imu('wb', rad2deg(outdata.delta_u_h(4:6,:))', 'gb', outdata.delta_u_h(1:3,:)', 'time',  imu.time');
 
 % P阵方差
-ch_imu_data_plot('P_phi', outdata.diag_P(7:9,:)', 'P_wb', outdata.diag_P(10:12,:)', 'P_pos', outdata.diag_P(1:3,:)', 'time',  imu.time', 'subplot', 1);
+ch_plot_imu('P_phi', outdata.diag_P(7:9,:)', 'P_wb', outdata.diag_P(10:12,:)', 'P_pos', outdata.diag_P(1:3,:)', 'time',  imu.time');
 
-% 轨迹
-ch_imu_data_plot('pos_fusion',outdata.x(1:3,:)', 'pos_gnss', dataset.gnss.pos_ned',  'time',  imu.time', 'subplot', 1);
+% 2D轨迹
+ch_plot_gps_imu_pos('pos',outdata.x(1:3,:)', 'gnss', dataset.gnss.pos_ned',  'time',  imu.time');
 
+% % 3D轨迹
 ch_plot_pos3d('p1', outdata.x(1:3,:)', 'p2', dataset.gnss.pos_ned', 'legend', ["融合", "GNSS"] )
 
-gnss_imu_local_tan_plot(dataset, outdata, 'True');
+figure;
+xest = outdata.x(2,:);
+yest = outdata.x(1,:);
+xgps = interp1(dataset.gnss.time, dataset.gnss.pos_ned(2,:), dataset.imu.time,'linear','extrap')';
+ygps = interp1(dataset.gnss.time, dataset.gnss.pos_ned(1,:), dataset.imu.time,'linear','extrap')';
+xerr = xest - xgps; 
+yerr = yest - ygps;
+plot(dataset.imu.time, xerr)
+grid on
+hold on
+plot(dataset.imu.time, yerr)
+xlabel('time [s]')
+ylabel('position difference [m]')
+title('融合后与GNSS位置误差');
+legend('x', 'y')
 
+positionerr_RMS = sqrt(mean(xerr.^2+yerr.^2));
+
+fprintf("融合后轨迹与GPS误差:%.3f\n", positionerr_RMS);
 
 %%  Init navigation state     %%
 function x = init_navigation_state(~, settings)
