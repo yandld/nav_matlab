@@ -38,7 +38,7 @@ ctr_gnss_data = 1;
 for k=2:n
     dt = imu_t(k)-imu_t(k-1);
     
-    % 陀螺零偏，人为噪声
+    % 陀螺零偏，人为在陀螺Y轴上加一个大的bias
     u(5,k) = u(5,k) + deg2rad(5);
     
     % 零偏状态反馈
