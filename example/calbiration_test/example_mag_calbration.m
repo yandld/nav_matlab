@@ -3,18 +3,18 @@ clear;
 clc;
 
 %% simulate data 
-c = [-0.5; 0.2; 0.1]; % ellipsoid center
-r = [1; 1; 2]; % semiaxis radii
+% c = [-0.5; 0.2; 0.1]; % ellipsoid center
+% r = [1; 1; 2]; % semiaxis radii
 
-[x,y,z] = ellipsoid(c(1),c(2),c(3),r(1),r(2),r(3),6);
-D = [x(:),y(:),z(:)];
+% [x,y,z] = ellipsoid(c(1),c(2),c(3),r(1),r(2),r(3),6);
+% D = [x(:),y(:),z(:)];
+% 
+% % add noise:
+% n = length(D);
+% noiseIntensity = 0.01; %噪声强度 
+% D = D + randn(n,3) * noiseIntensity;
 
-% add noise:
-n = length(D);
-noiseIntensity = 0.01; %噪声强度 
-D = D + randn(n,3) * noiseIntensity;
-
-%%%real data
+%% 真实数据，从超核 HI229模块采集下来的
 
 mag= [
 29.0417 -38.2667  11.0000 
@@ -246,7 +246,6 @@ mag= [
  25.7917 -35.8750 119.9333 
  20.2917 -37.6250 120.2500 
  18.8750 -39.3917 119.6000 
-
     ];
 
 
@@ -270,7 +269,12 @@ n = length(D);
 
 %% matlab internal fitting 
 
-[A, b, expmfs] = magcal(D, 'auto')
+[A, b, expmfs] = magcal(D, 'auto');
+
+fprintf("校准矩阵:\n");
+A
+fprintf('硬磁干扰(bias): %.3f %.3f %.3f\n', b);
+
 %fprintf( 'away from cetner %.5g\n', norm( b' - c) );
 C = (D-b)*A; % calibrated data
 
