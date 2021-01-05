@@ -11,17 +11,17 @@ function out = ch_att_upt(in, gyr, dt)
 %                  dq(3) = rv(2)*0.5;
 %                  dq(4) = rv(3)*0.5;
 
-out = ch_qmul(in, dq);
-out = ch_qnormlz(out);
+ out = ch_qmul(in, dq);
+ out = ch_qnormlz(out);
 
-
-
-%% 使用旋转矩阵更新
-
+ %% 使用旋转矩阵更新
+% 
 %  Cb2n = ch_q2m(in);
 %  theta = gyr*dt;
 % 
-% C = eye(3) + ch_askew(theta);
+% %C = eye(3) + ch_askew(theta);
+% C = ch_rv2m(theta);
+% 
 % Cb2n = Cb2n * C;
 % 
 % % 截断误差，保持正交化 GNSS与惯性及多传感器组合导航系统原理-第二版.pdf 公式 5.80

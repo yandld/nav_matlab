@@ -23,7 +23,7 @@ pos_py_sim = pos_py_sim - pos_py_sim(1,:);
 gyr = deg2rad(gyr);
 N = length(acc);
 
-% 惯导解算
+% 惯导解算, 初始化
 x = zeros(10,1);
 x(7:10) = [1 0 0 0];
 
@@ -34,7 +34,6 @@ for i=1:N
     att(i,:) = rad2deg(ch_q2eul(x(7:10)));
     vel(i,:) = x(4:6);
 end
-
 
 ch_plot_pos3d( 'p1', pos_matlab, 'p2', pos_py_sim, 'p3', pos_matlab, 'legend', ["GNSS-SIM真值", "GNSS-SIM仿真结果","matlab仿真结果"]);
 ch_plot_pos2d( 'p1', pos_matlab, 'p2', pos_py_sim, 'p3', pos_matlab, 'legend', ["GNSS-SIM真值", "GNSS-SIM仿真结果","matlab仿真结果"]);
