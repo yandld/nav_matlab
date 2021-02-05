@@ -5,9 +5,9 @@ format short;
 
 %%
 
-%rosbag info 'T0_raw_mopping0.bag'
+rosbag info 'h226b_mopping.bag'
 
-bagselect  = rosbag('T1_0.4_mopping_12_24_14_20.bag');
+bagselect  = rosbag('h226b_mopping.bag');
 
 bagselect2 = select(bagselect,'Time',   [bagselect.StartTime bagselect.EndTime],'Topic', '/mobile_base/sensors/pose3D');
 msgs = readMessages(bagselect2, "DataFormat", "struct");
@@ -37,6 +37,6 @@ ch_plot_imu('time', (1:N)/Fs, 'acc', accelReading,  'gyr', gyroReading);
 
 
 figure;
-plot(accelReading(:,2))
+plot(gyroReading(:,3))
 title("bias upadte")
 
