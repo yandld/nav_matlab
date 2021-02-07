@@ -1,4 +1,4 @@
-function C = eul2m(eul)
+function Cn2b = ch_eul2m(eul)
 %eul2dcm - Converts a set of Euler angles to the corresponding
 %coordinate transformation matrix
 %
@@ -12,8 +12,7 @@ function C = eul2m(eul)
 %           order roll, pitch, yaw(rad)
 %
 % Outputs:
-%   C       coordinate transformation matrix describing transformation from
-%           beta to alpha
+%   C      Cn2b
 
 
 % Begins
@@ -27,14 +26,14 @@ sin_psi = sin(eul(3));
 cos_psi = cos(eul(3));
 
 % Calculate coordinate transformation matrix using (2.22)
-C(1,1) = cos_theta * cos_psi;
-C(1,2) = cos_theta * sin_psi;
-C(1,3) = -sin_theta;
-C(2,1) = -cos_phi * sin_psi + sin_phi * sin_theta * cos_psi;
-C(2,2) = cos_phi * cos_psi + sin_phi * sin_theta * sin_psi;
-C(2,3) = sin_phi * cos_theta;
-C(3,1) = sin_phi * sin_psi + cos_phi * sin_theta * cos_psi;
-C(3,2) = -sin_phi * cos_psi + cos_phi * sin_theta * sin_psi;
-C(3,3) = cos_phi * cos_theta;
+Cn2b(1,1) = cos_theta * cos_psi;
+Cn2b(1,2) = cos_theta * sin_psi;
+Cn2b(1,3) = -sin_theta;
+Cn2b(2,1) = -cos_phi * sin_psi + sin_phi * sin_theta * cos_psi;
+Cn2b(2,2) = cos_phi * cos_psi + sin_phi * sin_theta * sin_psi;
+Cn2b(2,3) = sin_phi * cos_theta;
+Cn2b(3,1) = sin_phi * sin_psi + cos_phi * sin_theta * cos_psi;
+Cn2b(3,2) = -sin_phi * cos_psi + cos_phi * sin_theta * sin_psi;
+Cn2b(3,3) = cos_phi * cos_theta;
 
 % Ends

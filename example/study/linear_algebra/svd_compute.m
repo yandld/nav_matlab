@@ -1,5 +1,6 @@
 clear;
 clc;
+format short;
 
 A = [4 4; -3 3];
 
