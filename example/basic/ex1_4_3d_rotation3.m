@@ -28,11 +28,3 @@ fprintf("Cn2b也可以通过欧拉角计算:， 注意矩阵的旋转顺序 和 
 Cn2b_312 = ch_roty(-eul_rad(2))  * ch_rotx(-eul_rad(1)) * ch_rotz(-eul_rad(3));
 Cn2b_312
 
-
-
-
-
-
-
-
-

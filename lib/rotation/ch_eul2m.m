@@ -1,12 +1,13 @@
 function [Cb2n_312, Cb2n_321] = ch_eul2m(att)
-% Convert Euler angles to direction cosine matrix(DCM).
+% 将欧拉角转换为姿态阵
+% 复用严龚敏老师的a2mat
 %
-% Input: att - att=[pitch; roll; yaw] in radians  att: 绕X,Y,Z旋转的角度，单位：rad
-% 对于312顺序，对应[pitch roll yaw]
-% 对于321顺序，对应[roll pitch yaw]
+% Input: att  单位：rad
+% 对于312((Z->X->Y))顺序，对应att = [pitch(绕X轴) roll(绕Y轴)  yaw(绕Z轴)]
+% 对于3211(Z->Y->X)顺序，对应att = [roll(绕X轴) pitch(绕Y轴)  yaw(绕Z轴)]
 % Outputs: 
-% Cb2n_312:  312顺序下的Cb2n
-% Cb2n_321:  321顺序下的Cb2n
+% Cb2n_312:  312欧拉角顺序下转换后的Cb2n
+% Cb2n_321:  321欧拉角顺序下转换后的Cb2n
 
     s = sin(att); c = cos(att);
     si = s(1); sj = s(2); sk = s(3); 

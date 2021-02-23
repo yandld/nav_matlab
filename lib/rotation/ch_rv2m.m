@@ -2,7 +2,7 @@ function m = ch_rv2m(rv)
 %  等效旋转矢量转换为旋转矩阵
 %
 % Input: rv - 旋转矢量
-% Output: m -旋转矩阵 Cn2n 严龚敏 2.2.23
+% Output: m -旋转矩阵 Cb2n 严龚敏 2.2.23
 %     m = I + sin(|rv|)/|rv|*(rvx) + [1-cos(|rv|)]/|rv|^2*(rvx)^2
 %     where rvx is the askew matrix or rv.
 
@@ -15,3 +15,5 @@ function m = ch_rv2m(rv)
     end
     VX = ch_askew(rv);
     m = eye(3) + a*VX + b*VX^2;
+    
+    
