@@ -5,54 +5,38 @@ format
 
 %% 读取数据
 data = csvread("UranusData.csv", 1, 1);
+acc = data(:,2:4);
+gyr = data(:,5:7);
 
-Fs = 100;
+% %% 读取数据
+% load hi226_static_30s.mat
 
-accBias =  mean(data(1:200,2:4));
-accBias(:,3) = accBias(:,3) - 1;
+Fs = 400; 
+N = length(acc);
 
-% 减去零偏
-accReading = data(:,2:4);
-accReading =  accReading -  accBias;
-accReading = accReading*9.795;
+%% 打印原始数据
+ch_plot_imu('time', 1:N, 'acc', acc, 'gyr', gyr);
 
-gyrReading = data(:,5:7);
-gyrReading = deg2rad(gyrReading);
+%% 角速度变为rad， 加速度变为m/s^(2)
+gyr = deg2rad(gyr);
+acc = acc*9.795;
 
-N = length(accReading);
-
-
-x = zeros(10,1);
-x(7:10) = [1 0 0 0];
+% 惯导解算, 初始化
+p = zeros(3, 1);
+v = zeros(3, 1);
+q= [1 0 0 0]';
 
 
 for i=1:N
-    u = [accReading(i,:) gyrReading(i,:)]';
-    x = ch_nav_equ_local_tan(x, u , 1 / Fs, [0, 0, -9.795]');
-    
-    gyr = u(4:6);
-    if(norm(gyr) < deg2rad(1))
-         x(4:6) = 0;
-    end
-
-    pos_matlab(i,:) = x(1:3);
-    att_matlab(i,:) = rad2deg(ch_q2eul(x(7:10)));
-    vel_matlab(i,:) = x(4:6);
+    [p ,v , q] = ch_nav_equ_local_tan(p, v, q, acc(i,:)', gyr(i,:)', 1 / Fs, [0, 0, -9.795]');
+    pos(i,:) = p;
 end
-
-%% 姿态
-ch_imu_data_plot('time', 1:N, 'acc', accReading, 'gyr', gyrReading,  'eul', att_matlab, 'subplot', true);
-
-figure;
-plot(vel_matlab);
-title('速度');
-
 
 %3D位置plot
 figure;
-plot3(pos_matlab(1,1), pos_matlab(1,2), pos_matlab(1,3), '-ks');
+plot3(pos(1,1), pos(1,2), pos(1,3), '-ks');
 hold on;
-plot3(pos_matlab(:,1), pos_matlab(:,2), pos_matlab(:,3), '.b');
+plot3(pos(:,1), pos(:,2), pos(:,3), '.b');
 axis equal
 xlabel('X(m)');  ylabel('Y(m)');   zlabel('Z(m)'); 
 title('3D位置');
@@ -60,14 +44,14 @@ legend('起始', '3D');
 
 
 figure;
-plot(pos_matlab(:,1), pos_matlab(:,2), '.b');
+plot(pos(:,1), pos(:,2), '.b');
 hold on;
-plot(pos_matlab(1,1), pos_matlab(1,2), '-ks');
+plot(pos(1,1), pos(1,2), '-ks');
 axis equal
 title('2D位置');
 xlabel('X(m)');  ylabel('Y(m)'); 
 
     
 fprintf("共%d数据，用时:%.3fs\n", N, N/Fs);
-fprintf("起始位置:%.3f %.3f, 终点位置%.3f %.3f, 相差:%.3fm\n", pos_matlab(1,1), pos_matlab(1,2), pos_matlab(N,1), pos_matlab(N,2), norm(pos_matlab(N,:) - pos_matlab(1,:)));
+fprintf("起始位置:%.3f %.3f, 终点位置%.3f %.3f, 相差:%.3fm\n", pos(1,1), pos(1,2), pos(N,1), pos(N,2), norm(pos(N,:) - pos(1,:)));
 
