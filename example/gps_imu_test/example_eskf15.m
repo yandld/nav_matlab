@@ -45,7 +45,7 @@ for k=2:n
     u_h = u(:,k) - delta_u;
     
     % ½ÝÁª¹ßµ¼½âËã
-    x = ch_nav_equ_local_tan(x, u_h, dt, settings.gravity);
+    [x(1:3), x(4:6), x(7:10)] = ch_nav_equ_local_tan(x(1:3), x(4:6), x(7:10), u_h(1:3), u_h(4:6), dt, settings.gravity);
     
     predic_div = predic_div+1;
     if predic_div == 10
@@ -203,11 +203,12 @@ F = [  O I   O O        O;
 F = eye(15) + dt*F;
 
 % Noise gain matrix
-G=dt*[O       O         O  O;
-    Cb2n  O         O  O;
-    O        -Cb2n O  O;
-    O        O         I   O;
-    O        O        O   I];
+G= [O       O         O  O;
+     Cb2n  O         O  O;
+     O        -Cb2n O  O;
+     O        O         I   O;
+     O        O        O   I];
+ G = G * dt;
 end
 
 

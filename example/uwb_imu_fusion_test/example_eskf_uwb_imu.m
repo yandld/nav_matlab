@@ -60,8 +60,8 @@ for k=1:N
     u_h = u_h + delta_u_h;
     
     % ½ÝÁª¹ßµ¼
-    noimal_state = ch_nav_equ_local_tan(noimal_state, u_h, dt,  [0, 0, 9.7803698]');
-    
+	[noimal_state(1:3), noimal_state(4:6), noimal_state(7:10)] = ch_nav_equ_local_tan(noimal_state(1:3), noimal_state(4:6), noimal_state(7:10), u_h(1:3), u_h(4:6), dt, [0, 0, 9.7803698]');
+        
     p_div = p_div+1;
     if p_div == 1
         %Get state space model matrices
