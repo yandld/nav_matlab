@@ -70,7 +70,7 @@ legend("真实值(GT)", "航迹推算(DR)" , "EKF滤波");
 figure;
 hold on;
 plot(1:N, hx_gt(:,4));
-plot(1:N, hx_dr(:,4),'g.');
+plot(1:N, hx_dr(:,4),'g');
 plot(1:N, hx_est(:,4),'b.');
 title("速度");
 legend("真实值(GT)", "航迹推算(DR)" , "EKF滤波");
