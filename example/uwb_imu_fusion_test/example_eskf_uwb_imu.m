@@ -5,9 +5,9 @@ close all
 %% 说明
 % UWB IMU 融合算法，采用误差卡尔曼15维经典模型，伪距组合
 
-% noimal_state: 位置(3) 速度(3) 四元数(4) 共10维
-% err_state:  位置误差(3) 速度误差(3) 失准角(3) 加速度计零偏(3) 陀螺零偏(3) 共15维
-% du: 加速度计零偏(3) 陀螺零偏(3)
+% noimal_state:     位置(3) 速度(3) 四元数(4) 共10维
+% err_state:           位置误差(3) 速度误差(3) 失准角(3) 加速度计零偏(3) 陀螺零偏(3) 共15维
+% du:                    加速度计零偏(3) 陀螺零偏(3)
 
 %% Motion Process, Measurement model and it's derivative
 h_func = @uwb_h;
@@ -17,28 +17,31 @@ imu_iter = 1;
 uwb_iter = 1;
 
 %% load data set
-load dataset2;
+%load dataset2;
+load datas;
+dataset = datas;
 
-dt = dataset.imu.time(2) - dataset.imu.time(1);
+dt = sum(diff(dataset.imu.time)) / length(dataset.imu.time);
 
-section = [5000  7000]*4;
-
+% section = [5000  7000]*4;
+%
 u = [dataset.imu.acc; dataset.imu.gyr];
+%
+% u = u(:,section(1) :section(2));
+%
+% dataset.imu.time = dataset.imu.time(1,section(1) :section(2));
+% dataset.uwb.time =  dataset.uwb.time(1,section(1)/4 :section(2)/4);
+% dataset.uwb.tof = dataset.uwb.tof(:,section(1)/4 : section(2)/4);
 
-u = u(:,section(1) :section(2));
+%dataset.uwb.anchor = [dataset.uwb.anchor(:,1:dataset.uwb.cnt); [0.01 0 0 0]];
 
-dataset.imu.time = dataset.imu.time(1,section(1) :section(2));
-dataset.uwb.time =  dataset.uwb.time(1,section(1)/4 :section(2)/4);
-dataset.uwb.tof = dataset.uwb.tof(:,section(1)/4 : section(2)/4);
-
-dataset.uwb.anchor = [dataset.uwb.anchor(:,1:5); [0.01 0 0 0 0]];
-dataset.uwb.cnt = 5;
+dataset.uwb.cnt =4;
 N = length(u);
 
-MeasureNoiseVariance = 0.0001;  % UWB测距噪声
+uwb_noise = 0.3;  % UWB测距噪声
 
-R = diag(ones(dataset.uwb.cnt, 1)*MeasureNoiseVariance);
-p_div = 0;
+R = diag(ones(dataset.uwb.cnt, 1)*uwb_noise);
+p_div = 0; % 预测过程频率器，目前没有用
 
 %% 打印原始数据
 ch_plot_imu('time', 1:length(dataset.imu.acc), 'acc', dataset.imu.acc' / 9.8, 'gyr', rad2deg(dataset.imu.gyr'));
@@ -66,14 +69,23 @@ for k=1:N
     gyr = gyr + du(4:6);
     
     % 捷联惯导
-    [noimal_state(1:3), noimal_state(4:6), noimal_state(7:10)] = ch_nav_equ_local_tan(noimal_state(1:3), noimal_state(4:6), noimal_state(7:10), acc, gyr, dt, [0, 0, 9.7803698]');
+    pos = noimal_state(1:3);
+    vel = noimal_state(4:6);
+    quat =  noimal_state(7:10);
+    
+    [pos, vel, quat] = ch_nav_equ_local_tan(pos, vel, quat, acc, gyr, dt, [0, 0, 9.8]');
+    
+    noimal_state(1:3) = pos;
+    noimal_state(4:6) = vel;
+    noimal_state(7:10) = quat;
+    
     
     p_div = p_div+1;
     if p_div == 1
-        %Get state space model matrices
+        % 生成F阵   G阵
         [F, G] = state_space_model(noimal_state, acc, dt*p_div);
         
-        %Time update of the Kalman filter state covariance.
+        %卡尔曼P阵预测公式
         P = F*P*F' + G*blkdiag(Q1, Q2)*G';
         p_div = 0;
     end
@@ -95,13 +107,13 @@ for k=1:N
             
             % NLOS elimation
             t = h_func(noimal_state, dataset.uwb);
-            if uwb_iter > 50
-                for i = 1:length(y)
-                    if abs(y(i) - t(i))  > 0.9
-                        y(i) = t(i); %丢弃这次量测，直接认为这次量测就是预测误差
-                    end
-                end
-            end
+            %             if uwb_iter > 50
+            %                 for i = 1:length(y)
+            %                     if abs(y(i) - t(i))  > 0.9
+            %                         y(i) = t(i); %丢弃这次量测，直接认为这次量测就是预测误差
+            %                     end
+            %                 end
+            %             end
             
             err_state = [zeros(9,1); du] + K*(y - h_func(noimal_state, dataset.uwb));
             
@@ -114,11 +126,12 @@ for k=1:N
             q = ch_qconj(q);
             noimal_state(7:10) = q;
             
+            %存储加速度计零偏，陀螺零偏
             du = err_state(10:15);
             
             % P阵后验更新
             P=(eye(15)-K*H)*P;
-
+            
         end
         uwb_iter = uwb_iter + 1;
     end
@@ -155,16 +168,13 @@ fusion_display(out_data, []);
 %%  Init navigation state
 function x = init_navigation_state(settings)
 
-roll = 0;
-pitch = 0;
-
 % 初始化normial state
-q = ch_eul2q([roll pitch settings.init_heading]);
+q = ch_eul2q([0 0 0]);
 x = [zeros(6,1); q];
 end
 
 
-%%  Init filter
+%% 初始化滤波器参数
 function [P, Q1, Q2, R, H] = init_filter(settings)
 
 % Kalman filter state matrix
@@ -189,7 +199,7 @@ H = 0;
 
 end
 
-%%  State transition matrix
+%%  生成F阵，G阵
 function [F,G] = state_space_model(x, acc, dt)
 Cb2n = ch_q2m(x(7:10));
 

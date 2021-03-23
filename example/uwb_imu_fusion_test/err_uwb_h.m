@@ -6,7 +6,7 @@
 % Licence (version 2 or later); please refer to the file 
 % Licence.txt, included with the software, for details.
 
-function [Y,H] = ekf_err_uwb_h(x, uwb)
+function [Y, H] = ekf_err_uwb_h(x, uwb)
 
     position = x(1:3);	
     n = uwb.cnt;
