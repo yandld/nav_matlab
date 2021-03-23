@@ -1,6 +1,6 @@
 function [p, v, q] = ch_nav_equ_local_tan(p, v, q ,acc, gyr, dt, gN)
-%  惯导解算更新，当地直角坐标系，不考虑地球重力
-% p         位置 XYZ 单位 m
+%  惯导解算更新，当地直角坐标系，不考虑地球自转
+% p          位置 XYZ 单位 m
 % v          速度 XYZ 单位 m/s
 % q         Qb2n姿态,四元数表示
 % acc      比力， 加速度计测量值 单位  (m/s^2), 

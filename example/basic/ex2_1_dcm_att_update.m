@@ -20,6 +20,7 @@ theta = deg2rad(w)*dt; %定轴转动下: 等效旋转矢量 = 角增量 = 角速
 for i = 1:N
     C_m2m_1 = ch_rv2m(theta);
     Cb2n = Cb2n * C_m2m_1;
+
     
     %单位阵正交化
     Cb2n = ch_mnormlz(Cb2n);

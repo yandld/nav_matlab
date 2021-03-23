@@ -15,8 +15,8 @@ Q = diag([  % predict state covariance
 
 %量测噪声
 R = diag([
-    1 % GPS X量测噪声
-    1 % GPS Y量测噪声
+    3 % GPS X量测噪声
+    3 % GPS Y量测噪声
     ])^(2);
 
 %  输入噪声参数(速度传感器(编码器) 和 角速度传感器(陀螺仪))
@@ -25,9 +25,9 @@ INPUT_NOISE  = diag([1.0, deg2rad(30.0)]) ^(2);
 
 %GPS 噪声参数
 global GPS_NOISE;
-GPS_NOISE = diag([0.5, 0.5]) ^(2);
+GPS_NOISE = diag([0.7, 0.7]) ^(2);
 
-dt = 0.1; 
+dt = 0.1; %积分间隔
 N = 400;
 
 %% 初始值
@@ -92,12 +92,12 @@ fprintf("滤波位置与真实值误差:%f m\n", err);
 % EKF滤波过程
 function  [x_est , P]  = ekf_estimation(x_est, P, Q, R, z, u, dt)
 
-%Predict
+% predict
 x_est = motion_model(x_est, u, dt);
 JF = jacob_f(x_est, u, dt);
 P = JF*P*JF' + Q;
 
-%Update
+% update
 JH = jacob_h();
 z_pred = observation_model(x_est);
 y = z - z_pred; %计算新息
@@ -131,7 +131,6 @@ end
 
 %生成 真实值，DR值和观测值
 function  [x_gt, z, x_dr, u_dr] = observation(x_gt, x_dr, u, dt)
-
 
 
 x_gt =  motion_model(x_gt, u, dt);
