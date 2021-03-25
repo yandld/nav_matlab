@@ -13,33 +13,18 @@ close all
 h_func = @uwb_h;
 dh_dx_func = @err_uwb_h;
 
-% imu_iter = 1;
-% uwb_iter = 1;
 
 %% load data set
 %load dataset2;
 load datas;
 dataset = datas;
 
-dt = sum(diff(dataset.imu.time)) / length(dataset.imu.time);
-
-% section = [5000  7000]*4;
-%
-u = [dataset.imu.acc; dataset.imu.gyr];
-
-%
-% u = u(:,section(1) :section(2));
-%
-% dataset.imu.time = dataset.imu.time(1,section(1) :section(2));
-% dataset.uwb.time =  dataset.uwb.time(1,section(1)/4 :section(2)/4);
-% dataset.uwb.tof = dataset.uwb.tof(:,section(1)/4 : section(2)/4);
-
-%dataset.uwb.anchor = [dataset.uwb.anchor(:,1:dataset.uwb.cnt); [0.01 0 0 0]];
+N = length(dataset.imu.time);
+dt = sum(diff(dataset.imu.time)) / N;
 
 dataset.uwb.cnt = 4;
-N = length(u);
-fprintf("共%d数据, 频率:%d Hz\n", N,  1 / dt);
-uwb_noise = 0.3;  % UWB测距噪声
+
+uwb_noise = 0.25;  % UWB测距噪声
 
 R = diag(ones(dataset.uwb.cnt, 1)*uwb_noise^(2));
 p_div = 0; % 预测频率器，目前没有用
@@ -60,11 +45,13 @@ noimal_state = init_navigation_state(settings);
 du = zeros(6, 1);
 [P, Q1, Q2, ~, ~] = init_filter(settings);
 
+fprintf("共%d数据, 频率:%d Hz\n", N,  1 / dt);
+
 fprintf("开始融合...\n");
 for k=1:N
     
-    acc = u(1:3,k);
-    gyr = u(4:6,k);
+    acc = dataset.imu.acc(:,k);
+    gyr = dataset.imu.gyr(:,k);
     
     % 反馈
     acc = acc + du(1:3);
