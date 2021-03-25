@@ -13,8 +13,8 @@ close all
 h_func = @uwb_h;
 dh_dx_func = @err_uwb_h;
 
-imu_iter = 1;
-uwb_iter = 1;
+% imu_iter = 1;
+% uwb_iter = 1;
 
 %% load data set
 %load dataset2;
@@ -26,6 +26,7 @@ dt = sum(diff(dataset.imu.time)) / length(dataset.imu.time);
 % section = [5000  7000]*4;
 %
 u = [dataset.imu.acc; dataset.imu.gyr];
+
 %
 % u = u(:,section(1) :section(2));
 %
@@ -35,13 +36,14 @@ u = [dataset.imu.acc; dataset.imu.gyr];
 
 %dataset.uwb.anchor = [dataset.uwb.anchor(:,1:dataset.uwb.cnt); [0.01 0 0 0]];
 
-dataset.uwb.cnt =4;
+dataset.uwb.cnt = 4;
 N = length(u);
-
+fprintf("共%d数据, 频率:%d Hz\n", N,  1 / dt);
 uwb_noise = 0.3;  % UWB测距噪声
 
-R = diag(ones(dataset.uwb.cnt, 1)*uwb_noise);
-p_div = 0; % 预测过程频率器，目前没有用
+R = diag(ones(dataset.uwb.cnt, 1)*uwb_noise^(2));
+p_div = 0; % 预测频率器，目前没有用
+m_div = 0; %量测分频器
 
 %% 打印原始数据
 ch_plot_imu('time', 1:length(dataset.imu.acc), 'acc', dataset.imu.acc' / 9.8, 'gyr', rad2deg(dataset.imu.gyr'));
@@ -53,12 +55,12 @@ out_data.imu.time = dataset.imu.time;
 out_data.uwb.anchor = dataset.uwb.anchor;
 
 %% load settings
-settings = gnss_imu_local_tan_example_settings();
+settings = uwb_imu_example_settings();
 noimal_state = init_navigation_state(settings);
 du = zeros(6, 1);
 [P, Q1, Q2, ~, ~] = init_filter(settings);
 
-
+fprintf("开始融合...\n");
 for k=1:N
     
     acc = u(1:3,k);
@@ -71,13 +73,13 @@ for k=1:N
     % 捷联惯导
     pos = noimal_state(1:3);
     vel = noimal_state(4:6);
-    quat =  noimal_state(7:10);
+    q =  noimal_state(7:10);
     
-    [pos, vel, quat] = ch_nav_equ_local_tan(pos, vel, quat, acc, gyr, dt, [0, 0, 9.8]');
+    [pos, vel, q] = ch_nav_equ_local_tan(pos, vel, q, acc, gyr, dt, [0, 0, 9.8]');
     
     noimal_state(1:3) = pos;
     noimal_state(4:6) = vel;
-    noimal_state(7:10) = quat;
+    noimal_state(7:10) = q;
     
     
     p_div = p_div+1;
@@ -93,20 +95,21 @@ for k=1:N
     
     
     %% EKF UWB量测更新
-    if uwb_iter < length(dataset.uwb.time)  && abs(dataset.imu.time(imu_iter) - dataset.uwb.time(uwb_iter))  < 0.01
+    m_div = m_div+1;
+     if m_div == 1
+        m_div = 0;
         
-        y = dataset.uwb.tof(:,uwb_iter);
-        y = y(1:dataset.uwb.cnt);
+        pr = dataset.uwb.tof(:,k);
         
         % bypass Nan
-        if sum(isnan(y)) == 0
+        if sum(isnan(pr)) == 0
             [~,H] = dh_dx_func(noimal_state, dataset.uwb);
             
-            % Calculate the Kalman filter gain.
-            K=(P*H')/(H*P*H'+R);
+            % 卡尔曼公式，计算K
+            K = (P*H')/(H*P*H'+R);
             
             % NLOS elimation
-            t = h_func(noimal_state, dataset.uwb);
+            % t = h_func(noimal_state, dataset.uwb);
             %             if uwb_iter > 50
             %                 for i = 1:length(y)
             %                     if abs(y(i) - t(i))  > 0.9
@@ -115,7 +118,7 @@ for k=1:N
             %                 end
             %             end
             
-            err_state = [zeros(9,1); du] + K*(y - h_func(noimal_state, dataset.uwb));
+            err_state = [zeros(9,1); du] + K*(pr - h_func(noimal_state, dataset.uwb));
             
             % 反馈速度位置
             noimal_state(1:6) = noimal_state(1:6) + err_state(1:6);
@@ -130,16 +133,13 @@ for k=1:N
             du = err_state(10:15);
             
             % P阵后验更新
-            P=(eye(15)-K*H)*P;
-            
+            P = (eye(15)-K*H)*P;
         end
-        uwb_iter = uwb_iter + 1;
     end
     
     out_data.x(k,:)  = noimal_state;
     out_data.delta_u(k,:) = du';
     out_data.diag_P(k,:) = trace(P);
-    imu_iter = imu_iter + 1;
 end
 
 %% 纯 UWB 位置解算
@@ -163,13 +163,49 @@ end
 out_data.uwb.tof = dataset.uwb.tof;
 out_data.uwb.fusion_pos = out_data.x(:,1:3)';
 
-fusion_display(out_data, []);
+% fusion_display(out_data, []);
+ 
+ 
+figure;
+subplot(2,1,1);
+ plot(out_data.delta_u(:,1:3));
+ legend("X", "Y", "Z");
+ title("加速度零偏");
+subplot(2,1,2);
+plot(rad2deg(out_data.delta_u(:,4:6)));
+legend("X", "Y", "Z");
+title("陀螺仪零偏");
+
+figure;
+subplot(2,1,1);
+plot(out_data.x(:,1:3));
+legend("X", "Y", "Z");
+title("位置");
+subplot(2,1,2);
+plot(out_data.x(:,4:6));
+legend("X", "Y", "Z");
+title("速度");
+
+
+figure;
+plot(out_data.uwb.pos(1,:), out_data.uwb.pos(2,:), '.');
+hold on;
+plot(out_data.uwb.fusion_pos(1,:), out_data.uwb.fusion_pos(2,:), '*-');
+legend("伪距解算UWB轨迹", "融合轨迹");
+
+figure;
+plot(datas.pos(1,:), datas.pos(2,:), '.');
+hold on;
+plot(out_data.uwb.fusion_pos(1,:), out_data.uwb.fusion_pos(2,:), '*-');
+legend("硬件给出轨迹", "融合轨迹");
+
+
 
 %%  Init navigation state
-function x = init_navigation_state(settings)
+function x = init_navigation_state(~)
 
 % 初始化normial state
-q = ch_eul2q([0 0 0]);
+q = ch_eul2q(deg2rad([0 0 0]));
 x = [zeros(6,1); q];
 end
 
