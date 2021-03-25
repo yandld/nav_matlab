@@ -24,11 +24,12 @@ dt = sum(diff(dataset.imu.time)) / N;
 
 dataset.uwb.cnt = 4;
 
-uwb_noise = 0.25;  % UWB测距噪声
+uwb_noise = 0.2;  % UWB测距噪声
 
 R = diag(ones(dataset.uwb.cnt, 1)*uwb_noise^(2));
-p_div = 0; % 预测频率器，目前没有用
-m_div = 0; %量测分频器
+p_div_cntr = 0; % 预测频率器，目前没有用
+m_div_cntr = 0; %量测分频器
+m_div = 5;  %每m_div次量测，才更新一次KF, 节约计算量或者做实验看效果
 
 %% 打印原始数据
 ch_plot_imu('time', 1:length(dataset.imu.acc), 'acc', dataset.imu.acc' / 9.8, 'gyr', rad2deg(dataset.imu.gyr'));
@@ -42,6 +43,11 @@ out_data.uwb.anchor = dataset.uwb.anchor;
 %% load settings
 settings = uwb_imu_example_settings();
 noimal_state = init_navigation_state(settings);
+
+%使用第一帧伪距作为初始状态
+pr = dataset.uwb.tof(:, 1);
+noimal_state(1:3) = ch_multilateration(dataset.uwb.anchor, [ 0 0 0]',  pr');
+
 du = zeros(6, 1);
 [P, Q1, Q2, ~, ~] = init_filter(settings);
 
@@ -64,29 +70,34 @@ for k=1:N
     
     [pos, vel, q] = ch_nav_equ_local_tan(pos, vel, q, acc, gyr, dt, [0, 0, 9.8]');
     
+    %Z方向速度限制
+    vel(3) = 0;
+    
     noimal_state(1:3) = pos;
     noimal_state(4:6) = vel;
     noimal_state(7:10) = q;
     
     
-    p_div = p_div+1;
-    if p_div == 1
+    p_div_cntr = p_div_cntr+1;
+    if p_div_cntr == 1
         % 生成F阵   G阵
-        [F, G] = state_space_model(noimal_state, acc, dt*p_div);
+        [F, G] = state_space_model(noimal_state, acc, dt*p_div_cntr);
         
         %卡尔曼P阵预测公式
         P = F*P*F' + G*blkdiag(Q1, Q2)*G';
-        p_div = 0;
+        p_div_cntr = 0;
     end
     
     
     
     %% EKF UWB量测更新
-    m_div = m_div+1;
-     if m_div == 1
-        m_div = 0;
+    m_div_cntr = m_div_cntr+1;
+     if m_div_cntr == m_div
+        m_div_cntr = 0;
         
-        pr = dataset.uwb.tof(:,k);
+        
+     %  pr = dataset.uwb.tof(:,k);
+        pr = mean(dataset.uwb.tof(:,k-3 : k),2);
         
         % bypass Nan
         if sum(isnan(pr)) == 0
@@ -152,7 +163,6 @@ out_data.uwb.fusion_pos = out_data.x(:,1:3)';
 
 % fusion_display(out_data, []);
  
- 
 figure;
 subplot(2,1,1);
  plot(out_data.delta_u(:,1:3));
@@ -173,17 +183,20 @@ plot(out_data.x(:,4:6));
 legend("X", "Y", "Z");
 title("速度");
 
+figure;
+plot3(out_data.uwb.pos(1,:), out_data.uwb.pos(2,:), out_data.uwb.pos(3,:), '.');
+title("UWB 伪距解算位置");
 
 figure;
 plot(out_data.uwb.pos(1,:), out_data.uwb.pos(2,:), '.');
 hold on;
-plot(out_data.uwb.fusion_pos(1,:), out_data.uwb.fusion_pos(2,:), '*-');
+plot(out_data.uwb.fusion_pos(1,:), out_data.uwb.fusion_pos(2,:), '.-');
 legend("伪距解算UWB轨迹", "融合轨迹");
 
 figure;
 plot(datas.pos(1,:), datas.pos(2,:), '.');
 hold on;
-plot(out_data.uwb.fusion_pos(1,:), out_data.uwb.fusion_pos(2,:), '*-');
+plot(out_data.uwb.fusion_pos(1,:), out_data.uwb.fusion_pos(2,:), '.-');
 legend("硬件给出轨迹", "融合轨迹");
 
 
