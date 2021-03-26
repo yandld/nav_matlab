@@ -23,16 +23,15 @@ N = length(dataset.imu.time);
 dt = sum(diff(dataset.imu.time)) / N;
 
 dataset.uwb.cnt = 4;
+%dataset.uwb.anchor = [dataset.uwb.anchor; [ 1.01 1 1 1]];
 
-uwb_noise = 0.2;  % UWB测距噪声
+uwb_noise = 0.05;  % UWB测距噪声
 
 R = diag(ones(dataset.uwb.cnt, 1)*uwb_noise^(2));
 p_div_cntr = 0; % 预测频率器，目前没有用
 m_div_cntr = 0; %量测分频器
-m_div = 5;  %每m_div次量测，才更新一次KF, 节约计算量或者做实验看效果
+m_div = 50;  %每m_div次量测，才更新一次KF, 节约计算量或者做实验看效果
 
-%% 打印原始数据
-ch_plot_imu('time', 1:length(dataset.imu.acc), 'acc', dataset.imu.acc' / 9.8, 'gyr', rad2deg(dataset.imu.gyr'));
 
 %% out data init
 out_data.uwb = [];
@@ -76,7 +75,7 @@ for k=1:N
     noimal_state(1:3) = pos;
     noimal_state(4:6) = vel;
     noimal_state(7:10) = q;
-    
+    out_data.eul(k,:) = ch_q2eul(q);
     
     p_div_cntr = p_div_cntr+1;
     if p_div_cntr == 1
@@ -92,11 +91,11 @@ for k=1:N
     
     %% EKF UWB量测更新
     m_div_cntr = m_div_cntr+1;
-     if m_div_cntr == m_div
+    if m_div_cntr == m_div
         m_div_cntr = 0;
         
         
-     %  pr = dataset.uwb.tof(:,k);
+        %  pr = dataset.uwb.tof(:,k);
         pr = mean(dataset.uwb.tof(:,k-3 : k),2);
         
         % bypass Nan
@@ -162,26 +161,48 @@ out_data.uwb.tof = dataset.uwb.tof;
 out_data.uwb.fusion_pos = out_data.x(:,1:3)';
 
 % fusion_display(out_data, []);
- 
+
+
+%% 打印原始数据
+figure;
+subplot(2, 2, 1);
+plot(dataset.imu.acc');
+legend("X", "Y", "Z");
+title("加速度测量值");
+subplot(2, 2, 2);
+plot(dataset.imu.gyr');
+legend("X", "Y", "Z");
+title("陀螺测量值");
+subplot(2, 2, 3);
+plot(dataset.uwb.tof');
+title("UWB测量值(伪距)");
+
+
+
 figure;
 subplot(2,1,1);
- plot(out_data.delta_u(:,1:3));
- legend("X", "Y", "Z");
- title("加速度零偏");
+plot(out_data.delta_u(:,1:3));
+legend("X", "Y", "Z");
+title("加速度零偏");
 subplot(2,1,2);
 plot(rad2deg(out_data.delta_u(:,4:6)));
 legend("X", "Y", "Z");
 title("陀螺仪零偏");
 
 figure;
-subplot(2,1,1);
+subplot(2,2,1);
 plot(out_data.x(:,1:3));
 legend("X", "Y", "Z");
 title("位置");
-subplot(2,1,2);
+subplot(2,2,2);
 plot(out_data.x(:,4:6));
 legend("X", "Y", "Z");
 title("速度");
+subplot(2,2,3);
+plot(out_data.eul);
+legend("X", "Y", "Z");
+title("欧拉角(姿态)");
+
 
 figure;
 plot3(out_data.uwb.pos(1,:), out_data.uwb.pos(2,:), out_data.uwb.pos(3,:), '.');
