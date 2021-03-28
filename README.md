@@ -2,20 +2,16 @@
 
 
 
-* VRU/AHRS姿态融合算法
-
-* 捷联惯导速度位置姿态解算
-
 * GPS IMU 经典ESKF融合
-
+* VRU/AHRS姿态融合算法
+* 捷联惯导速度位置姿态解算例子
 * UWB IMU融合
 
 
 
+运行环境： matlab2020a 必须安装 sensor fusion toolbox 和 navigation tool box
 
-* 运行环境： matlab2020a 必须安装 sensor fusion toolbox
-
-* 需要将\lib及其子目录加入matlab预设目录， 或者运行一下根目录下的init.m
+需要将\lib及其子目录加入matlab预设目录， 或者运行一下根目录下的init.m
 
 | 目录                         | 说明                                                         |
 | ---------------------------- | ------------------------------------------------------------ |
@@ -28,11 +24,11 @@
 | \example\uwb_imu_fusion_test | UWB+IMU EKF 紧组合导航 还是ESKF15维                          |
 | \example\uwb_test            | 纯UWB三角测距定位测试                                        |
 | \example\basic               | 一些基础函数测试和入门例程(入门推荐先看)                     |
-| \example\study               | 自己学习用脚本，包含线性代数/和一些参考书籍书后matlab答案及验证 |
+| \study                       | 自己学习用脚本，包含线性代数/和一些参考书籍书后matlab答案及验证 |
 
 
 
-其中UWB+IMU 融合和 GPS+IMU融合就是经典的15维误差卡尔曼滤波(EKSF)，没有什么论文参考，就是N年大家一直用的经典的框架。见参考部分.
+其中UWB+IMU 融合和 GPS+IMU融合就是经典的15维误差卡尔曼滤波(EKSF)，没有什么论文参考，就是一直用的经典的框架。见参考部分.
 
 
 
