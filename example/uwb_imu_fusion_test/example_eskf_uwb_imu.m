@@ -25,12 +25,12 @@ dt = sum(diff(dataset.imu.time)) / N;
 dataset.uwb.cnt = 4;
 %dataset.uwb.anchor = [dataset.uwb.anchor; [ 1.01 1 1 1]];
 
-uwb_noise = 0.05;  % UWB测距噪声
+uwb_noise = 0.01;  % UWB测距噪声
 
 R = diag(ones(dataset.uwb.cnt, 1)*uwb_noise^(2));
 p_div_cntr = 0; % 预测频率器，目前没有用
 m_div_cntr = 0; %量测分频器
-m_div = 50;  %每m_div次量测，才更新一次KF, 节约计算量或者做实验看效果
+m_div = 20;  %每m_div次量测，才更新一次KF, 节约计算量或者做实验看效果
 
 
 %% out data init
@@ -50,9 +50,8 @@ noimal_state(1:3) = ch_multilateration(dataset.uwb.anchor, [ 0 0 0]',  pr');
 du = zeros(6, 1);
 [P, Q1, Q2, ~, ~] = init_filter(settings);
 
-fprintf("共%d数据, 频率:%d Hz\n", N,  1 / dt);
-
-fprintf("开始融合...\n");
+fprintf("共%d帧数据, 采样频率:%d Hz 共运行时间 %d s\n", N,  1 / dt, N * dt);
+fprintf("开始滤波...\n");
 for k=1:N
     
     acc = dataset.imu.acc(:,k);
@@ -96,7 +95,7 @@ for k=1:N
         
         
         %  pr = dataset.uwb.tof(:,k);
-        pr = mean(dataset.uwb.tof(:,k-3 : k),2);
+        pr = mean(dataset.uwb.tof(:,k-5 : k),2);
         
         % bypass Nan
         if sum(isnan(pr)) == 0
@@ -139,6 +138,7 @@ for k=1:N
     out_data.diag_P(k,:) = trace(P);
 end
 
+fprintf("开始纯UWB最小二乘位置解算...\n");
 %% 纯 UWB 位置解算
 j = 1;
 uwb_pos = [0 0 0]';
@@ -154,7 +154,7 @@ for i=1:N
         j = j+1;
     end
 end
-
+fprintf("计算完成...\n");
 
 %% plot 数据
 out_data.uwb.tof = dataset.uwb.tof;
@@ -205,8 +205,15 @@ title("欧拉角(姿态)");
 
 
 figure;
+subplot(1,2,1);
 plot3(out_data.uwb.pos(1,:), out_data.uwb.pos(2,:), out_data.uwb.pos(3,:), '.');
+axis equal
 title("UWB 伪距解算位置");
+subplot(1,2,2);
+plot3(datas.pos(1,:), datas.pos(2,:), datas.pos(3,:), '.');
+axis equal
+title("硬件给出轨迹");
+
 
 figure;
 plot(out_data.uwb.pos(1,:), out_data.uwb.pos(2,:), '.');

@@ -41,7 +41,7 @@ while (END_LOOP > B1 && max_retry > 0)
     delta =  (H'*H)^(-1)*H'*dp;
     
     %计算残差
-    END_LOOP = vnorm(delta);
+    END_LOOP = norm(delta);
     
     %更新位置
     pos = pos + delta;

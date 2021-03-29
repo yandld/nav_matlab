@@ -11,7 +11,7 @@ dataset = ch_data_import('UranusData.csv');
 
 N = length(dataset.imu.gyr);
 
-ratio = 1/5;
+ratio = 1/1.1;
 
 cal_len = ratio*N;
 
@@ -123,7 +123,8 @@ legend("X", "Y", "Z", "磁场强度");
 
 
 fprintf("使用椭球拟合法")
-[A, b, expmfs] = magcal(cal_mag', 'eye');
+[A, b, expmfs] = magcal(cal_mag', 'auto');
+A
 fprintf('硬磁干扰(bias): %.3f %.3f %.3f\n', b);
 
 C = (val_mag'-b); 
