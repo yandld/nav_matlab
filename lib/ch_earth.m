@@ -1,9 +1,19 @@
 
-function [R_meridian, R_transverse, Cecef2ned, Cecef2enu, gravity]= ch_earth(lat, lon, hgt)
-% R_meridian： 南北向地球曲率半径
-% R_transverse：东西向地球曲率半径
+function [R_meridian, R_transverse, C_ECEF2ENU, C_ECEF2NED]= ch_earth(lat, lon, hgt)
 
-R0 = 6378137;               %WGS84 Equatorial radius in meters
+%% 根据经纬度计算地球常用参数
+% INPUT
+% lat: 纬度(rad)
+% lon: 经度(rad)
+
+% OUTPUT
+% R_meridian(RM)： 南北向地球曲率半径, 子午圈曲率半径(竖着的)
+% R_transverse(RN)：东西向地球曲率半径, 卯酉圈曲率半径(横着的)
+% C_ECEF2ENU: ECEF到ENU转换矩阵
+% C_ECEF2NED: ECEF到NED转换矩阵
+
+
+R0 = 6378137;               %WGS84 赤道半径
 e = 0.0818191908425;    %WGS84 eccentricity
 % Calculate meridian radius of curvature using (2.105)
 temp = 1 - (e * sin(lat))^2;
@@ -17,17 +27,17 @@ slat = sin(lat);
 clon = cos(lon);
 slon = sin(lon);
 
-Cecef2enu(1,:) =  [-slon ,             clon,                 0];
-Cecef2enu(2,:) = [ -slat*clon,    -slat*slon          clat];
-Cecef2enu(3,:) = [ clat*clon,      clat*slon,          slat];
+C_ECEF2ENU(1,:) =  [-slon ,             clon,                 0];
+C_ECEF2ENU(2,:) = [ -slat*clon,    -slat*slon          clat];
+C_ECEF2ENU(3,:) = [ clat*clon,      clat*slon,          slat];
            
 
-Cecef2ned(1,:) = [-slat*clon,     -slat * slon,       clat];
-Cecef2ned(2,:) = [-slon,             clon,                    0];
-Cecef2ned(3,:) = [ -clat*clon,   -clat*slon,        -slat];
+C_ECEF2NED(1,:) = [-slat*clon,     -slat * slon,       clat];
+C_ECEF2NED(2,:) = [-slon,             clon,                    0];
+C_ECEF2NED(3,:) = [ -clat*clon,   -clat*slon,        -slat];
 
-% Calculate surface gravity using the Somigliana model, (2.134)
-sinsqL = slat^2;
-gravity = 9.7803253359 * (1 + 0.001931853 * sinsqL) / sqrt(1 - e^2 * sinsqL);
+% % Calculate surface gravity using the Somigliana model, (2.134)
+% sinsqL = slat^2;
+% gravity = 9.7803253359 * (1 + 0.001931853 * sinsqL) / sqrt(1 - e^2 * sinsqL);
 
 end

@@ -15,7 +15,6 @@ dh_dx_func = @err_uwb_h;
 
 
 %% load data set
-%load dataset2;
 load datas;
 dataset = datas;
 
@@ -42,6 +41,7 @@ out_data.uwb.anchor = dataset.uwb.anchor;
 %% load settings
 settings = uwb_imu_example_settings();
 noimal_state = init_navigation_state(settings);
+err_state = zeros(15, 1);
 
 %使用第一帧伪距作为初始状态
 pr = dataset.uwb.tof(:, 1);
@@ -63,13 +63,14 @@ for k=1:N
     
     % 捷联惯导
     pos = noimal_state(1:3);
+ 
     vel = noimal_state(4:6);
     q =  noimal_state(7:10);
     
-    [pos, vel, q] = ch_nav_equ_local_tan(pos, vel, q, acc, gyr, dt, [0, 0, 9.8]');
+    [pos, vel, q] = ch_nav_equ_local_tan(pos, vel, q, acc, gyr, dt, [0, 0, -9.8]'); % 东北天坐标系，重力为-9.8
     
     %Z方向速度限制
-    vel(3) = 0;
+     vel(3) = 0;
     
     noimal_state(1:3) = pos;
     noimal_state(4:6) = vel;
@@ -104,16 +105,6 @@ for k=1:N
             % 卡尔曼公式，计算K
             K = (P*H')/(H*P*H'+R);
             
-            % NLOS elimation
-            % t = h_func(noimal_state, dataset.uwb);
-            %             if uwb_iter > 50
-            %                 for i = 1:length(y)
-            %                     if abs(y(i) - t(i))  > 0.9
-            %                         y(i) = t(i); %丢弃这次量测，直接认为这次量测就是预测误差
-            %                     end
-            %                 end
-            %             end
-            
             err_state = [zeros(9,1); du] + K*(pr - h_func(noimal_state, dataset.uwb));
             
             % 反馈速度位置
@@ -130,8 +121,38 @@ for k=1:N
             
             % P阵后验更新
             P = (eye(15)-K*H)*P;
+            
         end
     end
+    
+
+%    % Z轴速度约束
+%     R2 = eye(1)*0.5;
+%     Cn2b = ch_q2m(ch_qconj(noimal_state(7:10)));
+%    % Cn2b = eye(3);
+%     
+%     H = [zeros(1,3), [0 0 1]* Cn2b, zeros(1,9)];
+%     
+%     K = (P*H')/(H*P*H'+R2);
+%     z = Cn2b*noimal_state(4:6);
+%     
+% 	err_state = [zeros(9,1); du] + K*(0-z(3));
+%     
+%     % 反馈速度位置
+%     noimal_state(1:6) = noimal_state(1:6) + err_state(1:6);
+%     
+%     % 反馈姿态
+%     q = noimal_state(7:10);
+%     q = ch_qmul(ch_qconj(q), ch_rv2q(err_state(7:9)));
+%     q = ch_qconj(q);
+%     noimal_state(7:10) = q;
+%     
+%     %存储加速度计零偏，陀螺零偏
+%     du = err_state(10:15);
+%     
+%    % P阵后验更新
+%    P = (eye(15)-K*H)*P;
+
     
     out_data.x(k,:)  = noimal_state;
     out_data.delta_u(k,:) = du';
