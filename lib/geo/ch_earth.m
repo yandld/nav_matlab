@@ -1,5 +1,5 @@
 
-function [R_meridian, R_transverse, C_ECEF2ENU, C_ECEF2NED]= ch_earth(lat, lon, hgt)
+function [R_meridian, R_transverse, C_ECEF2ENU, C_ECEF2NED]= ch_earth(lat, lon, h)
 
 %% 根据经纬度计算地球常用参数
 % INPUT
@@ -36,8 +36,5 @@ C_ECEF2NED(1,:) = [-slat*clon,     -slat * slon,       clat];
 C_ECEF2NED(2,:) = [-slon,             clon,                    0];
 C_ECEF2NED(3,:) = [ -clat*clon,   -clat*slon,        -slat];
 
-% % Calculate surface gravity using the Somigliana model, (2.134)
-% sinsqL = slat^2;
-% gravity = 9.7803253359 * (1 + 0.001931853 * sinsqL) / sqrt(1 - e^2 * sinsqL);
 
 end

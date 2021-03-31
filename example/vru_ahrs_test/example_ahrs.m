@@ -8,77 +8,78 @@ load('imu_dataset.mat');
 %%  plot sensor data  gyr单位为dps
 imu = dataset.imu;
 dt = mean(diff(imu.time));
-n = length(imu.time);
+N = length(imu.time);
 
-q(:,1) = [1 0 0 0]';
-err_stat = zeros(6, 1);%失准角， 陀螺误差, ESKF的状态量
-wb = [0 0 0]'; %初始gyr零偏
+quat(:,1) = [1 0 0 0]';
+err_state = zeros(6, 1); %失准角(3) , 陀螺零偏(3)
 
 [P, Q] = init_filter(dt);
 
-for i = 1:n
+for i = 1:N
     
-    %强制加一个bias测试 
-     imu.gyr(3,i) =  imu.gyr(3,i) + deg2rad(5);
- 
-     % 陀螺仪零偏反馈
-   % imu.gyr(:,i)  = imu.gyr(:,i) -  err_stat(4:6);
+    %强制加一个bias测试
+    imu.gyr(3,i) =  imu.gyr(3,i) + deg2rad(5);
     
-%     
-%     imu.gyr(1,i) = deg2rad(1);
-%     imu.gyr(2,i) = deg2rad(2);
-%     imu.gyr(3,i) = deg2rad(3);
-%     
-%     imu.acc(1,i) = 0.01;
-%     imu.acc(2,i) = 0.12;
-%     imu.acc(3,i) = 0.98;
-%     
-%     imu.mag(1,i) = 0.01;
-%     imu.mag(2,i) = 0.12;
-%     imu.mag(3,i) = 0.98;
+    % 陀螺仪零偏反馈
+    % imu.gyr(:,i)  = imu.gyr(:,i) -  err_stat(4:6);
     
-%	q = ch_mahony.imu(q, imu.gyr(:,i), imu.acc(:,i), dt, 1);
-%    q = ch_mahony.ahrs(q, imu.gyr(:,i), imu.acc(:,i), imu.mag(:,i), dt, 1);
+    %
+    %     imu.gyr(1,i) = deg2rad(1);
+    %     imu.gyr(2,i) = deg2rad(2);
+    %     imu.gyr(3,i) = deg2rad(3);
+    %
+    %     imu.acc(1,i) = 0.01;
+    %     imu.acc(2,i) = 0.12;
+    %     imu.acc(3,i) = 0.98;
+    %
+    %     imu.mag(1,i) = 0.01;
+    %     imu.mag(2,i) = 0.12;
+    %     imu.mag(3,i) = 0.98;
     
-  % 导航方程
-    q = ch_att_upt (q, imu.gyr(:,i), dt);
+    %	q = ch_mahony.imu(q, imu.gyr(:,i), imu.acc(:,i), dt, 1);
+    %    q = ch_mahony.ahrs(q, imu.gyr(:,i), imu.acc(:,i), imu.mag(:,i), dt, 1);
+    
+    % 导航方程
+    gyr = imu.gyr(:,i);
+    acc =  imu.acc(:,i);
+    
+    quat = ch_att_upt(quat, gyr, dt);
     
     %计算F阵
-	[F, G] = state_space_model(q, dt);
-     
-    %状态递推
-    err_stat = F*err_stat;
+    [F, G] = state_space_model(quat, dt);
     
-    %误差传播
+    %状态递推
+    err_state = F*err_state;
+    
     P = F*P*F' + G*Q*G';
     
-    outdata.phi(:,i) = err_stat(1:3);
+    outdata.phi(:,i) = err_state(1:3);
     
-     % 重力量测更新
-    [P, q, err_stat]=  measurement_update_gravity(q, err_stat,  imu.acc(:,i), P);
-
+    % 重力量测更新
+    [P, quat, err_state]=  measurement_update_gravity(quat, err_state,  acc, P);
+    
     %磁量测更新
- %  [P, q, err_state]=  measurement_update_mag(q, err_state,  imu.mag(:,i), P);
-
+    %  [P, q, err_state]=  measurement_update_mag(q, err_state,  imu.mag(:,i), P);
+    
     %P阵强制正定
     P = (P + P')/2;
     
     %记录估计处理的零偏
-    outdata.eul(:,i) = ch_q2eul(q);
-    outdata.wb(:,i) = err_stat(4:6);
+    outdata.eul(:,i) = ch_q2eul(quat);
+    outdata.wb(:,i) = err_state(4:6);
     outdata.P(:,:,i) = P;
 end
 
 outdata.eul = rad2deg(outdata.eul);
+fprintf("最终姿态角:%f, %f %f\n", outdata.eul(:,end));
 
-outdata.eul(:,end)
 
 ch_plot_imu('acc', imu.acc', 'gyr', imu.gyr', 'mag', imu.mag',  'eul', outdata.eul', 'time',  imu.time');
 ch_plot_imu('wb',rad2deg(outdata.wb'), 'phi', rad2deg(outdata.phi'), 'time',  imu.time');
 
 
-P_wb = zeros(3, n);
-P_phi = zeros(3, n);
+P_wb = zeros(3, N);
+P_phi = zeros(3, N);
 
 for i = 1: length(outdata.P)
     P = outdata.P(:,:,i);
@@ -109,10 +110,10 @@ end
 
 function [P, Q] = init_filter(dt)
 
-Q_att = 1;
+Q_att = 1;   %
 Q_wb = 0.0;
 
-P = eye(6)*0.1;
+P = eye(6)*1;
 
 Q = zeros(6);
 Q(1:3,1:3) = Q_att*eye(3);
@@ -123,39 +124,39 @@ end
 
 
 function [P, q, err_state]= measurement_update_gravity(q, err_state, acc, P)
-  
-   %量测噪声
-    R_sigma = 4;
-    R = zeros(2,2);
-    R(1:2,1:2) = R_sigma*eye(2);
-    
-	% 加速度计单位化
-	acc = acc / norm(acc);    % normalise magnitude
-   
-    % 建立量测矩阵 严龚敏书 7.5.14
-    H = ch_askew([0 0 -1]');
-    H = H(1:2,:);
-    H = [H zeros(2,3)];
 
-    %计算新息
-    z = ch_qmulv(q, -acc) - [0 0 -1]';
-    
-    %计算增益
-	K=(P*H')/(H*P*H'+R);
-    
-     %更新状态
-	err_state = err_state +  K*(z(1:2) - H*err_state);
+%量测噪声
+R_sigma = 4;
+R = zeros(2,2);
+R(1:2,1:2) = R_sigma*eye(2);
 
-    %更新P 使用Joseph 形式，取代 (I-KH)*P, 这么数值运算更稳定
-    I_KH = (eye(size(P,1))-K*H);
-    P= I_KH*P*I_KH' + K*R*K';
-    
-    
-    %误差状态反馈及误差清零
-    %对于重力矢量量测，只纠正俯仰横滚
-  %  err_state(3) = 0;
-    q = ch_qmul(ch_rv2q(err_state(1:3)), q);
-    err_state(1:3) = 0;
+% 加速度计单位化
+acc = acc / norm(acc);    % normalise magnitude
+
+% 建立量测矩阵 严龚敏书 7.5.14
+H = ch_askew([0 0 -1]');
+H = H(1:2,:);
+H = [H zeros(2,3)];
+
+%计算新息
+z = ch_qmulv(q, -acc) - [0 0 -1]';
+
+%计算增益
+K=(P*H')/(H*P*H'+R);
+
+%更新状态
+err_state = err_state +  K*(z(1:2) - H*err_state);
+
+%更新P 使用Joseph 形式，取代 (I-KH)*P, 这么数值运算更稳定
+I_KH = (eye(size(P,1))-K*H);
+P= I_KH*P*I_KH' + K*R*K';
+
+
+%误差状态反馈及误差清零
+%对于重力矢量量测，只纠正俯仰横滚
+%  err_state(3) = 0;
+q = ch_qmul(ch_rv2q(err_state(1:3)), q);
+err_state(1:3) = 0;
 end
 
 

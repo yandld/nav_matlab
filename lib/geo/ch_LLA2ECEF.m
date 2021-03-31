@@ -22,5 +22,3 @@ XYZ = [0 0 0]';
 XYZ(1) = (RN + h) * clat * clon;
 XYZ(2) = (RN + h) * clat * slon;
 XYZ(3) = ((1 - e^2) * RN + h) * slat;
-
-      

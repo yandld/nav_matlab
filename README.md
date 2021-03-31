@@ -15,14 +15,14 @@
 
 | 目录                         | 说明                                                         |
 | ---------------------------- | ------------------------------------------------------------ |
-| \example\vru_ahrs_test       | AHRS测试                                                     |
+| \example\vru_ahrs_test       | AHRS/IMU测试                                                 |
 | \example\allan_test          | allan方差                                                    |
 | \example\calibration_test    | 加速度计和陀螺校准测试                                       |
 | \example\gps_kalman_test     | 纯GPS定位，采用卡尔曼滤波定位                                |
 | \example\ins_test            | 捷联惯导解算                                                 |
-| \example\gps_imu_test        | 15维经典ESKF GPS+IMU组合导航                                 |
-| \example\uwb_imu_fusion_test | UWB+IMU EKF 紧组合导航 还是ESKF15维                          |
-| \example\uwb_test            | 纯UWB三角测距定位测试                                        |
+| \example\gps_imu_test        | 15维ESKF GPS+IMU组合导航                                     |
+| \example\uwb_imu_fusion_test | 15维UWB+IMU EKF 紧组合                                       |
+| \example\uwb_test            | 纯UWB多边定位测试                                            |
 | \example\basic               | 一些基础函数测试和入门例程(入门推荐先看)                     |
 | \study                       | 自己学习用脚本，包含线性代数/和一些参考书籍书后matlab答案及验证 |
 
@@ -50,4 +50,6 @@
 > * 多传感器融合-深蓝学院
 > * https://kth.instructure.com/files/677996/download?download_frd=1
 > * https://www.coursera.org/learn/state-estimation-localization-self-driving-cars
+> * GNSS与惯性及多传感器组合导航系统原理-第二版
+> * GPS原理与接收机设计 谢刚
 

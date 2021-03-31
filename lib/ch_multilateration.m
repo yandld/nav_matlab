@@ -10,16 +10,11 @@ END_LOOP=100;
 sv_num = size(sv_pos, 2);
 max_retry = 5;
 last_pos = pos;
-support_2d = false; %% 只有三个基站的情况下，3D定位需要添加辅助方程
 
 if sv_num < 3
     return
 end
 
-if sv_num <= 3 && dim == 3
-    % 只有三个基站，3D定位，需要添加辅助方程： dZ = 0
-    support_2d = true;
-end
 
 while (END_LOOP > B1 && max_retry > 0)
     % 获得当前位置与各个基站的距离
@@ -27,13 +22,13 @@ while (END_LOOP > B1 && max_retry > 0)
     
     % 求得H矩阵
     H = (sv_pos - pos) ./ r;
-    if support_2d == true
+    if dim == 2
         H = [H [0 0 -1]'];
     end
     H =-H';
     
     dp = (pr - r)';
-    if support_2d == true
+    if dim == 2
         dp = [dp; 0];
     end
     
