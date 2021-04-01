@@ -1,15 +1,16 @@
-%% 最小二乘法多边测距
-% sv_pos: 基站位置 mxn m: 维:2 or 3, n 基站个数
-% pos:  mx1  m:2or3
-% pr:  伪距 mx1
-%dim : 2 or 3 : 2:2D定位  3: 3D定位
 function pos = ch_multilateration(sv_pos, pos, pr, dim)
+%% 最小二乘法多边测距
+% M x N:  M:维度 2 OR 3  N:基站个数
+% sv_pos: 基站位置 M x N 
+% pos:  M x 1 
+% pr:  伪距 N x 1
+% dim : 2 or 3 : 2: 二维定位  3: 三维定位
 
 B1= 0.1;
 END_LOOP=100;
 sv_num = size(sv_pos, 2);
 max_retry = 5;
-last_pos = pos;
+lpos = pos; % 保存上一次的位置
 
 if sv_num < 3
     return
@@ -44,14 +45,13 @@ while (END_LOOP > B1 && max_retry > 0)
     
     %迭代失败
     if(max_retry == 0 && END_LOOP > 10)
-        pos = last_pos;
+        pos = lpos;
         return;
     end
     
 end
 
 end
-
 
 
 %
