@@ -10,13 +10,18 @@ close all
 % du:                    加速度计零偏(3) 陀螺零偏(3)
 
 %% load data set
-load datas3;
-dataset = datas;
+ load datas3;
+ dataset = datas;
+
+%load 1.mat;
+
 
 N = length(dataset.imu.time);
-dt = sum(diff(dataset.imu.time)) / N;
+dt = mean(diff(dataset.imu.time));
 
+% 使用的基站个数，融合算法最少2个基站就可以2D定位
 dataset.uwb.cnt = 4;
+
 %dataset.uwb.anchor = [dataset.uwb.anchor; [0.88 0.87 0.87 0.87]];
 
 uwb_noise = 0.05;  % UWB测距噪声
@@ -24,7 +29,7 @@ uwb_noise = 0.05;  % UWB测距噪声
 R = diag(ones(dataset.uwb.cnt, 1)*uwb_noise^(2));
 p_div_cntr = 0; % 预测频率器，目前没有用
 m_div_cntr = 0; %量测分频器
-m_div = 10;  %每m_div次量测，才更新一次KF, 节约计算量或者做实验看效果
+m_div = 10;  %每m_div次量测，才更新一次EKF量测(UWB更新),  可以节约计算量 或者 做实验看效果
 
 
 %% out data init
@@ -64,8 +69,8 @@ for k=1:N
     
     [pos, vel, q] = ch_nav_equ_local_tan(pos, vel, q, acc, gyr, dt, [0, 0, -9.8]'); % 东北天坐标系，重力为-9.8
     
-    %Z方向速度限制
-%    vel(3) = 0;
+        %Z方向速度限制
+        vel(3) = 0;
     
     noimal_state(1:3) = pos;
     noimal_state(4:6) = vel;
@@ -90,17 +95,17 @@ for k=1:N
         m_div_cntr = 0;
         
         
-         pr = dataset.uwb.tof(:,k);
+        pr = dataset.uwb.tof(1:dataset.uwb.cnt,k);
         %pr = mean(dataset.uwb.tof(:,k-5 : k),2);
         
         % bypass Nan
         if sum(isnan(pr)) == 0
-            [Y, H]  = uwb_hx(noimal_state, dataset.uwb, 2);
+            [Y, H]  = uwb_hx(noimal_state, dataset.uwb, 3);
             
             % 卡尔曼公式，计算K
             K = (P*H')/(H*P*H'+R);
-            
             err_state = [zeros(9,1); du] + K*(pr - Y);
+            
             
             % 反馈速度位置
             noimal_state(1:6) = noimal_state(1:6) + err_state(1:6);
@@ -120,32 +125,31 @@ for k=1:N
         end
     end
     
+    % Z轴速度约束
+    R2 = eye(1)*0.5;
+    Cn2b = ch_q2m(ch_qconj(noimal_state(7:10)));
     
-       % Z轴速度约束
-        R2 = eye(1)*0.5;
-        Cn2b = ch_q2m(ch_qconj(noimal_state(7:10)));
+    H = [zeros(1,3), [0 0 1]* Cn2b, zeros(1,9)];
     
-        H = [zeros(1,3), [0 0 1]* Cn2b, zeros(1,9)];
+    K = (P*H')/(H*P*H'+R2);
+    z = Cn2b*noimal_state(4:6);
     
-        K = (P*H')/(H*P*H'+R2);
-        z = Cn2b*noimal_state(4:6);
+    err_state = [zeros(9,1); du] + K*(0-z(3:3));
     
-    	err_state = [zeros(9,1); du] + K*(0-z(3:3));
+    % 反馈速度位置
+    noimal_state(1:6) = noimal_state(1:6) + err_state(1:6);
     
-        % 反馈速度位置
-        noimal_state(1:6) = noimal_state(1:6) + err_state(1:6);
+    % 反馈姿态
+    q = noimal_state(7:10);
+    q = ch_qmul(ch_qconj(q), ch_rv2q(err_state(7:9)));
+    q = ch_qconj(q);
+    noimal_state(7:10) = q;
     
-        % 反馈姿态
-        q = noimal_state(7:10);
-        q = ch_qmul(ch_qconj(q), ch_rv2q(err_state(7:9)));
-        q = ch_qconj(q);
-        noimal_state(7:10) = q;
+    %存储加速度计零偏，陀螺零偏
+    % du = err_state(10:15);
     
-        %存储加速度计零偏，陀螺零偏
-      % du = err_state(10:15);
-    
-       % P阵后验更新
-       P = (eye(15)-K*H)*P;
+    % P阵后验更新
+    P = (eye(15)-K*H)*P;
     
     
     out_data.x(k,:)  = noimal_state;
@@ -164,7 +168,7 @@ for i=1:N
     % 去除NaN点
     if all(~isnan(pr)) == true
         
-        uwb_pos = ch_multilateration(dataset.uwb.anchor, uwb_pos,  pr', 3);
+        uwb_pos = ch_multilateration(dataset.uwb.anchor, uwb_pos,  pr', 2);
         out_data.uwb.pos(:,j) = uwb_pos;
         j = j+1;
     end
@@ -174,6 +178,7 @@ fprintf("计算完成...\n");
 %% plot 数据
 out_data.uwb.tof = dataset.uwb.tof;
 out_data.uwb.fusion_pos = out_data.x(:,1:3)';
+
 
 
 %% 打印原始数据
@@ -222,12 +227,16 @@ subplot(1,2,1);
 plot3(out_data.uwb.pos(1,:), out_data.uwb.pos(2,:), out_data.uwb.pos(3,:), '.');
 axis equal
 title("UWB 伪距解算位置");
-subplot(1,2,2);
-plot3(datas.pos(1,:), datas.pos(2,:), datas.pos(3,:), '.');
-hold on;
-plot3(out_data.x(:,1), out_data.x(:,2), out_data.x(:,3), '.-');
-axis equal
-title("硬件给出轨迹");
+
+if(isfield(dataset, "pos"))
+    subplot(1,2,2);
+    plot3(dataset.pos(1,:), dataset.pos(2,:), dataset.pos(3,:), '.');
+    hold on;
+    plot3(out_data.x(:,1), out_data.x(:,2), out_data.x(:,3), '.-');
+    axis equal
+    title("硬件给出轨迹");
+end
+
 
 
 figure;
@@ -236,11 +245,15 @@ hold on;
 plot(out_data.uwb.fusion_pos(1,:), out_data.uwb.fusion_pos(2,:), '.-');
 legend("伪距解算UWB轨迹", "融合轨迹");
 
-figure;
-plot(datas.pos(1,:), datas.pos(2,:), '.');
-hold on;
-plot(out_data.uwb.fusion_pos(1,:), out_data.uwb.fusion_pos(2,:), '.-');
-legend("硬件给出轨迹", "融合轨迹");
+
+if(isfield(dataset, "pos"))
+    figure;
+    plot(dataset.pos(1,:), dataset.pos(2,:), '.');
+    hold on;
+    plot(out_data.uwb.fusion_pos(1,:), out_data.uwb.fusion_pos(2,:), '.-');
+    legend("硬件给出轨迹", "融合轨迹");
+end
+
 
 
 
@@ -313,14 +326,14 @@ end
 % H 量测矩阵
 % dim:  2: 二维  3：三维
 function [Y, H] = uwb_hx(x, uwb, dim)
-
+N = uwb.cnt;
 pos = x(1:3);
 if(dim)== 2
     pos = pos(1:2);
-    uwb.anchor = uwb.anchor(1:2, :);
-  %  uwb.anchor
+    uwb.anchor = uwb.anchor(1:2, 1:N);
+    %  uwb.anchor
 end
-N = uwb.cnt;
+
 Y = [];
 H = [];
 residual = repmat(pos,1,N) - uwb.anchor(:,1:N);

@@ -18,10 +18,10 @@ err_state = zeros(6, 1); %失准角(3) , 陀螺零偏(3)
 for i = 1:N
     
     %强制加一个bias测试
-    imu.gyr(3,i) =  imu.gyr(3,i) + deg2rad(5);
+    imu.gyr(3,i) =  imu.gyr(3,i) + deg2rad(10);
     
     % 陀螺仪零偏反馈
-    % imu.gyr(:,i)  = imu.gyr(:,i) -  err_stat(4:6);
+     imu.gyr(:,i)  = imu.gyr(:,i) -  err_state(4:6);
     
     %
     %     imu.gyr(1,i) = deg2rad(1);
@@ -49,7 +49,7 @@ for i = 1:N
     [F, G] = state_space_model(quat, dt);
     
     %状态递推
-    err_state = F*err_state;
+   % err_state = F*err_state;
     
     P = F*P*F' + G*Q*G';
     
@@ -153,8 +153,6 @@ P= I_KH*P*I_KH' + K*R*K';
 
 
 %误差状态反馈及误差清零
-%对于重力矢量量测，只纠正俯仰横滚
-%  err_state(3) = 0;
 q = ch_qmul(ch_rv2q(err_state(1:3)), q);
 err_state(1:3) = 0;
 end
@@ -183,10 +181,12 @@ K=(P*H')/(H*P*H'+R);
 %更新状态
 err_state = err_state +  K*(h - H*err_state);
 
+% 
+% %更新P 使用Joseph 形式，取代 (I-KH)*P, 这么数值运算更稳定
+% I_KH = (eye(size(P,1)) - K*H);
+% P= I_KH*P*I_KH' + K*R*K';
 
-%更新P 使用Joseph 形式，取代 (I-KH)*P, 这么数值运算更稳定
-I_KH = (eye(size(P,1)) - K*H);
-P= I_KH*P*I_KH' + K*R*K';
+P = (eye(6) - K*H)*P;
 
 %误差状态反馈及误差清零
 
