@@ -19,18 +19,15 @@ close all
 N = length(dataset.imu.time);
 dt = mean(diff(dataset.imu.time));
 
-% 使用的基站个数，融合算法最少2个基站就可以2D定位
-dataset.uwb.cnt = 4;
+% EKF融合使用的基站个数，融合算法最少2个基站就可以2D定位
+dataset.uwb.cnt = 3;
 
 %dataset.uwb.anchor = [dataset.uwb.anchor; [0.88 0.87 0.87 0.87]];
 
-uwb_noise = 0.05;  % UWB测距噪声
-
-R = diag(ones(dataset.uwb.cnt, 1)*uwb_noise^(2));
 p_div_cntr = 0; % 预测频率器，目前没有用
 m_div_cntr = 0; %量测分频器
-m_div = 10;  %每m_div次量测，才更新一次EKF量测(UWB更新),  可以节约计算量 或者 做实验看效果
-
+m_div = 20;  %每m_div次量测，才更新一次EKF量测(UWB更新),  可以节约计算量 或者 做实验看效果
+UWB_UPDATE_MODE = 2;   % 2:EKF 融合采用2D模式，   3: EKF融合采用3D模式
 
 %% out data init
 out_data.uwb = [];
@@ -40,6 +37,7 @@ out_data.uwb.anchor = dataset.uwb.anchor;
 
 %% load settings
 settings = uwb_imu_example_settings();
+R = diag(ones(dataset.uwb.cnt, 1)*settings.sigma_uwb^(2));
 noimal_state = init_navigation_state(settings);
 err_state = zeros(15, 1);
 
@@ -51,7 +49,13 @@ du = zeros(6, 1);
 [P, Q1, Q2, ~, ~] = init_filter(settings);
 
 fprintf("共%d帧数据, 采样频率:%d Hz 共运行时间 %d s\n", N,  1 / dt, N * dt);
+fprintf("UWB基站个数:%d\n", dataset.uwb.cnt);
+fprintf("UWB量测更新频率为:%d Hz\n", (1 / dt) / m_div);
+fprintf("UWB EKF量测更新模式: %dD模式\n", UWB_UPDATE_MODE);
+fprintf("EKF 滤波参数:\n");
+settings
 fprintf("开始滤波...\n");
+
 for k=1:N
     
     acc = dataset.imu.acc(:,k);
@@ -168,7 +172,7 @@ for i=1:N
     % 去除NaN点
     if all(~isnan(pr)) == true
         
-        uwb_pos = ch_multilateration(dataset.uwb.anchor, uwb_pos,  pr', 2);
+        uwb_pos = ch_multilateration(dataset.uwb.anchor, uwb_pos,  pr', UWB_UPDATE_MODE);
         out_data.uwb.pos(:,j) = uwb_pos;
         j = j+1;
     end
@@ -178,8 +182,6 @@ fprintf("计算完成...\n");
 %% plot 数据
 out_data.uwb.tof = dataset.uwb.tof;
 out_data.uwb.fusion_pos = out_data.x(:,1:3)';
-
-
 
 %% 打印原始数据
 figure;
