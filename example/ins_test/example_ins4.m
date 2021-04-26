@@ -4,9 +4,7 @@ close all;
 format
 
 %% 读取数据
-data = csvread("UranusData.csv", 1, 1);
-acc = data(:,2:4);
-gyr = data(:,5:7);
+load example_ins4.mat
 
 % %% 读取数据
 % load hi226_static_30s.mat
