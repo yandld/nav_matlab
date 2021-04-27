@@ -13,15 +13,21 @@ N = length(imu.time);
 quat(:,1) = [1 0 0 0]';
 err_state = zeros(6, 1); %失准角(3) , 陀螺零偏(3)
 
+
+%强制加一个bias测试
+imu.gyr(3,:) =  imu.gyr(3,:) + deg2rad(2);
+
 [P, Q] = init_filter(dt);
+
+
+
 
 for i = 1:N
     
-    %强制加一个bias测试
-    imu.gyr(3,i) =  imu.gyr(3,i) + deg2rad(10);
+    
     
     % 陀螺仪零偏反馈
-     imu.gyr(:,i)  = imu.gyr(:,i) -  err_state(4:6);
+    imu.gyr(:,i)  = imu.gyr(:,i) -  err_state(4:6);
     
     %
     %     imu.gyr(1,i) = deg2rad(1);
@@ -49,11 +55,11 @@ for i = 1:N
     [F, G] = state_space_model(quat, dt);
     
     %状态递推
-   % err_state = F*err_state;
+    % err_state = F*err_state;
     
     P = F*P*F' + G*Q*G';
     
-    outdata.phi(:,i) = err_state(1:3);
+    
     
     % 重力量测更新
     [P, quat, err_state]=  measurement_update_gravity(quat, err_state,  acc, P);
@@ -64,20 +70,45 @@ for i = 1:N
     %P阵强制正定
     P = (P + P')/2;
     
-    %记录估计处理的零偏
+    %记录历史数据
     outdata.eul(:,i) = ch_q2eul(quat);
-    outdata.wb(:,i) = err_state(4:6);
+	outdata.phi(:,i) = err_state(1:3);
+    outdata.gyr_bias(:,i) = err_state(4:6);
     outdata.P(:,:,i) = P;
+    
+    err_state(1:3) = 0;
 end
 
 outdata.eul = rad2deg(outdata.eul);
 fprintf("最终姿态角:%f, %f %f\n", outdata.eul(:,end));
 
+%% plot
 
-ch_plot_imu('acc', imu.acc', 'gyr', imu.gyr', 'mag', imu.mag',  'eul', outdata.eul', 'time',  imu.time');
-ch_plot_imu('wb',rad2deg(outdata.wb'), 'phi', rad2deg(outdata.phi'), 'time',  imu.time');
+figure('NumberTitle', 'off', 'Name', '原始数据');
+subplot(2, 2, 1);
+plot(dataset.imu.acc');
+legend("X", "Y", "Z");
+title("加速度测量值");
+subplot(2, 2, 2);
+plot(dataset.imu.gyr');
+legend("X", "Y", "Z");
+title("陀螺测量值");
+subplot(2, 2, 3);
+plot(dataset.imu.mag');
+legend("X", "Y", "Z");
+title("磁场");
 
+figure('NumberTitle', 'off', 'Name', 'KF状态量');
+subplot(2, 1, 1);
+plot(rad2deg(outdata.gyr_bias'));
+legend("X", "Y", "Z");
+title("陀螺零偏(deg)");
+subplot(2, 1, 2);
+plot(rad2deg(outdata.phi'));
+legend("X", "Y", "Z");
+title("失准角(deg)");
 
+% 记录 陀螺零偏和失准角方差
 P_wb = zeros(3, N);
 P_phi = zeros(3, N);
 
@@ -91,7 +122,16 @@ for i = 1: length(outdata.P)
     P_wb(3, i) = P(6,6);
 end
 
-ch_plot_imu('P_phi', P_phi', 'P_wb', P_wb', 'time',  imu.time');
+figure('NumberTitle', 'off', 'Name', '方差');
+subplot(2, 1, 1);
+plot(P_phi');
+legend("X", "Y", "Z");
+title("失准角方差");
+subplot(2, 1, 2);
+plot(P_wb');
+legend("X", "Y", "Z");
+title("陀螺零偏方差");
+
 
 
 % F和G
@@ -154,7 +194,6 @@ P= I_KH*P*I_KH' + K*R*K';
 
 %误差状态反馈及误差清零
 q = ch_qmul(ch_rv2q(err_state(1:3)), q);
-err_state(1:3) = 0;
 end
 
 
@@ -181,7 +220,7 @@ K=(P*H')/(H*P*H'+R);
 %更新状态
 err_state = err_state +  K*(h - H*err_state);
 
-% 
+%
 % %更新P 使用Joseph 形式，取代 (I-KH)*P, 这么数值运算更稳定
 % I_KH = (eye(size(P,1)) - K*H);
 % P= I_KH*P*I_KH' + K*R*K';
@@ -196,7 +235,6 @@ P = (eye(6) - K*H)*P;
 
 %误差反馈及清0
 q(1:4) = ch_qmul(ch_rv2q(err_state(1:3)), q);
-err_state(1:3) = 0;
 
 end
 
