@@ -6,18 +6,13 @@ format
 %% 读取数据
 load example_ins4.mat
 
-% %% 读取数据
-% load hi226_static_30s.mat
-
-Fs = 400; 
+Fs = 100; 
 N = length(acc);
 
-%% 打印原始数据
-ch_plot_imu('time', 1:N, 'acc', acc, 'gyr', gyr);
 
 %% 角速度变为rad， 加速度变为m/s^(2)
 gyr = deg2rad(gyr);
-acc = acc*9.795;
+acc = acc*9.8;
 
 % 惯导解算, 初始化
 p = zeros(3, 1);
@@ -26,12 +21,23 @@ q= [1 0 0 0]';
 
 
 for i=1:N
-    [p ,v , q] = ch_nav_equ_local_tan(p, v, q, acc(i,:)', gyr(i,:)', 1 / Fs, [0, 0, -9.795]');
+    [p ,v , q] = ch_nav_equ_local_tan(p, v, q, acc(:,i), gyr(:,i), 1 / Fs, [0, 0, -9.8]');
     pos(i,:) = p;
 end
 
-%3D位置plot
-figure;
+%% plot
+figure('NumberTitle', 'off', 'Name', '原始数据');
+subplot(2,1,1);
+plot(acc');
+legend("X", "Y", "Z");
+title("加速度");
+subplot(2,1,2);
+plot(gyr');
+title("陀螺");
+legend("X", "Y", "Z");
+
+
+figure('NumberTitle', 'off', 'Name', '3D位置');
 plot3(pos(1,1), pos(1,2), pos(1,3), '-ks');
 hold on;
 plot3(pos(:,1), pos(:,2), pos(:,3), '.b');
@@ -41,7 +47,7 @@ title('3D位置');
 legend('起始', '3D');
 
 
-figure;
+figure('NumberTitle', 'off', 'Name', '2D位置');
 plot(pos(:,1), pos(:,2), '.b');
 hold on;
 plot(pos(1,1), pos(1,2), '-ks');
