@@ -7,7 +7,7 @@ classdef ch_mahony < handle
             if((norm_acc) == 0), return; end 
             acc = acc / norm(acc);
             
-            qtmp = ch_qintg(q, gyr, dt);
+            qtmp = ch_att_upt(q, gyr, dt);
             
             v = ch_qmulv(qconj(qtmp), [0 0 1]');
             

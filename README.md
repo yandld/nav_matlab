@@ -34,7 +34,9 @@
 
 
 
-有问题欢迎提 git issue 或者加我微信反馈:
+有问题欢迎提 git issue 或者加QQ群讨论:
+
+138899875
 
 ![](img/wechat.png)
 

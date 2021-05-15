@@ -3,15 +3,13 @@ clear;
 clc;
 close all;
 
-%%
-Fs = 100;
-N = Fs*10;
+%% 
+Fs = 100;  %采样频率
+N = 1000; %采样次数
 
-gyr = [0.1, 0.2, 0.3];
-acc = [0, 0, 1];
-
-acc = acc * 9.795;
-gyr = deg2rad(gyr);
+dt = 1 / Fs;
+gyr = [0.01, 0.02, 0.03]; %单位rad
+acc = [0, 0, 9.8]; % 单位m/s^(2)
 
 % 捷联惯导解算
 p = zeros(3, 1);
@@ -19,25 +17,23 @@ v = zeros(3, 1);
 q= [1 0 0 0]';
 
 for i=1:N
-    [p ,v, q] = ch_nav_equ_local_tan(p, v, q, acc', gyr' , 1 / Fs, [0, 0, -9.795]');
-    pos(i,:) = p;
-    eul(i,:) = rad2deg(ch_q2eul(q));
+    [p ,v, q] = ch_nav_equ_local_tan(p, v, q, acc', gyr' , dt, [0, 0, -9.8]');
+    h_pos(i,:) = p;
+    h_eul(i,:) = ch_q2eul(q);
 end
 
-
-plot(pos);
+plot(h_pos);
 title("位置解算结果");
 legend("X", "Y", "Z");
+xlabel("解算次数");  ylabel("m"); 
 
 figure;
-plot(eul);
-title("欧拉角");
-legend("P", "R", "Y");
+ch_plot_att(h_eul);
 
-fprintf('纯积分测试: 陀螺bias(rad):%.3f %.3f %.3f\n', gyr(1), gyr(2), gyr(3));
-fprintf('纯积分测试: 加计bias(m/s^(2)):%.3f %.3f %.3f\n', acc(1), acc(2), acc(3));
+fprintf('纯积分测试: 陀螺(rad/s):%.3f %.3f %.3f\n', gyr(1), gyr(2), gyr(3));
+fprintf('纯积分测试: 加计(m/s^(2)):%.3f %.3f %.3f\n', acc(1), acc(2), acc(3));
 
 fprintf('解算:%d次 总时间:%.3fs\n', N, N /Fs);
-fprintf('最终误差(m): %.3f %.3f %.3f\n', pos(N, 1),  pos(N, 2),  pos(N, 3));
+fprintf('最终误差(m): %.3f %.3f %.3f\n', h_pos(end, 1),  h_pos(end, 2),  h_pos(end, 3));
 
 

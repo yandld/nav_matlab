@@ -6,27 +6,30 @@ close all
 %% 说明
 % UWB IMU 融合算法，采用误差卡尔曼15维经典模型，伪距组合
 % PR(TOF) 伪距：        UWB硬件给出的原始测量距离值
-% IMU:                       3轴加速度+3轴陀螺
-% noimal_state:           位置(3) 速度(3) 四元数(4) 共10维
-% err_state:                位置误差(3) 速度误差(3) 失准角(3) 加速度计零偏(3) 陀螺零偏(3) 共15维
-% du:                          加速度计零偏(3) 陀螺零偏(3)
+% IMU:                       加速度(3) 3轴陀螺(3) 共6维
+% noimal_state:           导航方程状态: 位置(3) 速度(3) 四元数(4) 共10维
+% err_state:                 KF误差状态: 位置误差(3) 速度误差(3) 失准角(3) 加速度计零偏(3) 陀螺零偏(3) 共15维
+% du:                          零偏反馈: 加速度计零偏(3) 陀螺零偏(3)
 
 %% 读取数据集
-load datas3;
+load datas2;
 dataset = datas;
 
-%load 1.mat;
 
 N = length(dataset.imu.time);
 dt = mean(diff(dataset.imu.time));
 
-% EKF融合使用的基站个数，融合算法最少2个基站就可以2D定位
-dataset.uwb.cnt = 4;
+% 故意删除一些基站及数据，看看算法在基站数量很少的时候能否有什么奇迹。。 
+% dataset.uwb.anchor(:,1) = [];
+% dataset.uwb.tof(1,:) = [];
 
-%dataset.uwb.anchor = [dataset.uwb.anchor; [0.88 0.87 0.87 0.87]];
+
+% EKF融合使用的基站个数，融合算法最少2个基站就可以2D定位
+%dataset.uwb.cnt = size(dataset.uwb.anchor, 2);
+
 
 m_div_cntr = 0;                         % 量测分频器
-m_div = 1;                                 % 每m_div次量测，才更新一次EKF量测(UWB更新),  可以节约计算量 或者 做实验看效果
+m_div = 50;                                 % 每m_div次量测，才更新一次EKF量测(UWB更新),  可以节约计算量 或者 做实验看效果
 UWB_LS_MODE = 2;                 % 2 纯UWB解算采用2D模式， 3：纯UWB解算采用3D模式
 UWB_EKF_UPDATE_MODE = 2; % EKF 融合采用2D模式，   3: EKF融合采用3D模式
 
@@ -51,7 +54,7 @@ noimal_state(1:3) = ch_multilateration(dataset.uwb.anchor, [ 0 0 0]',  pr', 3);
 du = zeros(6, 1);
 [P, Q1, Q2, ~, ~] = init_filter(settings);
 
-fprintf("共%d帧数据, 采样频率:%d Hz 共运行时间 %d s\n", N,  1 / dt, N * dt);
+fprintf("共%d帧数据, IMU采样频率:%d Hz 共运行时间 %d s\n", N,  1 / dt, N * dt);
 fprintf("UWB基站个数:%d\n", dataset.uwb.cnt);
 fprintf("UWB量测更新频率为:%d Hz\n", (1 / dt) / m_div);
 fprintf("UWB EKF量测更新模式: %dD模式\n", UWB_EKF_UPDATE_MODE);
@@ -60,7 +63,8 @@ fprintf("EKF 滤波参数:\n");
 settings
 fprintf("开始滤波...\n");
 
-for k=2:N
+
+for k=1:N
     
     acc = dataset.imu.acc(:,k);
     gyr = dataset.imu.gyr(:,k);
@@ -71,15 +75,13 @@ for k=2:N
     
     % 捷联惯导
     p = noimal_state(1:3);
-    
     v = noimal_state(4:6);
     q =  noimal_state(7:10);
     
     [p, v, q] = ch_nav_equ_local_tan(p, v, q, acc, gyr, dt, [0, 0, -9.8]'); % 东北天坐标系，重力为-9.8
     
-    %   2D导航：世界系Z方向速度直接约束为0， 如果是3D导航的话这些约束要删掉
-    v(3) = 0;
-    p(3) = 0;
+    %   小车假设：基本做平面运动，N系下Z轴速度基本为0，直接给0
+     v(3) = 0;
     
     noimal_state(1:3) = p;
     noimal_state(4:6) = v;
@@ -103,7 +105,6 @@ for k=2:N
     if m_div_cntr == m_div
         m_div_cntr = 0;
         
-        
         pr = dataset.uwb.tof(1:dataset.uwb.cnt, k);
         
         %判断两次PR 差，如果差太大，则认为这个基站PR比较烂，不要了。相当于GNSS里的挑星
@@ -120,7 +121,7 @@ for k=2:N
         %                         anch = dataset.uwb.anchor(:, arr);
         %                         R1 = R(arr, arr);
         
-        %不挑了，所有基站直接参与定位，其实也差不太多
+        % 算了不挑基站了，所有基站直接参与定位，其实也差不太多
         anch = dataset.uwb.anchor;
         R1 = R;
         
@@ -161,32 +162,31 @@ for k=2:N
     end
     
     
+        %% 车载约束：Z轴速度约束： B系下 Z轴速度必须为0(不能钻地).. 可以有效防止Z轴位置跳动 参考https://kth.instructure.com/files/677996/download?download_frd=1 和 https://academic.csuohio.edu/simond/pubs/IETKalman.pdf
+        R2 = eye(1)*0.5;
+        Cn2b = ch_q2m(ch_qconj(noimal_state(7:10)));
     
-    %     %% 车载约束：Z轴速度约束： B系下 Z轴速度必须为0(不能钻地).. 可以有效防止Z轴位置跳动
-    %     R2 = eye(1)*0.2;
-    %     Cn2b = ch_q2m(ch_qconj(noimal_state(7:10)));
-    %
-    %     H = [zeros(1,3), [0 0 1]* Cn2b, zeros(1,9)];
-    %
-    %     K = (P*H')/(H*P*H'+R2);
-    %     z = Cn2b*noimal_state(4:6);
-    %
-    %     err_state = [zeros(9,1); du] + K*(0-z(3:3));
-    %
-    %     % 反馈速度位置
-    %     noimal_state(1:6) = noimal_state(1:6) + err_state(1:6);
-    %
-    %     % 反馈姿态
-    %     q = noimal_state(7:10);
-    %     q = ch_qmul(ch_qconj(q), ch_rv2q(err_state(7:9)));
-    %     q = ch_qconj(q);
-    %     noimal_state(7:10) = q;
-    %
-    %     %存储加速度计零偏，陀螺零偏
-    %     % du = err_state(10:15);
-    %
-    %     % P阵后验更新
-    %     P = (eye(15)-K*H)*P;
+        H = [zeros(1,3), [0 0 1]* Cn2b, zeros(1,9)];
+    
+        K = (P*H')/(H*P*H'+R2);
+        z = Cn2b*noimal_state(4:6);
+    
+        err_state = [zeros(9,1); du] + K*(0-z(3:3));
+    
+        % 反馈速度位置
+        noimal_state(1:6) = noimal_state(1:6) + err_state(1:6);
+    
+        % 反馈姿态
+        q = noimal_state(7:10);
+        q = ch_qmul(ch_qconj(q), ch_rv2q(err_state(7:9)));
+        q = ch_qconj(q);
+        noimal_state(7:10) = q;
+    
+        %存储加速度计零偏，陀螺零偏
+        % du = err_state(10:15);
+    
+        % P阵后验更新
+        P = (eye(15)-K*H)*P;
     
     
 end
@@ -200,26 +200,19 @@ N = length(dataset.uwb.time);
 for i=1:N
     pr = dataset.uwb.tof(:, i);
     % 去除NaN点
-    if all(~isnan(pr)) == true
+    %if all(~isnan(pr)) == true
         
         uwb_pos = ch_multilateration(dataset.uwb.anchor, uwb_pos,  pr', UWB_LS_MODE);
         out_data.uwb.pos(:,j) = uwb_pos;
         j = j+1;
-    end
+    %end
 end
 fprintf("计算完成...\n");
 
 %% plot 数据
 out_data.uwb.tof = dataset.uwb.tof;
 out_data.uwb.fusion_pos = out_data.x(:,1:3)';
-
-%% 打印结果
 demo_plot(dataset, out_data);
-
-
-
-
-
 
 
 

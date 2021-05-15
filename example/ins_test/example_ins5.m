@@ -3,10 +3,12 @@ clc;
 close all;
 format long
 
-load filter.mat
-%% 读取数据
+%% 参考: https://x-io.co.uk/oscillatory-motion-tracking-with-x-imu/
 
+load filter.mat
 load example_ins4.mat
+
+%% 读取数据
 acc = acc';
 gyr = gyr';
 
@@ -67,7 +69,6 @@ subplot(2,1,2);
 plot(linVelHP);
 title('HP后速度');
 legend('X', 'Y', 'Z');
-
 
 
 figure('NumberTitle', 'off', 'Name', '位置');

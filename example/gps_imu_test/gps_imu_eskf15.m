@@ -18,7 +18,7 @@ imu_t = dataset.imu.time;
 
 
 %% load settings
-settings = gnss_imu_local_tan_example_settings();
+settings = gnss_imu_eskf15_settings();
 
 %% Run the GNSS-aided INS
 disp('Runs the GNSS-aided INS')

@@ -6,13 +6,8 @@ close all;
 %%
 Fs = 100;
 
-%% EXAMPLE 2.3 Calculation of Gravity at various latitudes and heights
-lat = deg2rad(31.508183);
-lon =120.401989;
-hgt = 0;
 
-[~, ~, ~, ~, gravity]= ch_earth(lat, lon, hgt);
-%gravity = 9.80235145615448;
+gravity = 9.80235145615448;
 
 
 %% GNSS-SIM仿真软件真值(gt= groud true,真实值)
@@ -59,10 +54,6 @@ hold on;
 plot(pos(:,1), pos(:,2), '.g');
 legend("GT", "解算结果");
 title("平面位置");
-
-% 
-%  ch_plot_pos3d( 'p1', pos_gt, 'p3', pos, 'legend', ["GNSS-SIM真值", "matlab仿真结果"]);
-%  ch_plot_pos2d( 'p1', pos_gt, 'p3', pos, 'legend', ["GNSS-SIM真值", "matlab仿真结果"]);
 
 
 fprintf('总时间:%fs  最终位置差:%f\n', N /Fs,  norm(pos_gt(N, :) - pos(N, :)));
