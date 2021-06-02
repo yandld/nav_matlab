@@ -1,4 +1,8 @@
 function ch_plot_att(att, varargin)
+%  plot 欧拉角
+% att        欧拉角
+% 可选参数: units: "rad" 或者 "deg", 默认 rad
+
 
 defaultUnits = 'rad';
 
