@@ -5,6 +5,8 @@ format long
 
 %% 参考: https://x-io.co.uk/oscillatory-motion-tracking-with-x-imu/
 
+% 利用速度，位置高通滤波来获得短时位移曲线
+
 load filter.mat
 load example_ins4.mat
 
@@ -13,7 +15,6 @@ acc = acc';
 gyr = gyr';
 
 q= [1 0 0 0]';
-% q   = data(1,4:7)';
 
 Fs = 100; 
 dt = 1 / Fs;
@@ -21,8 +22,6 @@ N = length(acc);
 
 fprintf("共%d数据，用时:%.3fs\n", N, N/Fs);
 
-gyr = deg2rad(gyr);
-acc = acc*9.8;
 
 % 惯导解算, 初始化
 p = zeros(3, 1);
@@ -31,24 +30,25 @@ v = zeros(3, 1);
 for i=1:N
     [p ,v , q] = ch_nav_equ_local_tan(p, v, q, acc(i,:)', gyr(i,:)', 1 / Fs, [0, 0, -9.8]');
  
+    % 获得惯性系下加速度并扣除重力
     linAcc(i,:) = ch_qmulv(q, acc(i,:));
     linAcc(i,3) = linAcc(i,3) -9.8;
-    R(:,:,i) = ch_q2m(q);
 end
 
-% 速度
+% 速度积分
 linVel = zeros(size(linAcc));
 for i = 2:length(linAcc)
     linVel(i,:) = linVel(i-1,:) + linAcc(i,:) * dt;
 end
 
-order = 1;
-filtCutOff = 0.1;
+
+%order = 1;
+%filtCutOff = 0.1;
 %[b, a] = butter(order, (2*filtCutOff)/(1/dt), 'high');
 %linVelHP = filtfilt(b, a, linVel);
 linVelHP = filter(Hd, linVel);
 
-% 位置
+% 位置积分
 linPos = zeros(size(linVelHP));
 for i = 2:length(linVelHP)
     linPos(i,:) = linPos(i-1,:) + linVelHP(i,:) * dt;
@@ -92,8 +92,6 @@ plot(gyr);
 title("陀螺");
 legend("X", "Y", "Z");
 
-% 3D位置
-%linPosHP = HP_pos;
 
 figure('NumberTitle', 'off', 'Name', '3D位置');
 plot3(linPosHP(1,1), linPosHP(1,2), linPosHP(1,3), '-ks');

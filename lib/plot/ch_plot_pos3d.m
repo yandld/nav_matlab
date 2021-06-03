@@ -1,40 +1,25 @@
-%%  显示3D轨迹
-% example: ch_plot_pos3d('p1', out_data.uwb.fusion_pos(1:2,:)', 'p2', out_data.uwb.pos(1:2,:)',  'title', '融合轨迹', 'legend', ["UWB_IMU融合轨迹", "纯UWB定位", "基站"]);
+function ch_plot_pos3d(pos, varargin)
+% pos: 位置： X, Y, Z
 
-function ch_plot_pos3d(varargin)
+defaultUnits = 'm';
 
 param= inputParser;
-param.addOptional('p1', []);
-param.addOptional('p2', []);
-param.addOptional('p3', []);
-param.addOptional('title', []);
-param.addOptional('legend', []);
+addParameter(param,'units',defaultUnits,@isstring);
 
 param.parse(varargin{:});
 r = param.Results;
 
-figure;
-if(~isempty(r.p1))
-plot3(r.p1(:,1), r.p1(:,2), r.p1(:,3), '.r');
-hold on;
+
+if(~isempty(r.units))
+    defaultUnits = r.units;
 end
 
-if(~isempty(r.p2))
-plot3(r.p2(:,1), r.p2(:,2), r.p2(:,3), '.g');
-hold on;
+plot(pos(:,1), pos(:,2));
+plot3(pos(:,1), pos(:,2), pos(:,3));
+
+title("3D位置" + "(" + defaultUnits + ")") ;
+ xlabel("X"); ylabel("Y"); zlabel("Z");
+
 end
-
-if(~isempty(r.p3))
-plot3(r.p3(:,1), r.p3(:,2), r.p3(:,3), '.b');
-hold on;
-end
-
-title(r.title);
-legend(r.legend);
-
-axis equal
-xlabel('X(m)');  ylabel('Y(m)');   zlabel('Z(m)'); 
-end
-
 
 

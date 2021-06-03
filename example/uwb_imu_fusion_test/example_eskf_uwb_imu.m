@@ -6,19 +6,24 @@ close all
 %% 说明
 % UWB IMU 融合算法，采用误差卡尔曼15维经典模型，伪距组合
 % PR(TOF) 伪距：        UWB硬件给出的原始测量距离值
-% IMU:                       加速度(3) 3轴陀螺(3) 共6维
+% IMU:                       加速度(3) 3轴陀螺(3) 共6维,,
 % noimal_state:           导航方程状态: 位置(3) 速度(3) 四元数(4) 共10维
 % err_state:                 KF误差状态: 位置误差(3) 速度误差(3) 失准角(3) 加速度计零偏(3) 陀螺零偏(3) 共15维
 % du:                          零偏反馈: 加速度计零偏(3) 陀螺零偏(3)
 
+% 单位说明:
+% 加速度: m/s^(2)
+% 角速度: rad/s
+% 角度 rad
+% 速度: m/s
+
 %% 读取数据集
-load datas2;
+load datas2
 dataset = datas;
 
 
 N = length(dataset.imu.time);
 dt = mean(diff(dataset.imu.time));
-
 % 故意删除一些基站及数据，看看算法在基站数量很少的时候能否有什么奇迹。。 
 % dataset.uwb.anchor(:,1) = [];
 % dataset.uwb.tof(1,:) = [];
@@ -29,7 +34,7 @@ dt = mean(diff(dataset.imu.time));
 
 
 m_div_cntr = 0;                         % 量测分频器
-m_div = 50;                                 % 每m_div次量测，才更新一次EKF量测(UWB更新),  可以节约计算量 或者 做实验看效果
+m_div = 1;                                 % 每m_div次量测，才更新一次EKF量测(UWB更新),  可以节约计算量 或者 做实验看效果
 UWB_LS_MODE = 2;                 % 2 纯UWB解算采用2D模式， 3：纯UWB解算采用3D模式
 UWB_EKF_UPDATE_MODE = 2; % EKF 融合采用2D模式，   3: EKF融合采用3D模式
 
@@ -49,7 +54,7 @@ err_state = zeros(15, 1);
 
 %使用第一帧伪距作为初始状态
 pr = dataset.uwb.tof(:, 1);
-noimal_state(1:3) = ch_multilateration(dataset.uwb.anchor, [ 0 0 0]',  pr', 3);
+noimal_state(1:3) = ch_multilateration(dataset.uwb.anchor, [ 1 1 1]',  pr', UWB_LS_MODE);
 
 du = zeros(6, 1);
 [P, Q1, Q2, ~, ~] = init_filter(settings);
@@ -68,6 +73,7 @@ for k=1:N
     
     acc = dataset.imu.acc(:,k);
     gyr = dataset.imu.gyr(:,k);
+
     
     % 反馈
     acc = acc + du(1:3);
@@ -194,7 +200,7 @@ end
 fprintf("开始纯UWB最小二乘位置解算...\n");
 %% 纯 UWB 位置解算
 j = 1;
-uwb_pos = [0 0 0]';
+uwb_pos = [1 1 1]';
 N = length(dataset.uwb.time);
 
 for i=1:N

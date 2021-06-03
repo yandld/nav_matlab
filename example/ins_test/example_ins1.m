@@ -19,15 +19,16 @@ q= [1 0 0 0]';
 for i=1:N
     [p ,v, q] = ch_nav_equ_local_tan(p, v, q, acc', gyr' , dt, [0, 0, -9.8]');
     h_pos(i,:) = p;
+    h_vel(i,:) = v;
     h_eul(i,:) = ch_q2eul(q);
 end
 
-plot(h_pos);
-title("位置解算结果");
-legend("X", "Y", "Z");
-xlabel("解算次数");  ylabel("m"); 
-
 figure;
+subplot(2,2,1);
+ch_plot_pos3d(h_pos);
+subplot(2,2,2);
+ch_plot_pos2d(h_pos);
+subplot(2,2,3);
 ch_plot_att(h_eul);
 
 fprintf('纯积分测试: 陀螺(rad/s):%.3f %.3f %.3f\n', gyr(1), gyr(2), gyr(3));

@@ -3,14 +3,16 @@ clear;
 clc;
 close all;
 
-%%
+%% 
 Fs = 100;
 
 %% GNSS-SIM仿真软件真值(gt= groud true,真实值)
 % 使用 https://github.com/Aceinna/gnss-ins-sim 生成仿真数据
+
+ %%单位:  ACC: m/s^(2),  GYR: rad/s
  load example_ins2.mat;
  
- %%单位:  m/s^(2), rad/s
+
 N = length(acc);
 
 % 惯导解算, 初始化
@@ -24,24 +26,22 @@ for i=1:N
     h_pos(i,:) = p;
     h_att(i,:) = rad2deg(ch_q2eul(q))';
     h_vel(i,:) = v;
+    h_eul(i,:) = ch_q2eul(q);
 end
 
 figure;
-subplot(2,1,1);
-plot(acc);
-title("ACC");
-legend("X", "Y", "Z");
-
-subplot(2,1,2);
-plot(gyr);
-title("GYR");
-legend("X", "Y", "Z");
+subplot(2,2,1);
+ch_plot_pos3d(h_pos);
+subplot(2,2,2);
+ch_plot_pos2d(h_pos);
+subplot(2,2,3);
+ch_plot_att(h_eul);
 
 figure;
 plot(pos_gt(:,1), pos_gt(:,2), '.r');
 hold on;
 plot(h_pos(:,1), h_pos(:,2), '.g');
-legend("GT", "解算结果");
+legend("Groud True", "解算结果");
 title("平面位置");
 
 

@@ -11,6 +11,7 @@ dataset = ch_data_import('UranusData.csv');
 
 N = length(dataset.imu.gyr);
 
+% 不使用全部数据集，只使用一部分
 ratio = 1/1.1;
 
 cal_len = ratio*N;
@@ -19,7 +20,7 @@ cal_gyr = dataset.imu.gyr(:, 1: cal_len);
 cal_mag = dataset.imu.mag(:, 1: cal_len);
 val_mag = dataset.imu.mag(:, cal_len: end);
 
-dt = 0.02;
+dt = 0.02; % 采样dt
 
 X = zeros(6,1);
 X(1:3) = cal_mag(:,1);
