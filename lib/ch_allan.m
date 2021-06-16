@@ -1,6 +1,6 @@
 
 %%  ('NoiseDensity(角度随机游走)', N, 'RandomWalk(角速率随机游走)', K,'BiasInstability(零偏稳定性)', B);
-% omega 必须为 rad/s(陀螺)， 加速度计: G
+% omega 必须为 rad/s(陀螺)， 加速度计: m/s^(2)
 % see Freescale AN: Allan Variance: Noise Analysis for Gyroscopes
 function [avar, tau, N, K, B] = ch_allan(omega, Fs)
 
@@ -95,14 +95,14 @@ lineB = B * scfB * ones(size(tau));
 
 tauParams = [tauN, tauK, tauB];
 params = [N, K, scfB*B];
-% figure;
-% loglog(tau, adev, '-*', tau, [lineN, lineK, lineB], '--',  tauParams, params, 'o');
-% 
-% title('Allan Deviation with Noise Parameters')
-% xlabel('\tau')
-% ylabel('\sigma(\tau)')
-% legend('\sigma', '\sigma_N', '\sigma_K', '\sigma_B')
-% text(tauParams, params, {'N', 'K', '0.664B'})
-% grid on
+figure;
+loglog(tau, adev, '-*', tau, [lineN, lineK, lineB], '--',  tauParams, params, 'o');
+
+title('Allan Deviation with Noise Parameters')
+xlabel('\tau')
+ylabel('\sigma(\tau)')
+legend('\sigma', '\sigma_N', '\sigma_K', '\sigma_B')
+text(tauParams, params, {'N', 'K', '0.664B'})
+grid on
 
 end

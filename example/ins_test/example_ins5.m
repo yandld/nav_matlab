@@ -1,15 +1,18 @@
 clear;
 clc;
 close all;
-format long
+format
 
 %% 参考: https://x-io.co.uk/oscillatory-motion-tracking-with-x-imu/
 
 % 利用速度，位置高通滤波来获得短时位移曲线
 
-load filter.mat
-load example_ins4.mat
+%load filter_vel.mat
+% load example_ins4.mat
 
+data = ch_data_import('data_20210609_163153.csv');
+acc = data.imu.acc*9.8;
+gyr = deg2rad(data.imu.gyr);
 %% 读取数据
 acc = acc';
 gyr = gyr';
@@ -26,27 +29,30 @@ fprintf("共%d数据，用时:%.3fs\n", N, N/Fs);
 % 惯导解算, 初始化
 p = zeros(3, 1);
 v = zeros(3, 1);
+linVel = zeros(N,3);
 
 for i=1:N
-    [p ,v , q] = ch_nav_equ_local_tan(p, v, q, acc(i,:)', gyr(i,:)', 1 / Fs, [0, 0, -9.8]');
+    [p , v , q] = ch_nav_equ_local_tan(p, v, q, acc(i,:)', gyr(i,:)', 1 / Fs, [0, 0, -9.8]');
  
     % 获得惯性系下加速度并扣除重力
     linAcc(i,:) = ch_qmulv(q, acc(i,:));
     linAcc(i,3) = linAcc(i,3) -9.8;
+    
+%   linVel(i,:) = v;
 end
-
+ 
 % 速度积分
-linVel = zeros(size(linAcc));
-for i = 2:length(linAcc)
+
+for i = 2:N
     linVel(i,:) = linVel(i-1,:) + linAcc(i,:) * dt;
 end
 
 
-%order = 1;
-%filtCutOff = 0.1;
-%[b, a] = butter(order, (2*filtCutOff)/(1/dt), 'high');
+order = 1;
+filtCutOff = 0.01;
+[b, a] = butter(order, (2*filtCutOff)/(1/dt), 'high');
 %linVelHP = filtfilt(b, a, linVel);
-linVelHP = filter(Hd, linVel);
+linVelHP = filter(b, a, linVel);
 
 % 位置积分
 linPos = zeros(size(linVelHP));
@@ -54,9 +60,11 @@ for i = 2:length(linVelHP)
     linPos(i,:) = linPos(i-1,:) + linVelHP(i,:) * dt;
 end
 
-%[b, a] = butter(order, (2*filtCutOff)/(1/dt), 'high');
+order = 1;
+filtCutOff = 0.5;
+[b, a] = butter(order, (2*filtCutOff)/(1/dt), 'high');
 %linPosHP = filtfilt(b, a, linPos);
-linPosHP = filter(Hd, linPos);
+linPosHP = filter(b, a, linPos);
 
 
 %% Plot
@@ -104,7 +112,7 @@ legend('起始', '3D');
 
 
 
-
+linPosHP(end,:)
 
 % SamplePlotFreq = 4;
 % 
