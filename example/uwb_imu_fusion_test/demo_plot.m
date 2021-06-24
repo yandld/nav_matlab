@@ -59,14 +59,14 @@ plot3(out_data.uwb.pos(1,:), out_data.uwb.pos(2,:), out_data.uwb.pos(3,:), '.');
 axis equal
 title("UWB 伪距解算位置");
 
-% if(isfield(dataset, "pos"))
-%     subplot(1,2,2);
-%     plot3(dataset.pos(1,:), dataset.pos(2,:), dataset.pos(3,:), '.');
-%     hold on;
-%     plot3(out_data.x(:,1), out_data.x(:,2), out_data.x(:,3), '.-');
-%     axis equal
-%     title("硬件给出轨迹");
-% end
+if(isfield(dataset, "pos"))
+    subplot(1,2,2);
+    plot3(dataset.pos(1,:), dataset.pos(2,:), dataset.pos(3,:), '.');
+    hold on;
+    plot3(out_data.x(:,1), out_data.x(:,2), out_data.x(:,3), '.-');
+    axis equal
+    title("硬件给出轨迹");
+end
 
 figure('NumberTitle', 'off', 'Name', '纯UWB伪距解算的位置和融合轨迹');
 plot(out_data.uwb.pos(1,:), out_data.uwb.pos(2,:), '.');

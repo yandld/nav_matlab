@@ -1,7 +1,7 @@
 
 function settings = uwb_imu_example_settings()
 
-settings.sigma_uwb = 0.1; % UWB测距噪声
+settings.sigma_uwb = 0.5; % UWB测距噪声
 
 settings.sigma_acc = 0.02;                   %加速度计噪声
 settings.sigma_gyro = deg2rad(0.3);      %陀螺仪噪声
