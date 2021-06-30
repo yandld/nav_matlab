@@ -174,7 +174,7 @@ for idx = 1: 5: len
 
             
         % ECEF×ª LLA
-        [lat, lon, h] = ch_ecef2lla(usr_ecef);
+        [lat, lon, h] = ch_ECEF2LLA(usr_ecef);
         
         % ¼ÆËãDOP
         [VDOP, HDOP, ~, ~] = ch_gpsdop(G, lat, lon);
