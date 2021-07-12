@@ -1,6 +1,6 @@
 clear;
 %----------------------------配置参数------------------------------------
-tob=[01,9,4,9,30,0];                                     %观测时刻的UTC时，年取后两位
+tob = [01,9,4,9,30,0];                                     %观测时刻的UTC时，年取后两位
 geodeticHstation=93.4e-3;%NaN                            %测站大地高km，如果不知道填NaN
 Alpha=[0.2235D-07  0.2235D-07 -0.1192D-06 -0.1192D-06];  %导航电文头文件中的电离层Alpha
 Beta=[0.1290D+06  0.4915D+05 -0.1966D+06  0.3277D+06];   %导航电文头文件中的电离层Beta
@@ -14,37 +14,39 @@ omegaE=7.29211511467e-5;                                 %地球自转角速度rad/s
 cv=299792458;                                            %光速m/s
 a=6378137;                                               %WGS84椭球半长轴m
 finv=298.2572236;                                        %WGS84椭球扁率倒数
-[P0,T,e0]=readfilem(filem,tob(4),tob(5),tob(6));         %从m文件中读取对应时刻的气压（mbar）、温度（K）、湿度（%）
+
 %------------------------------------------------------------------------
 %以下为计算过程
 %1、在O文件中提取四颗以上卫星的C1观测值。
-[PRN,C1]=readfileo(fileo,tob(4),tob(5),tob(6));%去头的o文件
-SatNum=length(PRN(:));
+[PRN, C1]=readfileo(fileo,tob(4),tob(5),tob(6));%去头的o文件
+sv_num = length(PRN(:));
 %2、在N文件中提取对应卫星的数据。
-[~,GPST]=UTC2GPST(tob(1),tob(2),tob(3),tob(4),tob(5),tob(6));
-for i=1:SatNum
+[~,GPST] = UTC2GPST(tob(1),tob(2),tob(3),tob(4),tob(5),tob(6));
+
+for i=1:sv_num
     [~,~,~,deltat(i)]=readatandcomp(filen,PRN(i),tob);
 end
 %3、程序初始化，置测站概略位置为Xr，接收机钟差初值为dt。
-X0=[0;0;0;0];
+X0 = [0 0 0 0]';
 %4、选择epoch中一颗卫星Si，设其伪距为GSiC1
  while 1   
-     for i=1:SatNum
+
+     for i=1:sv_num
 %5、计算卫星Si的卫星钟差dt
 %由计算卫星坐标时带出
 %6、计算卫星-接收机的近似几何距离Rs
 %（1）根据接收时间和伪距 计算信号发射时间
-        Deltat(i)=C1(i)./cv;
-        Tems(i)=GPST-(Deltat(i)+deltat(i));
+        tau(i)=C1(i)./cv;
+        Tems(i) = GPST-(tau(i) + deltat(i));
 %（2）计算发射时刻的卫星坐标 ，并对卫星坐标进行地球自转改正
-        [Xs(i),Ys(i),Zs(i),deltat(i)]=readatandcomp(filen,PRN(i),tob,Tems(i));
-        Prec=[cos(omegaE*Deltat(i)),sin(omegaE*Deltat(i)),0;
-            -sin(omegaE*Deltat(i)),cos(omegaE*Deltat(i)),0;
-            0,0,1]*[Xs(i);Ys(i);Zs(i)];
+        [Xs(i),Ys(i),Zs(i),deltat(i)] = readatandcomp(filen,PRN(i),tob,Tems(i));
+        Prec = ch_sv_pos_rotate([Xs(i);Ys(i);Zs(i)], tau(i));
+        
 %（3）计算近似几何距离
         Rs=sqrt((Prec(1,1)-X0(1,1))^2+(Prec(2,1)-X0(2,1))^2+(Prec(3,1)-X0(3,1))^2);
+
 %7、计算对流层延迟 dtrop
-        dx=Prec-X0(1:3,1);
+        dx = Prec - X0(1:3,1);
         [~, E1(i), ~] = topocent(X0(1:3,1),dx);
         if isnan(geodeticHstation)
            [~,~,h] = togeod(a,finv,X0(1,1),X0(2,1),X0(3,1)); 
@@ -57,7 +59,8 @@ X0=[0;0;0;0];
         end
 % dtrop=0;%暂不考虑dtrop
 %8、计算电离层延迟 diono
-        diono=Error_Ionospheric_Klobuchar(X0(1:3,1)',[Xs(i);Ys(i);Zs(i)]',Alpha,Beta,GPST);
+        diono=Error_Ionospheric_Klobuchar(X0(1:3,1)',[Xs(i);Ys(i);Zs(i)]', Alpha, Beta, GPST);
+        
 % diono=0;%暂不考虑dtrop
 %9、求卫星Si在观测方程中的余数项
         l(i)=C1(i)-Rs+cv*deltat(i)-dtrop-diono+0;
@@ -92,9 +95,9 @@ X0=[0;0;0;0];
     end
 end
 % %16、输出满足条件的Xi。
-Xr=X0(1:3,1)
-deltax=X0(1:3,1)-[-2267749.30600679;5009154.2824012134;3221290.677045021]
-deltas=sqrt(deltax(1,1)^2+deltax(2,1)^2+deltax(3,1)^2)
+Xr = X0(1:3,1)
+deltax = X0(1:3,1)-[-2267749.30600679;5009154.2824012134;3221290.677045021]
+deltas = sqrt(deltax(1,1)^2+deltax(2,1)^2+deltax(3,1)^2)
 % E1
 % P=zeros(SatNum,SatNum);
 % for i=1:SatNum

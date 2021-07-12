@@ -71,6 +71,6 @@ if nargin < 4
     [~, t]=UTC2GPST(tob(1),tob(2),tob(3),tob(4),tob(5),tob(6));
 end
 [~, toc]=UTC2GPST(year,month,day,hour,mintue,second);
-[Xs,Ys,Zs,Deltat]=comsatpos(t,toc,a0,a1,a2,Crs,Delta_n,M0,Cuc,e,Cus,sqrtA,toe,Cic,OMEGA,Cis,i0,Crc,omega,OMEGA_DOT,iDOT);
+[Xs,Ys,Zs,Deltat]=ch_sat_pos(t,toc,a0,a1,a2,Crs,Delta_n,M0,Cuc,e,Cus,sqrtA,toe,Cic,OMEGA,Cis,i0,Crc,omega,OMEGA_DOT,iDOT);
 end
 

@@ -2,32 +2,6 @@ clear;
 clc;
 close all;
 
-%%
-
-% 星历 参考GPS原理及接收机设计 3.4
-eph.rcvr_tow = 100;
-eph.sqrtA = 5153.65531;
-eph.toe = 244800;
-eph.dn = 4.249105564E-9;
-eph.m0 = -1.064739758;
-eph.e = 0.005912038265;
-eph.w = -1.717457876;
-eph.i0 = 0.9848407943;
-eph.idot = 7.422851197E-51;
-eph.omg0 = 1.038062244;
-eph.odot = -8.151768125E-9;
-eph.cus = 2.237036824E-6;
-eph.cuc = 3.054738045E-7;
-eph.crs = 2.53125;
-eph.crc = 350.53125;
-eph.cis = 8.940696716E-8;
-eph.cic = -8.381903172E-8;
-
-%  当前GPS时间
-current_gpst = 239050.7223;
-
-sv_pos = get_satellite_position(eph, current_gpst, 1);
-sv_pos
 
 
 %% begin main
@@ -80,16 +54,13 @@ nav2 = [data.data{3, idx_1002}];
 len = length(nav1);
 
 % 存储输出数据
-outdata.pos = [];
+outdata.poslla = [];
+outdata.pos_ecef = [];
 outdata.HDOP =[];
 outdata.VDOP = [];
 outdata.usr_clk_bias = [];
 
-% initial position of the user
-pos = [0 0 0]';
 
-% initial clock bias
-bias = 0;
 
 % 1002 messages are spaced apart 200ms. Let's use 1 out of every 5 samples.
 % This means that we'll compute position every second, which is sufficient
@@ -106,8 +77,11 @@ for idx = 1: 5: len
     eph_formatted_ = [];
     
     % The minimum number of satellites needed is 4, let's go for more than that to be more robust
-    b = 0;
-    xu = [ 0 0 0]';
+    % initial position of the user ,  initial clock bias
+    delta = [100 100 100 100]';
+    X = [ 0 0 0 0 ]';
+    
+    
     
     if (sv_num > 4)
         pr_ = [];
@@ -134,8 +108,8 @@ for idx = 1: 5: len
             % measured pseudoranges corrected for satellite clock bias.
             % Also apply ionospheric and tropospheric corrections if
             % available
-            pr_raw = sv_data(2);
-            pr_(end+1) = pr_raw + c*dsv;
+            pr = sv_data(2);
+            pr_(end+1) = pr + c*dsv;
         end
         % Now lets calculate the satellite positions and construct the G
         % matrix. Then we'll run the least squares optimization to
@@ -144,54 +118,107 @@ for idx = 1: 5: len
         % threhold. In practice, the optimization converges very quickly,
         % usually in 2-3 iterations even when the starting point for the
         % user position and clock bias is far away from the true values.
-        dx = 100*ones(1,3); db = 100;
-        while(norm(dx) > 0.1 && norm(db) > 1)
+        while(norm(delta) > 0.01)
             %	while(norm(dx) > 0.1 && norm(db) > 1)
             Xs = []; % concatenated satellite positions
             pr = []; % pseudoranges corrected for user clock bias
             
             % 计算每一颗卫星的位置
             for i = 1: sv_num
-                cpr = pr_(i) - b;
+                cpr = pr_(i) - X(4);
                 pr = [pr; cpr];
                 
                 % Signal transmission time
                 tau = cpr/c;
                 
-                sv_pos = get_satellite_position(eph_formatted_{i}, rcvr_tow-tau, 1);
-                sv_pos = sv_pos_rotate(sv_pos, tau);
+                sqrtA = eph_formatted_{i}.sqrtA;
+                toe = eph_formatted_{i}.toe;
+                Delta_n = eph_formatted_{i}.dn;
+                M0 = eph_formatted_{i}.m0;
+                e =eph_formatted_{i}.e;
+                omega = eph_formatted_{i}.w;
+                i0 = eph_formatted_{i}.i0;
+                iDOT = eph_formatted_{i}.idot;
+                OMEGA = eph_formatted_{i}.omg0;
+                OMEGA_DOT = eph_formatted_{i}.odot;
+                Cus = eph_formatted_{i}.cus;
+                Cuc =eph_formatted_{i}.cuc;
+                Crs = eph_formatted_{i}.crs;
+                Crc = eph_formatted_{i}.crc;
+                Cis = eph_formatted_{i}.cis;
+                Cic = eph_formatted_{i}.cic;
+                
+                %                 toc = eph_formatted_{i}.toc;
+                %                 a0 = eph_formatted_{i}.af0;
+                %                 a1 = eph_formatted_{i}.af1;
+                %                 a2 = eph_formatted_{i}.af2;
+                toc = 0;
+                a0 = 0;
+                a1 = 0;
+                a2 = 0;
+                
+                [x_sat, y_sat, z_sat, Deltat] = ch_sat_pos(rcvr_tow-tau, toc, a0, a1, a2, Crs, Delta_n, M0, Cuc, e, Cus, sqrtA, toe, Cic, OMEGA, Cis, i0, Crc, omega, OMEGA_DOT, iDOT);
+                sv_pos = [x_sat, y_sat, z_sat]';
+                sv_pos = ch_sv_pos_rotate(sv_pos, tau);
                 Xs = [Xs; sv_pos'];
+                outdata.pos_sv(i,:) = sv_pos;
             end
             
             % 最小二乘解算
-            [usr_ecef, bias, ~, G] = ch_gpsls(xu, b, Xs',  pr');
-            	dx = usr_ecef - xu;
-				db = bias - b;
-				xu = usr_ecef;
-				b = bias;
+            [X, delta, G] = ch_gpsls(X, Xs',  pr');
         end
         
-
-            
         % ECEF转 LLA
-        [lat, lon, h] = ch_ECEF2LLA(usr_ecef);
+        [lat, lon, h] = ch_ECEF2LLA(X);
         
         % 计算DOP
         [VDOP, HDOP, ~, ~] = ch_gpsdop(G, lat, lon);
         
         % 保存数据
+        outdata.pos_ecef(end+1, :) = X(1:3);
         outdata.HDOP(end+1,:) = HDOP;
         outdata.VDOP(end+1,:) = VDOP;
-        outdata.pos(end+1,:) = [rad2deg(lat) rad2deg(lon) h];
-        outdata.usr_clk_bias(end+1,:) = bias;
+        outdata.poslla(end+1,:) = [rad2deg(lat) rad2deg(lon) h];
+        outdata.usr_clk_bias(end+1,:) = X(4);
         
     end
 end
 
 %% plot
-plot(outdata.pos(:,2), outdata.pos(:,1), '.');
+plot(outdata.poslla(:,2), outdata.poslla(:,1), '.');
 xlabel('lon');
 ylabel('lat');
+
+[lat0, lon0, h0] = ch_ECEF2LLA(outdata.pos_ecef(1,:));
+for i = 1:length(outdata.pos_ecef)-1
+    [E, N, U]  = ch_ECEF2ENU(outdata.pos_ecef(i,:), lat0, lon0, h0 );
+    pos_enu(i,:) = [E; N; U];
+end
+
+pos_enu(end,:)
+
+
+%  [az, el] = satellite_az_el(outdata.pos_sv(2,:)' , outdata.pos_ecef(1,:)');
+%  rad2deg(az)
+%  rad2deg(el)
+
+
+figure;
+plot(pos_enu(:,1), pos_enu(:,2), '.');
+xlabel('E');
+ylabel('N');
+
+figure;
+subplot(3,1,1);
+plot(pos_enu(:,1));
+ylabel('E');
+subplot(3,1,2);
+plot(pos_enu(:,2));
+ylabel('N');
+subplot(3,1,3);
+plot(pos_enu(:,3));
+ylabel('U');
+
 
 figure;
 subplot(3,1,1);
@@ -206,112 +233,6 @@ title('usc_clk_bias');
 
 
 
-%% 根据星历计算卫星位置
-function pos = get_satellite_position(eph, t, compute_harmonic_correction)
-% get_satellite_position: computes the position of a satellite at time (t) given the
-% ephemeris parameters.
-% Usage: [x y z] =  get_satellite_position(eph, t, compute_harmonic_correction)
-% Input Args: eph: ephemeris data
-%             t: time
-%             compute_harmonic_correction (optional): 1 if harmonic
-%             correction should be applied, 0 if not.
-% Output Args: [x y z] in ECEF in meters
-% ephmeris data must have the following fields:
-% rcvr_tow (receiver tow)
-% svid (satellite id)
-% toc (reference time of clock parameters)
-% toe (referece time of ephemeris parameters)
-% af0, af1, af2: clock correction coefficients
-% ura (user range accuracy)
-% e (eccentricity)
-% sqrtA (sqrt of semi-major axis)
-% dn (mean motion correction)
-% m0 (mean anomaly at reference time)
-% w (argument of perigee)
-% omg0 (lontitude of ascending node)
-% i0 (inclination angle at reference time)
-% odot (rate of right ascension)
-% idot (rate of inclination angle)
-% cus (argument of latitude correction, sine)
-% cuc (argument of latitude correction, cosine)
-% cis (inclination correction, sine)
-% cic (inclination correction, cosine)
-% crs (radius correction, sine)
-% crc (radius correction, cosine)
-% iod (issue of data number)
-
-
-% set default value for harmonic correction
-switch nargin
-    case 2
-        compute_harmonic_correction=1;
-end
-mu = 3.986005e14;
-omega_dot_earth = 7.2921151467e-5; %(rad/sec)
-
-% Now follow table 20-IV
-A = eph.sqrtA^2;
-cmm = sqrt(mu/A^3); % computed mean motion
-tk = t - eph.toe;
-% account for beginning of end of week crossover
-if (tk > 302400)
-    tk = tk-604800;
-end
-if (tk < -302400)
-    tk = tk+604800;
-end
-% apply mean motion correction
-n = cmm + eph.dn;
-
-% Mean anomaly
-mk = eph.m0 + n*tk;
-
-% solve for eccentric anomaly
-% 迭代3次
-Ek = mk;
-Ek = mk + eph.e*sin(Ek);
-Ek = mk + eph.e*sin(Ek);
-Ek = mk + eph.e*sin(Ek);
-
-% syms E;
-% eqn = E - eph.e*sin(E) == mk;
-% solx = vpasolve(eqn, E);
-% Ek = double(solx);
-
-% True anomaly:
-nu = atan2((sqrt(1-eph.e^2))*sin(Ek)/(1-eph.e*cos(Ek)), (cos(Ek)-eph.e)/(1-eph.e*cos(Ek)));
-%Ek = acos((e  + cos(nu))/(1+e*cos(nu)));
-
-%升交点角距
-Phi = nu + eph.w;
-du = 0;
-dr = 0;
-di = 0;
-
-% 摄动校正量
-if (compute_harmonic_correction == 1)
-    % compute harmonic corrections
-    du = eph.cus*sin(2*Phi) + eph.cuc*cos(2*Phi);
-    dr = eph.crs*sin(2*Phi) + eph.crc*cos(2*Phi);
-    di = eph.cis*sin(2*Phi) + eph.cic*cos(2*Phi);
-end
-
-u = Phi + du;
-r = A*(1-eph.e*cos(Ek)) + dr;
-
-% inclination angle at reference time
-i = eph.i0 + eph.idot*tk + di;
-x_prime = r*cos(u);
-y_prime = r*sin(u);
-omega = eph.omg0 + (eph.odot - omega_dot_earth)*tk - omega_dot_earth*eph.toe;
-
-pos = [0 0 0]';
-
-pos(1) = x_prime*cos(omega) - y_prime*cos(i)*sin(omega);
-pos(2) = x_prime*sin(omega) + y_prime*cos(i)*cos(omega);
-pos(3) = y_prime*sin(i);
-
-end
 
 %% 读取星历
 function eph = format_ephemeris3(eph_)
@@ -343,14 +264,7 @@ eph.iod = eph_(22);
 eph.GPSWeek = eph_(24);
 end
 
-%% 计算经过地球自转改正后的卫星位置
-function sv_pos = sv_pos_rotate(sv_pos, tau)
 
-% Earth's rotation rate
-omega_e = 7.2921151467e-5; %(rad/sec)
-theta = omega_e * tau;
-sv_pos = [cos(theta) sin(theta) 0; -sin(theta) cos(theta) 0; 0 0 1]*sv_pos;
-end
 
 
 %% 计算卫星端钟差
@@ -379,54 +293,8 @@ Ek = mk + eph.e*sin(Ek);
 Ek = mk + eph.e*sin(Ek);
 Ek = mk + eph.e*sin(Ek);
 
-% syms E;
-% eqn = E - eph.e*sin(E) == mk;
-% solx = vpasolve(eqn, E);
-% Ek = double(solx);
-
 % dsv 时间为s
 dsv = eph.af0 + eph.af1*(t-eph.toc) + eph.af2*(t-eph.toc)^2 + F*eph.e*eph.sqrtA*sin(Ek);
 
 end
 
-
-
-
-% function [x, b, norm_dp, G] = estimate_position(xs, pr, numSat, x0, b0, dim)
-	% estimate_position: estimate the user's position and user clock bias
-	% Usage: [x, b, norm_dp, G] = estimate_position(xs, pr, numSat, x0, b0, dim)
-	% Input Args: xs: satellite position matrix
-	%             pr: corrected pseudo ranges (adjusted for known value of the
-	%             satellite clock bias)
-	%             numSat: number of satellites
-	%             x0: starting estimate of the user position
-	%             b0: starting point for the user clock bias
-	%             dim: dimensions of the satellite vector. 3 for 3D, 2 for 2D
-	% Notes: b and b0 are usually 0 as the current estimate of the clock bias
-	% has already been applied to the input pseudo ranges.
-	% Output Args: x: optimized user position
-	%              b: optimized user clock bias
-	%              norm_dp: normalized pseudo-range difference
-	%              G: user satellite geometry matrix, useful for computing DOPs
-%  
-% 	dx = 100*ones(1, dim);
-% 	db = 0;
-% 	norm_dp = 100;
-% 	b = b0;
-% 	%while (norm_dp > 1e-4)
-% 	while norm(dx) > 1
-% 		norms = sqrt(sum((xs-x0).^2,2));
-% 		% delta pseudo range:
-% 		dp = pr - norms + b - b0;
-% 		G = [-(xs-x0)./norms ones(numSat,1)];
-% 		sol = inv(G'*G)*G'*dp;
-% 		dx = sol(1:dim)';
-% 		db = sol(dim+1);
-% 		norm_dp = norm(dp);
-% 		x0 = x0 + dx;
-% 		b0 = b0 + db;
-% 	end
-% 	x = x0;
-% 	b = b0;
-% end
-    
