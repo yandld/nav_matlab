@@ -23,9 +23,9 @@ for i = 1:N
 end
 
 %找到和 toe(星历参考时间) 时间相距最近的一套星历
-[week, t] = UTC2GPST(UTC(1), UTC(2), UTC(3), UTC(4), UTC(5), UTC(6));
-fprintf("GPST:%d\r\n", t);
- [~,idx] = min(abs(eph(:, 17) - t));
+[week, tow] = UTC2GPST(UTC(1), UTC(2), UTC(3), UTC(4), UTC(5), UTC(6));
+fprintf("GPST:%d\r\n", tow);
+ [~,idx] = min(abs(eph(:, 17) - tow));
  eph = eph(idx, :);
 
 % 抽取星历
@@ -51,7 +51,7 @@ a1 = eph(22);
 a2 = eph(23);
 
 
-[X, Y, Z, sv_dt] = ch_sat_pos(t, toc, a0, a1, a2, Crs, Delta_n, M0, Cuc, e, Cus, sqrtA, toe, Cic, OMEGA, Cis, i0, Crc, omega, OMEGA_DOT, iDOT);
+[X, Y, Z, sv_dt] = ch_sat_pos(tow, toc, a0, a1, a2, Crs, Delta_n, M0, Cuc, e, Cus, sqrtA, toe, Cic, OMEGA, Cis, i0, Crc, omega, OMEGA_DOT, iDOT);
 
 fprintf("PRN:%d: 位置: %f %f %f\r\n", PRN, X, Y, Z);
 fprintf("卫星钟差:%f s(%fm)\r\n", sv_dt, sv_dt*cv);

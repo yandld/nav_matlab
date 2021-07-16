@@ -79,10 +79,9 @@ for idx = 1: 5: len
     % The minimum number of satellites needed is 4, let's go for more than that to be more robust
     % initial position of the user ,  initial clock bias
     delta = [100 100 100 100]';
-    X = [ 0 0 0 0 ]';
+    X = [ 0 0 0 0 ]'; % X Y Z 
     
-    
-    
+   
     if (sv_num > 4)
         pr_ = [];
         % Correct for satellite clock bias and find the best ephemeris data
@@ -157,7 +156,7 @@ for idx = 1: 5: len
                 a1 = 0;
                 a2 = 0;
                 
-                [x_sat, y_sat, z_sat, Deltat] = ch_sat_pos(rcvr_tow-tau, toc, a0, a1, a2, Crs, Delta_n, M0, Cuc, e, Cus, sqrtA, toe, Cic, OMEGA, Cis, i0, Crc, omega, OMEGA_DOT, iDOT);
+                [x_sat, y_sat, z_sat, sv_dt] = ch_sat_pos(rcvr_tow-tau, toc, a0, a1, a2, Crs, Delta_n, M0, Cuc, e, Cus, sqrtA, toe, Cic, OMEGA, Cis, i0, Crc, omega, OMEGA_DOT, iDOT);
                 sv_pos = [x_sat, y_sat, z_sat]';
                 sv_pos = ch_sv_pos_rotate(sv_pos, tau);
                 Xs = [Xs; sv_pos'];
