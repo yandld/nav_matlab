@@ -9,11 +9,13 @@ END_LOOP=100;
 n = size(sv_pos, 2);
 
 if n < 4
+    delta = 0;
+    G = 0;
     return
 end
    X0 = X;
 
-    while (END_LOOP > B1)
+    for loop = 1:10
         % 获得当前位置与各个基站的距离
         r = vecnorm(sv_pos - X(1:3));
         
@@ -23,14 +25,14 @@ end
         
         H = [H(:,1:3),  ones(n,1)];
         
-        dp = ((pr - r) + X0(4) - X(4))';
+        dp = ((pr - r) -  X(4))';
         
         % 迭代用户距离
         delta =  (H'*H)^(-1)*H'*dp;
         X = X + delta;
         G = H;
         
-        END_LOOP = vnorm(delta(1:3));
+    %    END_LOOP = vnorm(delta(1:3));
     end
     
     delta = X - X0;

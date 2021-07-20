@@ -1,15 +1,20 @@
-clc
-clear
+clc;
+clear;
+close all;
+
 format long g
 
 % read observation file to get orbit elements
-[obs,rec_xyz] = read_rinex_obs('madr2000.06o');
+%[obs,rec_xyz] = read_rinex_obs('wuhn2470.01o');
+load 'obs.mat';
+rec_xyz = [ 0 0 0]';
+
 
 % read navigation file to get orbit elements
-ephemeris = read_rinex_nav('brdc2000.06n');
+ephemeris = read_rinex_nav('wuhn2470.01n');
 
 epochs = unique(obs.data(:, obs.col.TOW));
-TimeSpan=epochs(1:2880);
+TimeSpan=epochs(1:200);
 
 % Broadcast Orbit
 satOrbits.XS=zeros(1,length(TimeSpan));
@@ -86,21 +91,41 @@ for ii=1:length(TimeSpan)
             satOrbits(PRN_obs.data(PRN_obs.col.PRN)).Rel(ii)=PRN_obs.data(PRN_obs.col.Rel);            
             
             % Calculate corrected pseudorange based on broadcast orbit
-            satOrbits(PRN_obs.data(PRN_obs.col.PRN)).CorrP1(ii)=...
-                satOrbits(PRN_obs.data(PRN_obs.col.PRN)).P3(ii)+...
-                satOrbits(PRN_obs.data(PRN_obs.col.PRN)).clk(ii)+satOrbits(PRN_obs.data(PRN_obs.col.PRN)).Rel(ii);            
+            satOrbits(PRN_obs.data(PRN_obs.col.PRN)).CorrP1(ii)=  satOrbits(PRN_obs.data(PRN_obs.col.PRN)).C1(ii) +  satOrbits(PRN_obs.data(PRN_obs.col.PRN)).clk(ii) + satOrbits(PRN_obs.data(PRN_obs.col.PRN)).Rel(ii);
+               
+                   
         end
         
         % Calculate User Position
-        [broadcast_obs,~]=createObs(this_TOW,satOrbits);
+        [broadcast_obs,~]=createObs(this_TOW, satOrbits);
         delta_xyz = comp_pos(broadcast_obs,rec_xyz');
         rec_xyz = rec_xyz + delta_xyz(1:3);
-        
         stop=stop-1;
     end
     userPos(ii,1:4) = [rec_xyz; delta_xyz(4)]';
     [lon1(ii),lat1(ii),alt1(ii)] = Geodetic(rec_xyz);
 end
+
+GT = [-2267749.30600679, 5009154.2824012134, 3221290.677045021]';
+
+
+[lat, lon, h] = ch_ECEF2LLA(GT);
+
+for i = 1: length(userPos)
+    [E, N, U] = ch_ECEF2ENU(userPos(i, (1:3)), lat, lon, h);
+    ENU(i,:) = [E, N, U];
+end
+
+error = userPos(:,1:3) - GT';
+
+fprintf("偏差:%f std:%f\r\n", mean(vecnorm(error, 2, 2)), std(vecnorm(error, 2, 2)));
+
+figure;
+plot(ENU(:,1), ENU(:,2), '*');
+xlabel("E"); ylabel("N");
+
+figure;
+plot(userPos(:,4), '.-');
 
 fprintf('mean of user position:');
 fprintf('%16f%16f%16f\n',mean(userPos(:,1)),mean(userPos(:,2)),mean(userPos(:,3)));

@@ -9,7 +9,7 @@ A       = zeros(numOfSatellites, 4);
 obs = curr_obs.data(:,curr_obs.col.CorrP);
 
 for i = 1:numOfSatellites
-     b(i) = (obs(i,1) - norm(SPos(i,:) - rec_xyz, 'fro')); 
+     b(i) = (obs(i,1) - vecnorm(SPos(i,:) - rec_xyz)); 
      A(i, :) =  [(-(SPos(i,1) - rec_xyz(1))) / obs(i) ,(-(SPos(i,2) - rec_xyz(2))) / obs(i) ,(-(SPos(i,3) - rec_xyz(3))) / obs(i) , 1 ];
 end;
 
