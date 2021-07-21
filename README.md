@@ -24,7 +24,9 @@
 | \example\uwb_imu_fusion_test | 15维UWB+IMU EKF 紧组合                                       |
 | \example\uwb_test            | 纯UWB多边定位测试                                            |
 | \example\basic               | 一些基础函数测试和入门例程(入门推荐先看)                     |
+| \example\其他未列出目录      | 试验性质的测试代码，建议不看                                 |
 | \study                       | 自己学习用脚本，包含线性代数/和一些参考书籍书后matlab答案及验证 |
+| \lib                         | 存放库文件 或者经过验证过的 公共函数，可靠性较高             |
 
 
 
@@ -49,6 +51,7 @@
 
 参考
 > * 捷联惯导算法与组合导航原理_严恭敏
+> * 严老师网站: http://www.psins.org.cn/sy
 > * 多传感器融合-深蓝学院
 > * https://kth.instructure.com/files/677996/download?download_frd=1
 > * https://www.coursera.org/learn/state-estimation-localization-self-driving-cars

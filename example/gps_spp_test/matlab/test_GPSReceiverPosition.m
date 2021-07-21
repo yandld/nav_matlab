@@ -91,7 +91,7 @@ for ii=1:length(TimeSpan)
             satOrbits(PRN_obs.data(PRN_obs.col.PRN)).Rel(ii)=PRN_obs.data(PRN_obs.col.Rel);            
             
             % Calculate corrected pseudorange based on broadcast orbit
-            satOrbits(PRN_obs.data(PRN_obs.col.PRN)).CorrP1(ii)=  satOrbits(PRN_obs.data(PRN_obs.col.PRN)).C1(ii) +  satOrbits(PRN_obs.data(PRN_obs.col.PRN)).clk(ii) + satOrbits(PRN_obs.data(PRN_obs.col.PRN)).Rel(ii);
+            satOrbits(PRN_obs.data(PRN_obs.col.PRN)).CorrP1(ii)=  satOrbits(PRN_obs.data(PRN_obs.col.PRN)).P3(ii) +  satOrbits(PRN_obs.data(PRN_obs.col.PRN)).clk(ii) + satOrbits(PRN_obs.data(PRN_obs.col.PRN)).Rel(ii);
                
                    
         end

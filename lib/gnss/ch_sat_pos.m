@@ -1,7 +1,8 @@
-function [X, Y, Z, sv_dt]=ch_sat_pos(t, toc, a0, a1, a2, Crs, Delta_n, M0, Cuc, e, Cus, sqrtA, toe, Cic, OMEGA, Cis, i0, Crc, omega, OMEGA_DOT, iDOT)
+function [XYZ, sv_dt]=ch_sat_pos(t, toc, a0, a1, a2, Crs, Delta_n, M0, Cuc, e, Cus, sqrtA, toe, Cic, OMEGA, Cis, i0, Crc, omega, OMEGA_DOT, iDOT)
 % 输入:
 % toe: 星历参考时间： 一套星历的有效期为toe前后4小时
 % a0 a1 a2 toc: 卫星时钟校正模型方程中3个参数，  toc: 第一数据块参考时间, 被用作时钟校正模型中时间参考点
+
 
 % 卫星星历参数(16个):
 % sqrtA: 卫星轨道长半轴的平方根
@@ -69,10 +70,9 @@ y=rk*sin(uk);
 %9.计算发射时刻升交点的经度67
 L=OMEGA+(OMEGA_DOT-7.2921151467e-5)*tk-7.2921151467e-5*toe;
 %10.计算卫星在地固坐标系下坐标
-X=x*cos(L)-y*cos(ik)*sin(L);
-Y=x*sin(L)+y*cos(ik)*cos(L);
-Z=y*sin(ik);
-% DeltaX=Xs-(-20274509.129)
-% DeltaY=Ys-(13349329.456)
-% DeltaZ=Zs-(-10661361.857)
+XYZ(1)=x*cos(L)-y*cos(ik)*sin(L);
+XYZ(2)=x*sin(L)+y*cos(ik)*cos(L);
+XYZ(3)=y*sin(ik);
+XYZ = XYZ';
+
 end
