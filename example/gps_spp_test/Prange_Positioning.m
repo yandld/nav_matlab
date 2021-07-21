@@ -6,7 +6,6 @@ close all;
 % GPS原理及应用 谢刚
 
 
-%tob = [01, 9, 4, 0, 30, 0];                                     %观测时刻的UTC时，年取后两位
 
 geodeticHstation=93.4e-3;%NaN                            %测站大地高km，如果不知道填NaN
 Alpha = [0.2235D-07  0.2235D-07 -0.1192D-06 -0.1192D-06];  %导航电文头文件中的电离层Alpha
@@ -14,8 +13,8 @@ Beta = [0.1290D+06  0.4915D+05 -0.1966D+06  0.3277D+06];   %导航电文头文件中的电
 filen='wuhn2470.01n';
 fileo='wuhn2470.01o';
 
-%  filen='rtcm_data.nav';
-%  fileo='rtcm_data.obs';
+ filen='SAVE2021_7_20_22-32-23.nav';
+ fileo='SAVE2021_7_20_22-32-23.obs';
 
 chooseTropo = 2;                                           %采用的对流层模型1:简化霍普菲尔德（Hopfield）改正模型 2:萨斯塔莫宁（Saastamoinen）改正模型
 
@@ -27,11 +26,11 @@ finv = 298.2572236;                                        %WGS84椭球扁率倒数
 %以下为计算过程
 %1、在O文件中提取四颗以上卫星的C1观测值。
 fprintf("读取 renix obs 数据...\r\n");
-%[obs, ~]  = read_rinex_obs(fileo);
-load 'obs.mat';
+[obs, ~]  = read_rinex_obs(fileo);
+%load 'obs.mat';
 
 
-% 读取N文件,并且找到和当前时刻最近的一份星历
+% 读取n文件
 fprintf("读取 renix nav 数据...\r\n");
 all_eph = read_rinex_nav(filen);
 fprintf("读取完成\r\n");
@@ -39,12 +38,17 @@ fprintf("读取完成\r\n");
 
 fprintf("开始定位...\r\n");
 
-%3、程序初始化，置测站概略位置为Xr，接收机钟差初值为dt。
+%程序初始化，置测站概略位置为Xr，接收机钟差初值为dt。
 X = [0 0 0 0]';
 
+% 提取当前时刻的所有卫星obs 时刻
 epochs = unique(obs.data(:, obs.col.TOW));
-TimeSpan=epochs(1:200);
+TimeSpan=epochs(1:end);
 
+% 提取当前时刻所有卫星的eph
+%eph = unique(all_eph())
+ %one_sv_eph = all_eph([all_eph(:,1) == PRN], :); % 读取某一个卫星的所有星历
+ 
 for ii = 1:length(TimeSpan);
     % 提取当前TOW时刻的所有OBS
     this_TOW = TimeSpan(ii);
@@ -76,8 +80,10 @@ for ii = 1:length(TimeSpan);
                 continue; %当前卫星没有eph, pass
             end
             
-            [~,idx] = min(abs(one_sv_eph(:, 17) - this_TOW)); % 挑这一颗卫星里找与当前时间最接近的那一套星历
+            [diff, idx] = min(abs(one_sv_eph(:, 17) - this_TOW)); % 挑这一颗卫星里找与当前时间最接近的那一套星历
+            
             one_sv_eph = one_sv_eph(idx, :);
+          %  fprintf("PRN:%d 当前 %d toe:%d 相差:%d\r\n", PRN, this_TOW, one_sv_eph(17), diff);
             
             M0 = one_sv_eph(2);
             Delta_n = one_sv_eph(3);
@@ -155,6 +161,9 @@ rec_xyz(all(rec_xyz==0,2),:) = [];
 
 %% 验证
 GT = [-2267749.30600679, 5009154.2824012134, 3221290.677045021]';
+GT = [39.940093, 116.37498022 , 48.176];
+GT = ch_LLA2ECEF(deg2rad(GT(1)), deg2rad(GT(2)), GT(3));
+
 error = rec_xyz(:,1:3) - GT';
 
 fprintf("偏差:%f std:%f\r\n", mean(vecnorm(error, 2, 2)), std(vecnorm(error, 2, 2)));
@@ -165,6 +174,9 @@ for i = 1: length(rec_xyz)
     [E, N, U] = ch_ECEF2ENU(rec_xyz(i, (1:3)), lat, lon, h);
     ENU(i,:) = [E, N, U];
 end
+
+[lat, lon, h] = ch_ECEF2LLA(rec_xyz(end,:));
+fprintf("最后一次位置: %f %f %f\r\n", rad2deg(lat), rad2deg(lon), h);
 
 figure;
 subplot(3, 1, 1);
@@ -178,7 +190,6 @@ plot(ENU(:,3));
 ylabel("U");
 
 
-
 figure;
 plot(ENU(:,1), ENU(:,2), '*');
 xlabel("E"); ylabel("N");
@@ -188,21 +199,6 @@ figure;
 plot(rec_xyz(:,4), '.-');
 title("接收机钟差");
 
-%
-% %% plot
-% plot(outdata.poslla(:,2), outdata.poslla(:,1), '.');
-% xlabel('lon');
-% ylabel('lat');
-%
-% [lat0, lon0, h0] = ch_ECEF2LLA(outdata.pos_ecef(1,:));
-% for i = 1:length(outdata.pos_ecef)-1
-%     [E, N, U]  = ch_ECEF2ENU(outdata.pos_ecef(i,:), lat0, lon0, h0 );
-%     pos_enu(i,:) = [E; N; U];
-% end
-%
-% pos_enu(end,:)
-%
-%
 % %  [az, el] = satellite_az_el(outdata.pos_sv(2,:)' , outdata.pos_ecef(1,:)');
 % %  rad2deg(az)
 % %  rad2deg(el)
