@@ -11,52 +11,48 @@ cv=299792458;
 % 设置
 UTC = [1, 9, 4, 2, 0, 0];
 PRN = 1; %需要计算的卫星数
-GT = [1259.474846	-25212.777647	-8037.932547]*1000; %真实值参考
+GT = [1259.474846	-25212.777647	-8037.932547]'*1000; %真实值参考
 
 % 选出需要的卫星(PRN相同)
-j = 1;
-for i = 1:N
-    if(all_eph(i,1) == PRN)
-        eph(j,:) = all_eph(i,:);
-        j = j+1;
-    end
-end
+ index = find(all_eph(:,1) == PRN);
+ prn_eph = all_eph(index, :);
+ 
 
 %找到和 toe(星历参考时间) 时间相距最近的一套星历
 [week, tow] = UTC2GPST(UTC(1), UTC(2), UTC(3), UTC(4), UTC(5), UTC(6));
 fprintf("GPST:%d\r\n", tow);
- [~,idx] = min(abs(eph(:, 17) - tow));
- eph = eph(idx, :);
+ [~,idx] = min(abs(prn_eph(:, 17) - tow));
+ prn_eph = prn_eph(idx, :);
 
 % 抽取星历
-M0 = eph(2);
-Delta_n = eph( 3);
-e = eph( 4);
-sqrtA = eph(5);
-OMEGA = eph( 6);
-i0 = eph(7);
-omega =  eph( 8);
-OMEGA_DOT = eph(9);
-iDOT = eph(10);
-Cuc = eph(11);
-Cus = eph(12);
-Crc = eph(13);
-Crs = eph(14);
-Cic = eph(15);
-Cis = eph(16);
-toe = eph(17);
-toc = eph(20);
-a0 = eph(21);
-a1 = eph(22);
-a2 = eph(23);
+M0 = prn_eph(2);
+Delta_n = prn_eph( 3);
+e = prn_eph( 4);
+sqrtA = prn_eph(5);
+OMEGA = prn_eph( 6);
+i0 = prn_eph(7);
+omega =  prn_eph( 8);
+OMEGA_DOT = prn_eph(9);
+iDOT = prn_eph(10);
+Cuc = prn_eph(11);
+Cus = prn_eph(12);
+Crc = prn_eph(13);
+Crs = prn_eph(14);
+Cic = prn_eph(15);
+Cis = prn_eph(16);
+toe = prn_eph(17);
+toc = prn_eph(20);
+a0 = prn_eph(21);
+a1 = prn_eph(22);
+a2 = prn_eph(23);
 
 
-[X, Y, Z, sv_dt] = ch_sat_pos(tow, toc, a0, a1, a2, Crs, Delta_n, M0, Cuc, e, Cus, sqrtA, toe, Cic, OMEGA, Cis, i0, Crc, omega, OMEGA_DOT, iDOT);
+[XYZ, sv_dt] = ch_sat_pos(tow, toc, a0, a1, a2, Crs, Delta_n, M0, Cuc, e, Cus, sqrtA, toe, Cic, OMEGA, Cis, i0, Crc, omega, OMEGA_DOT, iDOT);
 
-fprintf("PRN:%d: 位置: %f %f %f\r\n", PRN, X, Y, Z);
+fprintf("PRN:%d: 位置: %f %f %f\r\n", PRN, XYZ(1), XYZ(2), XYZ(3));
 fprintf("卫星钟差:%f s(%fm)\r\n", sv_dt, sv_dt*cv);
 
-delta = norm([X Y Z] - GT); %残差
+delta = norm(XYZ - GT); %残差
 fprintf("与真实值偏差:%f m\r\n", delta);
 
 % 参考真实值：

@@ -17,24 +17,21 @@ close all;
 % T1 T2 : 在150MHz(T1)和400MHz(T2)的传输集成多普勒
 
 % 卫星obs 观测文件
-[all_obs, rec_xyz]  = read_rinex_obs("wuhn2470.01o");
+[all_obs, rec_xyz]  = read_rinex_obs("SAVE2021_7_20_22-32-23.obs");
 
 all_obs.col
 
-PRN = 3; %需要计算的卫星数
+PRN = 10; %需要计算的卫星数
 N = length(all_obs.data);
 
 % 选出需要的卫星(PRN相同)
-j = 1;
-for i = 1:N
-    if(all_obs.data(i,3) == PRN)
-        obs(j,:) = all_obs.data(i,:);
-        j = j+1;
-    end
-end
+ index = find(all_obs.data(:,all_obs.col.PRN) == PRN);
+ obs = all_obs.data(index, :);
+
+
 
 plot(obs(:,2), obs(:,4:6), '.-');
-legend("L1", "L2", "C1");
+legend("L1(载波)", "L2(载波)", "C1(伪距)");
 
 
 
