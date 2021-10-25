@@ -3,16 +3,24 @@ clc;
 clear;
 close all;
 format short;
+
 %% 校准数据
 input =[
-    1.0556    0.0194   -0.0651
-    0.0195    0.9952   -0.0430
-    0.0714   -0.0175    0.9652
-    -0.9272   -0.0181   -0.0296
-    0.0921   -0.9974   -0.0491
-    0.0503    0.0159   -1.0561
+      0.9896   0.0121  -0.0193 
+     -0.0124   1.0013   0.0024 
+     -0.0083  -0.0087   0.9944 
+     -1.0094  -0.0084   0.0018 
+     -0.0068  -0.9974  -0.0198 
+     -0.0119   0.0115  -1.0081 
     ];
 
+
+
+
+
+
+
+ 
 [C, B] = acc_calibration(input);
 
 fprintf('校准矩阵:');
@@ -32,12 +40,12 @@ output(6,:) = C*(input(6,:)') - B;
 
 
 %% 计算校准前后误差
-X =  input - [1 0 0; 0 1 0; 0 0 1; -1 0 0; 0 -1 0; 0 0 -1];
-error_input =  sum(sum(abs(X).^2, 2).^(1/2));
+err =  input - [1 0 0; 0 1 0; 0 0 1; -1 0 0; 0 -1 0; 0 0 -1];
+residul_input =  sum(sum(abs(err).^2, 2).^(1/2));
 
-X =  output - [1 0 0; 0 1 0; 0 0 1; -1 0 0; 0 -1 0; 0 0 -1];
-error_ouput =  sum(sum(abs(X).^2, 2).^(1/2));
-fprintf('校准前误差: %f    校准后误差: %f\n', error_input, error_ouput);
+err =  output - [1 0 0; 0 1 0; 0 0 1; -1 0 0; 0 -1 0; 0 0 -1];
+residul_output =  sum(sum(abs(err).^2, 2).^(1/2));
+fprintf('校准前误差: %f    校准后误差: %f\n', residul_input, residul_output);
 
 %% plot
 grid on;

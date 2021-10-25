@@ -6,7 +6,7 @@ close all
 % UWB IMU 融合算法，采用误差卡尔曼15维经典模型，伪距组合
 % PR(TOF) 伪距：        UWB硬件给出的原始测量距离值
 % IMU:                       加速度(3) 3轴陀螺(3) 共6维,,
-% noimal_state:           导航方程状态: 位置(3) 速度(3) 四元数(4) 共10维
+% noimal_state:           名义状态: 导航方程状态: 位置(3) 速度(3) 四元数(4) 共10维
 % err_state:                 KF误差状态: 位置误差(3) 速度误差(3) 失准角(3) 加速度计零偏(3) 陀螺零偏(3) 共15维
 % du:                          零偏反馈: 加速度计零偏(3) 陀螺零偏(3)， 共6维
 
@@ -134,7 +134,7 @@ for k=1:N
         
         % 卡尔曼公式，计算K
         S = H*P*H'+R1; % system uncertainty
-        residual = pr - Y; %residual 或者叫信息
+        residual = pr - Y; %residual 或者叫新息
         
         %% 根据量测置信度给R一些增益   Self-Calibrating Multi-Sensor Fusion with Probabilistic
         %Measurement Validation for Seamless Sensor Switching on a UAV, 计算量测可靠性
@@ -292,24 +292,25 @@ end
 function [Y, H] = uwb_hx(x, anchor, dim)
 N = size(anchor,2); %基站个数
 
-pos = x(1:3);
+position = x(1:3);
 if(dim)== 2
-    pos = pos(1:2);
+    position = position(1:2);
     anchor = anchor(1:2, 1:N);
     %  uwb.anchor
 end
 
 Y = [];
 H = [];
-residual = repmat(pos,1,N) - anchor(:,1:N);
+% 计算预测的伪距s
+perd_pr = repmat(position,1,N) - anchor(:,1:N);
 for i=1:N
     
     if(dim)== 2
-        H = [H ;residual(:,i)'/norm(residual(:,i)),zeros(1,13)];
+        H = [H ;perd_pr(:,i)'/norm(perd_pr(:,i)),zeros(1,13)];
     else
-        H = [H ;residual(:,i)'/norm(residual(:,i)),zeros(1,12)];
+        H = [H ;perd_pr(:,i)'/norm(perd_pr(:,i)),zeros(1,12)];
     end
-    Y = [Y ;norm(residual(:,i))];
+    Y = [Y ;norm(perd_pr(:,i))];
 end
 
 

@@ -40,7 +40,7 @@ load SV_Pos                         % position of satellites
 load SV_Rho                         % pseudorange of satellites
 
 T = 1; % positioning interval
-N = 25;% total number of steps
+N = length(SV_Pos);% total number of steps
 % State vector is as [x Vx y Vy z Vz b d].', i.e. the coordinate (x,y,z),
 % the clock bias b, and their derivatives.
 
