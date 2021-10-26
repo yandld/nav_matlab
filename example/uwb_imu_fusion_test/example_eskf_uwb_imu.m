@@ -220,10 +220,10 @@ demo_plot(dataset, out_data);
 
 
 
-%%  Init navigation state
+%%  初始化nomial state
 function x = init_navigation_state(~)
 
-% 初始化normial state
+% 简单点， 全部给 0
 q = ch_eul2q(deg2rad([0 0 0]));
 x = [zeros(6,1); q];
 end

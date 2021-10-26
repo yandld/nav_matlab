@@ -1,3 +1,9 @@
+
+
+%% 说明
+
+
+
 function demo_plot(dataset, out_data)
 
 figure('NumberTitle', 'off', 'Name', '原始数据');
@@ -31,11 +37,6 @@ subplot(2,1,1);
 plot(out_data.L);
 title("量测置信度S");
 
-if(isfield(out_data, "good_anchor_cnt"))
-    subplot(2,1,2);
-    plot(out_data.good_anchor_cnt, '.-');
-    title("量测更新时使用的基站数量");
-end
 
 
 figure('NumberTitle', 'off', 'Name', 'PVT');

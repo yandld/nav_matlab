@@ -2,7 +2,7 @@ clear;
 clc;
 close all;
 %% 当地切平面坐标系 GPS IMU 组合导航，经典15维ESKF
-
+% 架构基于: https://kth.instructure.com/courses/4962/files/805888/download?verifier=0pYkYUwoZPMGlukMWCScvyVnXQY5br6Bxmqhpvvk&wrap=1
 %% Load data 瑞典data
 load('gps_ins_dataset1.mat');
 

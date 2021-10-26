@@ -1,13 +1,12 @@
 # 基于的matlab导航科学计算库
 
+教学性质的：
 
-
-* GPS IMU 经典ESKF融合
+* GPS IMU 经典15维ESKF松组合
 * VRU/AHRS姿态融合算法
 * 捷联惯导速度位置姿态解算例子
-* UWB IMU融合
-
-
+* UWB IMU 紧组合融合
+* 每个例子自带数据集
 
 运行环境： matlab2020a 必须安装 sensor fusion toolbox 和 navigation tool box
 
@@ -30,7 +29,7 @@
 
 
 
-其中UWB+IMU 融合和 GPS+IMU融合就是经典的15维误差卡尔曼滤波(EKSF)，没有什么论文参考，就是一直用的经典的框架。见参考部分.
+其中UWB+IMU 融合和 GPS+IMU融合就是经典的15维误差卡尔曼滤波(EKSF)，没有什么论文参考，就是一直用的经典的框架(就是松组合)。见参考部分.
 
 
 
@@ -52,9 +51,9 @@
 参考
 > * 捷联惯导算法与组合导航原理_严恭敏
 > * 严老师网站: http://www.psins.org.cn/sy
-> * 多传感器融合-深蓝学院
-> * https://kth.instructure.com/files/677996/download?download_frd=1
-> * https://www.coursera.org/learn/state-estimation-localization-self-driving-cars
+> * 深蓝学院-多传感器融合课程
+> * GPS IMU 松组合 https://kth.instructure.com/files/677996/download?download_frd=1
+> * coursera课程 https://www.coursera.org/learn/state-estimation-localization-self-driving-cars
 > * GNSS与惯性及多传感器组合导航系统原理-第二版
 > * GPS原理与接收机设计 谢刚
 
