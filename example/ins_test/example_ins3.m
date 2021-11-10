@@ -7,6 +7,13 @@ close all;
 %% 角速度为rad， 加速度为m/s^(2)
 load example_ins3_hi226_static_30s.mat
 
+data = csvread('C:\Users\YX\Desktop\UranusData.csv', 1, 2);
+acc = data(:,1:3)*9.8;
+
+gyr = deg2rad(data(:,4:6));
+
+
+ 
 Fs = 100;
 N = length(acc);
 

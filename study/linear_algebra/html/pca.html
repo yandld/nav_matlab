@@ -1,0 +1,364 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>This script generates and plots 3D data, and performs a principal</title><meta name="generator" content="MATLAB 9.8"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2021-11-01"><meta name="DC.source" content="pca.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; }
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+span.typesection { color:#A0522D }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h1>This script generates and plots 3D data, and performs a principal</h1><!--introduction--><!--/introduction--><h2>Contents</h2><div><ul><li><a href="#1">component analysis to decorrelate the data, and to reduce the</a></li><li><a href="#2">dimensionality of the feature space.</a></li></ul></div><h2 id="1">component analysis to decorrelate the data, and to reduce the</h2><h2 id="2">dimensionality of the feature space.</h2><pre class="codeinput"><span class="comment">% https://www.visiondummy.com/2014/05/feature-extraction-using-pca/#PCA_as_a_decorrelation_method</span>
+
+<span class="comment">% Note that matlab has an optimized function to perform PCA: princomp()</span>
+<span class="comment">% However, in this script we perform PCA manually by calculating the</span>
+<span class="comment">% eigenvectors, for demonstration/educational purposes.</span>
+
+clear <span class="string">all</span>;
+close <span class="string">all</span>;
+clc;
+
+
+<span class="comment">% Create some random data</span>
+s = [2 2 2];  <span class="comment">% skew factor</span>
+x = randn(1000,1);
+y1 = normrnd(s(1).*x,1)+3;
+y2 = normrnd(s(2).*x,1)+2;
+y3 = normrnd(s(3).*x,1)+1;
+data = [y1 y2 y3];
+
+ plot3(data(:,1), data(:,2), data(:,3), <span class="string">'.'</span>)
+
+<span class="comment">%%%%%%%%%%%%% PLOT THE ORIGINAL DATA %%%%%%%%%%%</span>
+<span class="comment">% Get the coordinates of the data mean</span>
+avg = mean(data);
+X0=avg(1);
+Y0=avg(2);
+Z0=avg(3);
+
+<span class="comment">% Plot the original data</span>
+scatter3(data(:,1), data(:,2), data(:,3), 5, data(:,3), <span class="string">'filled'</span>);
+colormap(gray);
+
+<span class="comment">% Calculate the eigenvectors and eigenvalues</span>
+covariance = cov(data);
+[eigenvec, eigenval ] = eig(covariance);
+
+<span class="comment">% Get the index of the largest eigenvector</span>
+largest_eigenvec = eigenvec(:, 3);
+largest_eigenval = eigenval(3,3);
+medium_eigenvec = eigenvec(:, 2);
+medium_eigenval = eigenval(2,2);
+smallest_eigenvec = eigenvec(:, 1);
+smallest_eigenval = eigenval(1,1);
+
+<span class="comment">% Plot the eigenvectors</span>
+hold <span class="string">on</span>;
+quiver3(X0, Y0, Z0, largest_eigenvec(1)*sqrt(largest_eigenval), largest_eigenvec(2)*sqrt(largest_eigenval), largest_eigenvec(3)*sqrt(largest_eigenval), <span class="string">'-m'</span>, <span class="string">'LineWidth'</span>,3);
+quiver3(X0, Y0, Z0, medium_eigenvec(1)*sqrt(medium_eigenval), medium_eigenvec(2)*sqrt(medium_eigenval), medium_eigenvec(3)*sqrt(medium_eigenval), <span class="string">'-g'</span>, <span class="string">'LineWidth'</span>,3);
+quiver3(X0, Y0, Z0, smallest_eigenvec(1)*sqrt(smallest_eigenval), smallest_eigenvec(2)*sqrt(smallest_eigenval), smallest_eigenvec(3)*sqrt(smallest_eigenval), <span class="string">'-r'</span>, <span class="string">'LineWidth'</span>,3);
+hold <span class="string">on</span>;
+
+<span class="comment">% Set the axis labels</span>
+hXLabel = xlabel(<span class="string">'x'</span>);
+hYLabel = ylabel(<span class="string">'y'</span>);
+hZLabel = zlabel(<span class="string">'z'</span>);
+xlim([-10,10]);
+ylim([-10,10]);
+zlim([-10,10]);
+title(<span class="string">'Original 3D data'</span>);
+
+<span class="comment">%%%%%%%%%%%%% CENTER THE DATA %%%%%%%%%%%</span>
+data = data-repmat(avg, size(data, 1), 1);
+
+<span class="comment">%%%%%%%%%%%%% NORMALIZE THE DATA %%%%%%%%%%%</span>
+stdev = sqrt(diag(covariance));
+data = data./repmat(stdev', size(data, 1), 1);
+
+<span class="comment">%%%%%%%%%%%%% DECORRELATE THE DATA %%%%%%%%%%%</span>
+decorrelateddata = (data*eigenvec);
+
+<span class="comment">% Plot the decorrelated data</span>
+figure;
+scatter3(decorrelateddata(:,1), decorrelateddata(:,2), decorrelateddata(:,3), 5, decorrelateddata(:,3), <span class="string">'filled'</span>);
+colormap(gray);
+
+<span class="comment">% Plot the eigenvectors (which are now the axes (0,0,1), (0,1,0), (1,0,0)</span>
+<span class="comment">% and the mean of the centered data is at (0,0,0)</span>
+hold <span class="string">on</span>;
+quiver3(0, 0, 0, 0, 0, 1*sqrt(largest_eigenval), <span class="string">'-m'</span>, <span class="string">'LineWidth'</span>,3);
+quiver3(0, 0, 0, 0, 1*sqrt(medium_eigenval), 0, <span class="string">'-g'</span>, <span class="string">'LineWidth'</span>,3);
+quiver3(0, 0, 0, 1*sqrt(smallest_eigenval), 0, 0, <span class="string">'-r'</span>, <span class="string">'LineWidth'</span>,3);
+hold <span class="string">on</span>;
+
+<span class="comment">% Set the axis labels</span>
+hXLabel = xlabel(<span class="string">'x'</span>);
+hYLabel = ylabel(<span class="string">'y'</span>);
+hZLabel = zlabel(<span class="string">'z'</span>);
+xlim([-5,5]);
+xlim([-5,5]);
+xlim([-5,5]);
+title(<span class="string">'Decorrelated 3D data'</span>);
+
+
+<span class="comment">%%%%%%%%%%%%% PROJECT THE DATA ONTO THE 2 LARGEST EIGENVECTORS %%%%%%%%%%%</span>
+
+eigenvec_2d=eigenvec(:,2:3);
+
+data_2d = data*eigenvec_2d;
+
+<span class="comment">% Plot the 2D data</span>
+figure;
+scatter(data_2d(:,1), data_2d(:,2), 5, data(:,3), <span class="string">'filled'</span>);
+colormap(gray);
+
+<span class="comment">% Plot the eigenvectors</span>
+hold <span class="string">on</span>;
+quiver(0, 0, 0*sqrt(largest_eigenval), 1*sqrt(largest_eigenval), <span class="string">'-m'</span>, <span class="string">'LineWidth'</span>,3);
+quiver(0, 0, 1*sqrt(medium_eigenval), 0*sqrt(medium_eigenval), <span class="string">'-g'</span>, <span class="string">'LineWidth'</span>,3);
+hold <span class="string">on</span>;
+
+<span class="comment">% Set the axis labels</span>
+hXLabel = xlabel(<span class="string">'x'</span>);
+hYLabel = ylabel(<span class="string">'y'</span>);
+xlim([-5,5]);
+xlim([-5,5]);
+title(<span class="string">'Projected 2D data'</span>);
+grid <span class="string">on</span>;
+
+
+
+<span class="comment">%%%%%%%%%%%%% PROJECT THE DATA ONTO THE LARGEST EIGENVECTOR %%%%%%%%%%%</span>
+
+eigenvec_1d=eigenvec(:,3);
+
+data_1d = data*eigenvec_1d;
+
+<span class="comment">% Plot the 1D data</span>
+figure;
+scatter(repmat(0, size(data_1d,1), 1), data_1d, 5, data(:,3), <span class="string">'filled'</span>);
+colormap(gray);
+
+<span class="comment">% Plot the eigenvector</span>
+hold <span class="string">on</span>;
+quiver(0, 0, 0*sqrt(largest_eigenval), 1*sqrt(largest_eigenval), <span class="string">'-m'</span>, <span class="string">'LineWidth'</span>,3);
+hold <span class="string">on</span>;
+
+<span class="comment">% Set the axis labels</span>
+hXLabel = xlabel(<span class="string">'x'</span>);
+hYLabel = ylabel(<span class="string">'y'</span>);
+xlim([-5,5]);
+ylim([-5,5]);
+title(<span class="string">'Projected 1D data'</span>);
+grid <span class="string">on</span>;
+</pre><img vspace="5" hspace="5" src="pca_01.png" alt=""> <img vspace="5" hspace="5" src="pca_02.png" alt=""> <img vspace="5" hspace="5" src="pca_03.png" alt=""> <img vspace="5" hspace="5" src="pca_04.png" alt=""> <p class="footer"><br><a href="https://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2020a</a><br></p></div><!--
+##### SOURCE BEGIN #####
+%% This script generates and plots 3D data, and performs a principal
+%% component analysis to decorrelate the data, and to reduce the
+%% dimensionality of the feature space.
+
+% https://www.visiondummy.com/2014/05/feature-extraction-using-pca/#PCA_as_a_decorrelation_method
+
+% Note that matlab has an optimized function to perform PCA: princomp()
+% However, in this script we perform PCA manually by calculating the
+% eigenvectors, for demonstration/educational purposes.
+
+clear all;
+close all;
+clc;
+
+
+% Create some random data
+s = [2 2 2];  % skew factor
+x = randn(1000,1);
+y1 = normrnd(s(1).*x,1)+3;
+y2 = normrnd(s(2).*x,1)+2;
+y3 = normrnd(s(3).*x,1)+1;
+data = [y1 y2 y3];
+
+ plot3(data(:,1), data(:,2), data(:,3), '.')
+ 
+%%%%%%%%%%%%% PLOT THE ORIGINAL DATA %%%%%%%%%%%
+% Get the coordinates of the data mean
+avg = mean(data);
+X0=avg(1);
+Y0=avg(2);
+Z0=avg(3);
+
+% Plot the original data
+scatter3(data(:,1), data(:,2), data(:,3), 5, data(:,3), 'filled');
+colormap(gray);
+
+% Calculate the eigenvectors and eigenvalues
+covariance = cov(data);
+[eigenvec, eigenval ] = eig(covariance);
+
+% Get the index of the largest eigenvector
+largest_eigenvec = eigenvec(:, 3);
+largest_eigenval = eigenval(3,3);
+medium_eigenvec = eigenvec(:, 2);
+medium_eigenval = eigenval(2,2);
+smallest_eigenvec = eigenvec(:, 1);
+smallest_eigenval = eigenval(1,1);
+
+% Plot the eigenvectors
+hold on;
+quiver3(X0, Y0, Z0, largest_eigenvec(1)*sqrt(largest_eigenval), largest_eigenvec(2)*sqrt(largest_eigenval), largest_eigenvec(3)*sqrt(largest_eigenval), '-m', 'LineWidth',3);
+quiver3(X0, Y0, Z0, medium_eigenvec(1)*sqrt(medium_eigenval), medium_eigenvec(2)*sqrt(medium_eigenval), medium_eigenvec(3)*sqrt(medium_eigenval), '-g', 'LineWidth',3);
+quiver3(X0, Y0, Z0, smallest_eigenvec(1)*sqrt(smallest_eigenval), smallest_eigenvec(2)*sqrt(smallest_eigenval), smallest_eigenvec(3)*sqrt(smallest_eigenval), '-r', 'LineWidth',3);
+hold on;
+
+% Set the axis labels
+hXLabel = xlabel('x');
+hYLabel = ylabel('y');
+hZLabel = zlabel('z');
+xlim([-10,10]);
+ylim([-10,10]);
+zlim([-10,10]);
+title('Original 3D data');
+
+%%%%%%%%%%%%% CENTER THE DATA %%%%%%%%%%%
+data = data-repmat(avg, size(data, 1), 1);
+
+%%%%%%%%%%%%% NORMALIZE THE DATA %%%%%%%%%%%
+stdev = sqrt(diag(covariance));
+data = data./repmat(stdev', size(data, 1), 1);
+
+%%%%%%%%%%%%% DECORRELATE THE DATA %%%%%%%%%%%
+decorrelateddata = (data*eigenvec);
+
+% Plot the decorrelated data
+figure;
+scatter3(decorrelateddata(:,1), decorrelateddata(:,2), decorrelateddata(:,3), 5, decorrelateddata(:,3), 'filled');
+colormap(gray);
+
+% Plot the eigenvectors (which are now the axes (0,0,1), (0,1,0), (1,0,0)
+% and the mean of the centered data is at (0,0,0)
+hold on;
+quiver3(0, 0, 0, 0, 0, 1*sqrt(largest_eigenval), '-m', 'LineWidth',3);
+quiver3(0, 0, 0, 0, 1*sqrt(medium_eigenval), 0, '-g', 'LineWidth',3);
+quiver3(0, 0, 0, 1*sqrt(smallest_eigenval), 0, 0, '-r', 'LineWidth',3);
+hold on;
+
+% Set the axis labels
+hXLabel = xlabel('x');
+hYLabel = ylabel('y');
+hZLabel = zlabel('z');
+xlim([-5,5]);
+xlim([-5,5]);
+xlim([-5,5]);
+title('Decorrelated 3D data');
+
+
+%%%%%%%%%%%%% PROJECT THE DATA ONTO THE 2 LARGEST EIGENVECTORS %%%%%%%%%%%
+
+eigenvec_2d=eigenvec(:,2:3);
+
+data_2d = data*eigenvec_2d;
+
+% Plot the 2D data
+figure;
+scatter(data_2d(:,1), data_2d(:,2), 5, data(:,3), 'filled');
+colormap(gray);
+
+% Plot the eigenvectors
+hold on;
+quiver(0, 0, 0*sqrt(largest_eigenval), 1*sqrt(largest_eigenval), '-m', 'LineWidth',3);
+quiver(0, 0, 1*sqrt(medium_eigenval), 0*sqrt(medium_eigenval), '-g', 'LineWidth',3);
+hold on;
+
+% Set the axis labels
+hXLabel = xlabel('x');
+hYLabel = ylabel('y');
+xlim([-5,5]);
+xlim([-5,5]);
+title('Projected 2D data');
+grid on;
+
+
+
+%%%%%%%%%%%%% PROJECT THE DATA ONTO THE LARGEST EIGENVECTOR %%%%%%%%%%%
+
+eigenvec_1d=eigenvec(:,3);
+
+data_1d = data*eigenvec_1d;
+
+% Plot the 1D data
+figure;
+scatter(repmat(0, size(data_1d,1), 1), data_1d, 5, data(:,3), 'filled');
+colormap(gray);
+
+% Plot the eigenvector
+hold on;
+quiver(0, 0, 0*sqrt(largest_eigenval), 1*sqrt(largest_eigenval), '-m', 'LineWidth',3);
+hold on;
+
+% Set the axis labels
+hXLabel = xlabel('x');
+hYLabel = ylabel('y');
+xlim([-5,5]);
+ylim([-5,5]);
+title('Projected 1D data');
+grid on;
+
+##### SOURCE END #####
+--></body></html>

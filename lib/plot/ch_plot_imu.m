@@ -32,19 +32,19 @@ figure;
 if(~isempty(r.gyr))
     subplot(2,2,i);
     i = i+1;
-    interial_display(r.time,  r.gyr, {'X', 'Y', 'Z'}, 'Time (s)', 'Angular rate (dps(deg /s))', 'Gyroscope');
+    interial_display(r.time,  r.gyr, {'X', 'Y', 'Z'}, 'Time (s)', 'Angular rate)', 'Gyroscope');
 end
 
 if(~isempty(r.acc))
     subplot(2,2,i);
     i = i+1;
-    interial_display(r.time,  r.acc, {'X', 'Y', 'Z'}, 'Time (s)', 'Acceleration (g)', 'Accelerometer');
+    interial_display(r.time,  r.acc, {'X', 'Y', 'Z'}, 'Time (s)', 'Acceleration', 'Accelerometer');
 end
 
 if(~isempty(r.mag))
     subplot(2,2,i);
     i = i+1;
-    interial_display(r.time,  r.mag, {'X', 'Y', 'Z'}, 'Time (s)', 'Flux (G)', 'Magnetometer');
+    interial_display(r.time,  r.mag, {'X', 'Y', 'Z'}, 'Time (s)', 'Flux ', 'Magnetometer');
 end
 
 if(~isempty(r.eul))

@@ -1,5 +1,7 @@
 clear;
 clc;
+close all;
+
 
 data = rand(10, 1);
 

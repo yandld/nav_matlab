@@ -21,14 +21,15 @@ imu_t = dataset.imu.time;
 settings = gnss_imu_eskf15_settings();
 
 %% Run the GNSS-aided INS
-disp('Runs the GNSS-aided INS')
-predic_div = 0;
+disp('Runs the GNSS-aided INS');
+
+proc_div = 0; %过程递推分频器
 x = init_navigation_state(u, settings);
 
-% Initialize the sensor bias estimate
+% 初始零偏
 delta_u = zeros(6, 1);
 
-% Initialize the Kalman filter
+% 初始化滤波器
 [P, Q, ~, ~] = init_filter(settings);
 
 n = size(u,2);
@@ -47,16 +48,16 @@ for k=2:n
     % 捷联惯导解算
     [x(1:3), x(4:6), x(7:10)] = ch_nav_equ_local_tan(x(1:3), x(4:6), x(7:10), u_h(1:3), u_h(4:6), dt, settings.gravity);
     
-    predic_div = predic_div+1;
-    if predic_div == 10
+    proc_div = proc_div+1;
+    if proc_div == 10
         
-        % Get state space model matrices
-        [F, G] = state_space_model(x, u_h, dt*predic_div);
+        % 计算F阵和G阵
+        [F, G] = state_space_model(x, u_h, dt*proc_div);
         
-        % 方差递推
+        % 卡尔曼： 方差递推
         P = F*P*F' + G*Q*G';
         
-        predic_div = 0;
+        proc_div = 0;
     end
     
     

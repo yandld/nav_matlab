@@ -23,7 +23,7 @@ dataset = datas;
 
 N = length(dataset.imu.time);
 dt = mean(diff(dataset.imu.time));
-% 故意删除一些基站及数据，看看算法在基站数量很少的时候能否有什么奇迹。。 
+% 故意删除一些基站及数据，看看算法在基站数量很少的时候能否有什么奇迹。。
 % dataset.uwb.anchor(:,1) = [];
 % dataset.uwb.tof(1,:) = [];
 
@@ -42,8 +42,8 @@ out_data.uwb = [];
 out_data.uwb.time = dataset.uwb.time;
 out_data.imu.time = dataset.imu.time;
 out_data.uwb.anchor = dataset.uwb.anchor;
-pr = 0;
-last_pr = 0;
+% pr = 0;
+% last_pr = 0;
 
 %% 滤波参数初始化
 settings = uwb_imu_example_settings();
@@ -73,19 +73,18 @@ for k=1:N
     acc = dataset.imu.acc(:,k);
     gyr = dataset.imu.gyr(:,k);
     
-    % 反馈
-    acc = acc + du(1:3);
-    gyr = gyr + du(4:6);
+    % 反馈 加速度bias, 陀螺bias
+    acc = acc - du(1:3);
+    gyr = gyr - du(4:6);
     
-    % 捷联惯导
+    % 捷联惯导解算
     p = noimal_state(1:3);
     v = noimal_state(4:6);
     q =  noimal_state(7:10);
-    
-    [p, v, q] = ch_nav_equ_local_tan(p, v, q, acc, gyr, dt, [0, 0, -9.8]'); % 东北天坐标系，重力为-9.8
+    [p, v, q] = ch_nav_equ_local_tan(p, v, q, acc, gyr, dt, [0, 0, -9.8]'); % 东北天坐标系，重力简化为-9.8
     
     %   小车假设：基本做平面运动，N系下Z轴速度基本为0，直接给0
-     v(3) = 0;
+    v(3) = 0;
     
     noimal_state(1:3) = p;
     noimal_state(4:6) = v;
@@ -95,10 +94,10 @@ for k=1:N
     % 生成F阵   G阵
     [F, G] = state_space_model(noimal_state, acc, dt);
     
-    %卡尔曼P阵预测公式
+    % 卡尔曼P阵预测公式
     P = F*P*F' + G*blkdiag(Q1, Q2)*G';
     
-    %记录数据
+    % log数据
     out_data.x(k,:)  = noimal_state;
     out_data.delta_u(k,:) = du';
     out_data.diag_P(k,:) = trace(P);
@@ -154,8 +153,7 @@ for k=1:N
         
         % 反馈姿态
         q = noimal_state(7:10);
-        q = ch_qmul(ch_qconj(q), ch_rv2q(err_state(7:9)));
-        q = ch_qconj(q);
+        q = ch_qmul(ch_rv2q(err_state(7:9)), q);
         noimal_state(7:10) = q;
         
         %存储加速度计零偏，陀螺零偏
@@ -166,31 +164,30 @@ for k=1:N
     end
     
     
-        %% 车载约束：Z轴速度约束： B系下 Z轴速度必须为0(不能钻地).. 可以有效防止Z轴位置跳动 参考https://kth.instructure.com/files/677996/download?download_frd=1 和 https://academic.csuohio.edu/simond/pubs/IETKalman.pdf
-        R2 = eye(1)*0.5;
-        Cn2b = ch_q2m(ch_qconj(noimal_state(7:10)));
+    %% 车载约束：Z轴速度约束： B系下 Z轴速度必须为0(不能钻地).. 可以有效防止Z轴位置跳动 参考https://kth.instructure.com/files/677996/download?download_frd=1 和 https://academic.csuohio.edu/simond/pubs/IETKalman.pdf
+    R2 = eye(1)*0.5;
+    Cn2b = ch_q2m(ch_qconj(noimal_state(7:10)));
     
-        H = [zeros(1,3), [0 0 1]* Cn2b, zeros(1,9)];
+    H = [zeros(1,3), [0 0 1]* Cn2b, zeros(1,9)];
     
-        K = (P*H')/(H*P*H'+R2);
-        z = Cn2b*noimal_state(4:6);
+    K = (P*H')/(H*P*H'+R2);
+    z = Cn2b*noimal_state(4:6);
     
-        err_state = [zeros(9,1); du] + K*(0-z(3:3));
+    err_state = [zeros(9,1); du] + K*(0-z(3:3));
     
-        % 反馈速度位置
-        noimal_state(1:6) = noimal_state(1:6) + err_state(1:6);
+    % 反馈速度位置
+    noimal_state(1:6) = noimal_state(1:6) + err_state(1:6);
     
-        % 反馈姿态
-        q = noimal_state(7:10);
-        q = ch_qmul(ch_qconj(q), ch_rv2q(err_state(7:9)));
-        q = ch_qconj(q);
-        noimal_state(7:10) = q;
+    % 反馈姿态
+    q = noimal_state(7:10);
+    q = ch_qmul(ch_rv2q(err_state(7:9)), q);
+    noimal_state(7:10) = q;
     
-        %存储加速度计零偏，陀螺零偏
-        % du = err_state(10:15);
+    %存储加速度计零偏，陀螺零偏
+    % du = err_state(10:15);
     
-        % P阵后验更新
-        P = (eye(15)-K*H)*P;
+    % P阵后验更新
+    P = (eye(15)-K*H)*P;
     
     
 end
@@ -205,10 +202,10 @@ for i=1:N
     pr = dataset.uwb.tof(:, i);
     % 去除NaN点
     %if all(~isnan(pr)) == true
-        
-        uwb_pos = ch_multilateration(dataset.uwb.anchor, uwb_pos,  pr', UWB_LS_MODE);
-        out_data.uwb.pos(:,j) = uwb_pos;
-        j = j+1;
+    
+    uwb_pos = ch_multilateration(dataset.uwb.anchor, uwb_pos,  pr', UWB_LS_MODE);
+    out_data.uwb.pos(:,j) = uwb_pos;
+    j = j+1;
     %end
 end
 fprintf("计算完成...\n");
@@ -258,16 +255,14 @@ end
 function [F,G] = state_space_model(x, acc, dt)
 Cb2n = ch_q2m(x(7:10));
 
-% Transform measured force to force in the tangent plane coordinate system.
-sf = Cb2n * acc;
-sk = ch_askew(sf);
+sk = ch_askew(Cb2n * acc);
 
-% Only the standard errors included
 O = zeros(3);
 I = eye(3);
+% P V theta 加计零偏  陀螺零偏
 F = [
     O I   O O       O;
-    O O sk Cb2n O;
+    O O -sk -Cb2n O;
     O O O O       -Cb2n;
     O O O O       O;
     O O O O       O];
