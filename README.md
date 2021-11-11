@@ -50,10 +50,17 @@
 
 参考
 > * 书：捷联惯导算法与组合导航原理_严恭敏 及 严老师网站： http://www.psins.org.cn/sy
-> * 武汉大学惯性导航课程：(非常好，非常适合入门)https://www.bilibili.com/video/BV1nR4y1E7Yj?from=search&seid=410315378425789214&spm_id_from=333.337.0.0
+> * 武汉大学牛老师惯性导航课程：(非常好，非常适合入门)https://www.bilibili.com/video/BV1nR4y1E7Yj?from=search&seid=410315378425789214&spm_id_from=333.337.0.0
 > * 深蓝学院-多传感器融合课程（理论推导及code）
 > * GPS IMU 松组合 https://kth.instructure.com/files/677996/download?download_frd=1
 > * coursera课程 https://www.coursera.org/learn/state-estimation-localization-self-driving-cars 
 > * 书:GNSS与惯性及多传感器组合导航系统原理-第二版
 > * 书:GPS原理与接收机设计 谢刚
 
+
+
+推荐的学习路线:
+
+1. 先看武汉大学惯性导航课程(牛老师)，入门非常推荐，也不需要什么教材。做笔记
+2. 看严恭敏老师的书籍，视频及code
+3. 然后再入组合导航知识
