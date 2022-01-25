@@ -12,14 +12,14 @@ clc;
 % [lat, lon, alt, time, status] = gga2pos('./0115/AG.txt');
 % [lat, lon, alt, time, status] = gga2pos('./0115/RAC.txt');
 
-[lat, lon, alt, time, status] = gga2pos('./0122/HI600_RTK.ubx');
+[lat, lon, alt, time, status] = gga2pos('./0122/HI600RTK_GNGGA.txt');
 
 [neu] = pos2xyz(lat, lon, alt);
 
 %%
 sg_xyz = neu(find(status==1), :);
 dg_xyz = neu(find(status==2), :);
-fix_xyz = neu(find(status==4), :);
+fixed_xyz = neu(find(status==4), :);
 float_xyz = neu(find(status==5), :);
 
 figure;
@@ -37,10 +37,11 @@ if ~isempty(float_xyz)
     plot(float_xyz(:, 1), float_xyz(:, 2), 'b.', 'LineWidth', 3);
     legend_str = [legend_str; 'RTK Float'];
 end
-if ~isempty(fix_xyz)
-    plot(fix_xyz(:, 1), fix_xyz(:, 2), 'g.', 'LineWidth', 3);
-    legend_str = [legend_str; 'RTK Fix'];
+if ~isempty(fixed_xyz)
+    plot(fixed_xyz(:, 1), fixed_xyz(:, 2), 'g.', 'LineWidth', 3);
+    legend_str = [legend_str; 'RTK Fixed'];
 end
+plot(neu(:, 1), neu(:, 2), 'k'); 
 axis equal;
 xlabel('东向距离(m)');
 ylabel('北向距离(m)');
@@ -62,12 +63,13 @@ if ~isempty(float_xyz)
     plot(find(status==5), float_xyz(:, 3), 'b.', 'LineWidth', 3);
     legend_str = [legend_str; 'RTK Float'];
 end
-if ~isempty(fix_xyz)
-    plot(find(status==4), fix_xyz(:, 3), 'g.', 'LineWidth', 3);
-    legend_str = [legend_str; 'RTK Fix'];
+if ~isempty(fixed_xyz)
+    plot(find(status==4), fixed_xyz(:, 3), 'g.', 'LineWidth', 3);
+    legend_str = [legend_str; 'RTK Fixed'];
 end
 xlabel('时间(s)');
 ylabel('高度(m)');
+xlim([0 length(neu)]);
 legend(legend_str, 'Orientation', 'horizontal');
 
 %%

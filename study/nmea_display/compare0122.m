@@ -3,13 +3,9 @@ clear;
 clc;
 
 %%
-% [by_lat, by_lon, by_alt, by_vel, by_att, pos_std, vel_std, att_std, ins_status, pos_type] = inspvaxa2pvax('./0122/BY.txt');
-% [hi600_lat, hi600_lon, hi600_alt, hi600_status] = nmea2pos('./0122/HI600_RTK.ubx');
-% [rac_lat, rac_lon, rac_alt, rac_status] = nmea2pos('./0122/RAC.txt');
-
-[by_lat, by_lon, by_time] = rmc2pos('./0122/BY.ubx');
-[hi600_lat, hi600_lon, hi600_alt, hi600_time, hi600_status] = gga2pos('./0122/HI600_RTK.ubx');
-[rac_lat, rac_lon, rac_alt, rac_time, rac_status] = gga2pos('./0122/RAC.txt');
+[by_lat, by_lon, by_alt, by_vel, by_att, pos_std, vel_std, att_std, ins_status, pos_type, by_time] = inspvaxa2pvax('./0122/BY_INSPVAX.txt');
+[hi600_lat, hi600_lon, hi600_alt, hi600_time, hi600_status] = gga2pos('./0122/HI600RTK_GNGGA.txt');
+[rac_lat, rac_lon, rac_alt, rac_time, rac_status] = gga2pos('./0122/RAC_GPGGA.txt');
 
 %%
 wm = webmap('World Imagery');
@@ -33,8 +29,8 @@ Rn = Re * (1 + Earth_e*sin(lat0)*sin(lat0));
 Rmh = Rm + h0;
 Rnh = Rn + h0;
 
-lat_error = hi600_lat-by_lat;
-lon_error = hi600_lon-by_lon;
+lat_error = hi600_lat - by_lat;
+lon_error = hi600_lon - by_lon;
 
 lat_error = lat_error * rad * (Rmh);
 lon_error = lon_error * rad * (Rnh) * cos(lat0);
@@ -69,10 +65,50 @@ if ~isempty(float_e)
 end
 if ~isempty(fix_e)
     plot(find(hi600_status==4), fix_e, 'g.', 'LineWidth', 3);
-    legend_str = [legend_str; 'RTK Fix'];
+    legend_str = [legend_str; 'RTK Fixed'];
 end
 xlim([0 length(pos_error)]);
 xlabel('时间(s)');
 ylabel('水平位置误差(m)');
 title('水平位置误差');
-legend(legend_str);
+legend(legend_str, 'Orientation', 'horizontal');
+
+%%
+figure;
+subplot(2,1,1);
+plot(by_alt, 'LineWidth', 2); hold on; grid on;
+plot(hi600_alt+9.3154, 'LineWidth', 2);
+plot(rac_alt, 'LineWidth', 2);
+legend('北云', 'HI600-RTK', 'RAC', 'Orientation', 'horizontal');
+xlim([0 length(pos_error)]);
+xlabel('时间(s)');
+ylabel('高度(m)');
+title('高度及高度误差');
+subplot(2,1,2);
+alt_error = hi600_alt + 9.3154 - by_alt;
+sg_e = alt_error(find(hi600_status==1));
+dg_e = alt_error(find(hi600_status==2));
+fix_e = alt_error(find(hi600_status==4));
+float_e = alt_error(find(hi600_status==5));
+hold on; grid on;
+legend_str = string([]);
+if ~isempty(sg_e)
+    plot(find(hi600_status==1), sg_e, 'r.', 'LineWidth', 3); 
+    legend_str = [legend_str; 'Standalone'];
+end
+if ~isempty(dg_e)
+    plot(find(hi600_status==2), dg_e, 'm.', 'LineWidth', 3);
+    legend_str = [legend_str; 'DGNSS'];
+end
+if ~isempty(float_e)
+    plot(find(hi600_status==5), float_e, 'b.', 'LineWidth', 3);
+    legend_str = [legend_str; 'RTK Float'];
+end
+if ~isempty(fix_e)
+    plot(find(hi600_status==4), fix_e, 'g.', 'LineWidth', 3);
+    legend_str = [legend_str; 'RTK Fixed'];
+end
+xlim([0 length(pos_error)]);
+xlabel('时间(s)');
+ylabel('高度误差(m)');
+legend(legend_str, 'Orientation', 'horizontal');
