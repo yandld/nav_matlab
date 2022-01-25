@@ -7,9 +7,9 @@ clc;
 % [hi600_lat, hi600_lon, hi600_alt, hi600_status] = nmea2pos('./0122/HI600_RTK.ubx');
 % [rac_lat, rac_lon, rac_alt, rac_status] = nmea2pos('./0122/RAC.txt');
 
-[by_lat, by_lon, by_time] = rmc2pos('./0122/Copy_of_BY.ubx');
-[hi600_lat, hi600_lon, hi600_alt, hi600_time, hi600_status] = gga2pos('./0122/Copy_of_HI600_RTK.ubx');
-[rac_lat, rac_lon, rac_alt, rac_time, rac_status] = gga2pos('./0122/Copy_of_RAC.txt');
+[by_lat, by_lon, by_time] = rmc2pos('./0122/BY.ubx');
+[hi600_lat, hi600_lon, hi600_alt, hi600_time, hi600_status] = gga2pos('./0122/HI600_RTK.ubx');
+[rac_lat, rac_lon, rac_alt, rac_time, rac_status] = gga2pos('./0122/RAC.txt');
 
 %%
 wm = webmap('World Imagery');
