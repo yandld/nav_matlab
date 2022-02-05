@@ -2,15 +2,20 @@ clear;
 clc;
 close all;
 
-load('ch100.mat');
-gyroReading = imu.gyr * 3600;
-accelReading = imu.acc *  1000;
-Fs = 400;
 
-% load('hi226_hi229.mat');
+
+
+
+
+% load('ch100.mat');
 % gyroReading = imu.gyr * 3600;
 % accelReading = imu.acc *  1000;
 % Fs = 400;
+
+load('hi226_hi229.mat');
+gyroReading = imu.gyr * 3600;
+accelReading = imu.acc *  1000;
+Fs = 400;
 
 
 % load('../stim300.mat');
