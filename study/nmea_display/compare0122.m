@@ -29,8 +29,8 @@ Rn = Re * (1 + Earth_e*sin(lat0)*sin(lat0));
 Rmh = Rm + h0;
 Rnh = Rn + h0;
 
-lat_error = hi600_lat - by_lat;
-lon_error = hi600_lon - by_lon;
+lat_error = rac_lat - by_lat;
+lon_error = rac_lon - by_lon;
 
 lat_error = lat_error * rad * (Rmh);
 lon_error = lon_error * rad * (Rnh) * cos(lat0);
@@ -70,15 +70,15 @@ end
 xlim([0 length(pos_error)]);
 xlabel('时间(s)');
 ylabel('水平位置误差(m)');
-title('水平位置误差');
+title('RAC 水平位置误差');
 legend(legend_str, 'Orientation', 'horizontal');
 
 %%
 figure;
 subplot(2,1,1);
-plot(by_alt, 'LineWidth', 2); hold on; grid on;
-plot(hi600_alt+9.3154, 'LineWidth', 2);
-plot(rac_alt, 'LineWidth', 2);
+plot(by_alt, 'LineWidth', 1,  'Marker', '.'); hold on; grid on;
+plot(hi600_alt+9.3154, 'LineWidth', 1, 'Marker', '.');
+plot(rac_alt, 'LineWidth', 1, 'Marker', '.');
 legend('北云', 'HI600-RTK', 'RAC', 'Orientation', 'horizontal');
 xlim([0 length(pos_error)]);
 xlabel('时间(s)');
