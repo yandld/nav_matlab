@@ -8,9 +8,11 @@
 * UWB IMU 紧组合融合
 * 每个例子自带数据集
 
-运行环境： matlab2020a 必须安装 sensor fusion toolbox 和 navigation tool box
+运行环境： 
 
-需要将\lib及其子目录加入matlab预设目录， 或者运行一下根目录下的init.m
+* matlab2020a 必须安装 sensor fusion toolbox 和 navigation tool box
+
+* 需要将\lib及其子目录加入matlab预设目录， 或者运行一下根目录下的init.m
 
 | 目录                         | 说明                                                         |
 | ---------------------------- | ------------------------------------------------------------ |
@@ -30,8 +32,6 @@
 
 
 其中UWB+IMU 融合和 GPS+IMU融合就是经典的15维误差卡尔曼滤波(EKSF)，没有什么论文参考，就是一直用的经典的框架(就是松组合)。见参考部分.
-
-
 
 
 
