@@ -16,7 +16,7 @@ sins_enable = false;
 alignment_time = 10e2;
 
 load('data20220303.mat');
-gnss_data = gnss_data(1:10:end, :);
+% gnss_data = gnss_data(1:10:end, :);
 imu_length = length(imu_data);
 gnss_length = length(gnss_data);
 
@@ -68,11 +68,12 @@ nQb_sins = angle2quat(-yaw0, pitch0, roll0, 'ZXY');
 
 vel = [0 0 0]';
 pos = [0 0 0]';
-gyro_bias = [0 0 0]';
-acc_bias = [0 0 0]';
 
 X = zeros(15,1);
-P = diag([(2*rad)*ones(1,2), (20*rad), 0.2*ones(1,3), 1*ones(1,2), 2,  (10/3600*rad)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
+X(10:12) = gyro_bias0*rad;
+gyro_bias = X(10:12);
+acc_bias = X(13:15);
+P = diag([(2*rad)*ones(1,2), (20*rad), 0.2*ones(1,3), 1*ones(1,2), 2, (10/3600*rad)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
 Q = diag([ones(3,1)*(1/60*rad); ones(3,1)*(2/60); zeros(9,1)])^2 * imu_dT;
 
 att_save = zeros(imu_length, 3);
@@ -99,7 +100,8 @@ for i=1:imu_length
 
     %% 捷联更新
     % 单子样等效旋转矢量法
-    w_nb_b = (gyro_data(i,:) - gyro_bias0)'*rad;
+%     w_nb_b = (gyro_data(i,:) - gyro_bias0)'*rad - gyro_bias;
+    w_nb_b = gyro_data(i,:)'*rad - gyro_bias;
     rotate_vector = w_nb_b*imu_dT;
     rotate_vector_norm = norm(rotate_vector);
     q = [cos(rotate_vector_norm/2); rotate_vector/rotate_vector_norm*sin(rotate_vector_norm/2)]';
@@ -118,7 +120,7 @@ for i=1:imu_length
     end
 
     % 速度更新
-    f_b = acc_data(i,:)'*g;
+    f_b = acc_data(i,:)'*g - acc_bias;
     f_n = quatrotate(bQn, f_b')';
     dv = (f_n + [0; 0; -9.8]); %比力方程
     vel = vel + dv*imu_dT;
@@ -178,8 +180,10 @@ for i=1:imu_length
         X_k(1:3) = zeros(3,1);
 
         % 零偏反馈
-%         gyro_bias = X_k(10:12);
-%         acc_bias = X_k(13:15);
+%         gyro_bias = X(10:12);
+%         acc_bias = X(13:15);
+%         X(10:12) = zeros(3,1);
+%         X(13:15) = zeros(3,1);
     end
 
     % GNSS量测更新k
@@ -219,9 +223,11 @@ for i=1:imu_length
         X(1:9) = zeros(9,1);
 
         % 零偏反馈
-%         gyro_bias = X_k(10:12);
-%         acc_bias = X_k(13:15);
-        
+        gyro_bias = X(10:12);
+        acc_bias = X(13:15);
+%         X(10:12) = zeros(3,1);
+%         X(13:15) = zeros(3,1);
+
         % gnss_index到下一个GNSS数据点
         gnss_index = min(gnss_index+1, length(gnss_time)); 
     end
@@ -257,16 +263,16 @@ for i=1:imu_length
 end
 
 %% Google Map
-wm = webmap('World Imagery');
-wmline(kf_lla(:,1), kf_lla(:,2), 'Color', 'blue', 'Width', 1, 'OverlayName', 'KF');
-wmline(lla_data(:,1), lla_data(:,2), 'Color', 'red', 'Width', 1, 'OverlayName', 'GNSS');
+% wm = webmap('World Imagery');
+% wmline(kf_lla(:,1), kf_lla(:,2), 'Color', 'blue', 'Width', 1, 'OverlayName', 'KF');
+% wmline(lla_data(:,1), lla_data(:,2), 'Color', 'red', 'Width', 1, 'OverlayName', 'GNSS');
 % 线性可选颜色： 
 % 'red', 'green', 'blue', 'white', 'cyan', 'magenta', 'yellow', 'black'
 
 %%
 figure('name', '二维轨迹对比');
 plot(pos_save(:,1)/1e3, pos_save(:,2)/1e3, 'b'); hold on;
-plot(gnss_enu(:,1)/1e3, gnss_enu(:,2)/1e3, 'r'); hold on;
+plot(gnss_enu(:,1)/1e3, gnss_enu(:,2)/1e3, 'r');
 plot(pos_save(:,1)/1e3, pos_save(:,2)/1e3, 'b.');
 plot(gnss_enu(:,1)/1e3, gnss_enu(:,2)/1e3, 'r.');
 axis equal; grid on;
@@ -347,7 +353,12 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 %%
 figure('name', 'IMU零偏估计曲线');
 subplot(2,2,1);
-plot((1:imu_length)/100, X_save(:, 10:12) * 3600 * deg, 'linewidth', 1.5); grid on;
+plot((1:imu_length)/100, X_save(:, 10) * 3600 * deg, 'r', 'linewidth', 1.5); hold on; grid on;
+plot((1:imu_length)/100, X_save(:, 11) * 3600 * deg, 'm', 'linewidth', 1.5);
+plot((1:imu_length)/100, X_save(:, 12) * 3600 * deg, 'b', 'linewidth', 1.5);
+plot((1:imu_length)/100, gyro_bias0(1) * 3600 * ones(imu_length,1), 'r-.', 'linewidth', 1);
+plot((1:imu_length)/100, gyro_bias0(2) * 3600 * ones(imu_length,1), 'm-.', 'linewidth', 1);
+plot((1:imu_length)/100, gyro_bias0(3) * 3600 * ones(imu_length,1), 'b-.', 'linewidth', 1);
 xlim([0 imu_length/100]);
 title('陀螺仪零偏估计曲线'); xlabel('时间(s)'); ylabel('零偏(°/h)'); legend('X', 'Y', 'Z');
 subplot(2,2,3);
