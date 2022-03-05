@@ -14,8 +14,8 @@ Earth_e = 0.00335281066474748;
 
 load('data20191025.mat');
 data_length = length(data);
-gyro_data = data(:, 8:10)*rad;
-acc_data = data(:, 11:13)*g;
+gyro_data = data(:, 8:10);
+acc_data = data(:, 11:13);
 mag_data = data(:, 14:16);
 gps_data = [data(:, 20) data(:, 19) data(:, 21)]; %M8P数据
 vel_data = data(:, 22:24);
@@ -23,6 +23,8 @@ gps_hAcc = data(:, 26);
 gps_vAcc = data(:, 27);
 gps_sAcc = data(:, 28);
 gps_headingAcc = data(:, 29);
+
+gyro_bias0 = mean(gyro_data(1:1e2,:));
 
 %%
 lat0 = data(1, 20);
@@ -58,8 +60,8 @@ vel = [0 0 0]';
 pos = [0 0 0]';
 
 X = zeros(15,1);
-P = diag([(5*rad)*ones(1,2), (10*rad), 1*ones(1,3), 10, 10, 10,  (500/3600*rad)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
-Q = diag([ones(3,1)*(50/60*rad); ones(3,1)*(0.89); zeros(9,1)])^2;
+P = diag([(5*rad)*ones(1,2), (10*rad), 0.1*ones(1,3), 5, 5, 10,  (10/3600*rad)*ones(1,3), (0.1e-3*g)*ones(1,3)])^2;
+Q = diag([ones(3,1)*(1/60*rad); ones(3,1)*(0.1/60); zeros(9,1)])^2 * dT;
 
 att_save = zeros(data_length, 3);
 vel_save = zeros(data_length, 3);
@@ -80,7 +82,7 @@ for i=1:data_length
 
     %% 捷联更新
     % 单子样等效旋转矢量法
-    w_nb_b = gyro_data(i,:)'*rad;
+    w_nb_b = (gyro_data(i,:) - gyro_bias0)'*rad;
     rotate_vector = w_nb_b*dT;
     rotate_vector_norm = norm(rotate_vector);
     q = [cos(rotate_vector_norm/2); rotate_vector/rotate_vector_norm*sin(rotate_vector_norm/2)]';
@@ -109,9 +111,7 @@ for i=1:data_length
     F(5,3) = -f_n(1); %f_e东向比力
     F(6,1) = -f_n(2); %f_n北向比力
     F(6,2) = f_n(1); %f_e东向比力
-    F(7,4) = 1;
-    F(8,5) = 1;
-    F(9,6) = 1;
+    F(7:9,4:6) = eye(3);
     F(1:3,10:12) = -bCn;
     F(4:6,13:15) = bCn;
 
@@ -128,7 +128,7 @@ for i=1:data_length
 
     Z = [vel - vel_data(i,:)'; pos - gps_enu(i,:)'];
 
-    R = diag([0.25*ones(3,1); 5*ones(3,1)])^2;  %M8P参数
+    R = diag([0.1*ones(3,1); 5*ones(3,1)])^2;  %M8P参数
 
     % 卡尔曼量测更新
     K = P * H' / (H * P * H' + R);
@@ -174,7 +174,7 @@ clc;
 fprintf('已处理完毕，用时%.3f秒\n', toc);
 
 %%
-figure;
+figure('name', '二维轨迹与速度曲线');
 scatter(gps_enu(:,1)/1e3, gps_enu(:,2)/1e3, 5, vel_norm_save*3.6, 'filled');
 ct = colorbar('southoutside');
 ct.Label.String = 'Velocity(km/h)';
@@ -182,14 +182,14 @@ caxis([0, 120]); % 速度colorbar范围(0~120km/h)
 axis equal; grid on;
 xlabel('East(km)');
 ylabel('North(km)');
-title('2D Trajectory and Velocity');
+title('二维轨迹与速度');
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 % hold on;
 % plot(gps_enu(:,1)/1e3, gps_enu(:,2)/1e3);
 
 %%
-figure;
+figure('name', '二维轨迹对比');
 plot(pos_save(:,1)/1e3, pos_save(:,2)/1e3); hold on;
 plot(gps_enu(:,1)/1e3, gps_enu(:,2)/1e3); hold on;
 plot(gps_enu(:,1)/1e3, gps_enu(:,2)/1e3, '.');
@@ -197,7 +197,69 @@ axis equal; grid on;
 legend('KF', 'GNSS');
 xlabel('East(km)');
 ylabel('North(km)');
-title('2D Trajectory');
+title('二维轨迹对比');
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+
+%%
+figure('name', '姿态与航向估计曲线');
+subplot(2,1,1);
+plot((1:data_length)/100, att_save(:,1), 'linewidth', 1.5); hold on; grid on;
+plot((1:data_length)/100, att_save(:,2), 'linewidth', 1.5);
+xlim([0 data_length/100]);
+xlabel('时间(s)'); ylabel('水平姿态(°)'); legend('Pitch', 'Roll');
+subplot(2,1,2);
+plot((1:data_length)/100, att_save(:,3), 'linewidth', 1.5); hold on; grid on;
+xlim([0 data_length/100]);
+ylim([-5 365]);
+xlabel('时间(s)'); ylabel('航向(°)');
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+
+%%
+figure('name', 'IMU零偏估计曲线');
+subplot(2,2,1);
+plot((1:data_length)/100, X_save(:, 10:12) * 3600 * deg, 'linewidth', 1.5); grid on;
+xlim([0 data_length/100]);
+title('陀螺仪零偏估计曲线'); xlabel('时间(s)'); ylabel('零偏(°/h)'); legend('X', 'Y', 'Z');
+subplot(2,2,3);
+plot((1:data_length)/100, P_save(:, 10:12) * 3600 * deg, 'linewidth', 1.5); grid on;
+xlim([0 data_length/100]);
+title('陀螺仪零偏协方差收敛曲线'); xlabel('时间(s)'); ylabel('零偏标准差(°/h)'); legend('X', 'Y', 'Z');
+
+subplot(2,2,2);
+plot((1:data_length)/100, X_save(:, 13:15) / 9.8 * 1000, 'linewidth', 1.5); grid on;
+xlim([0 data_length/100]);
+title('加速度计零偏估计曲线'); xlabel('时间(s)'); ylabel('零偏(mg)'); legend('X', 'Y', 'Z');
+subplot(2,2,4);
+plot((1:data_length)/100, P_save(:, 13:15) / 9.8 * 1000, 'linewidth', 1.5); grid on;
+xlim([0 data_length/100]);
+title('加速度计零偏协方差收敛曲线'); xlabel('时间(s)'); ylabel('零偏标准差(mg)'); legend('X', 'Y', 'Z');
+
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+
+%%
+figure('name','P阵收敛结果'); sgtitle('P阵收敛结果');
+subplot(3,2,1);
+plot((1:data_length)/100, P_save(:, 1:3) * deg, 'linewidth', 1.5); grid on;
+xlim([0 data_length/100]);
+xlabel('时间(s)'); ylabel('平台失准角(°)'); legend('Pitch', 'Roll', 'Yaw', 'Orientation','horizontal');
+subplot(3,2,3);
+plot((1:data_length)/100, P_save(:, 4:6), 'linewidth', 1.5); grid on;
+xlim([0 data_length/100]);
+xlabel('时间(s)'); ylabel('速度误差(m/s)'); legend('Ve', 'Vn', 'Vu', 'Orientation','horizontal');
+subplot(3,2,5);
+plot((1:data_length)/100, P_save(:, 7), 'linewidth', 1.5); hold on; grid on;
+plot((1:data_length)/100, P_save(:, 8), 'linewidth', 1.5);
+plot((1:data_length)/100, P_save(:, 9), 'linewidth', 1.5);
+xlim([0 data_length/100]);
+xlabel('时间(s)'); ylabel('位置误差(m)'); legend('Lat', 'Lon', 'Alt', 'Orientation','horizontal');
+subplot(3,2,2);
+plot((1:data_length)/100, P_save(:, 10:12) * 3600 * deg, 'linewidth', 1.5); grid on;
+xlim([0 data_length/100]);
+xlabel('时间(s)'); ylabel('陀螺零偏(°/h)'); legend('X', 'Y', 'Z', 'Orientation','horizontal');
+subplot(3,2,4);
+plot((1:data_length)/100, P_save(:, 13:15) / 9.8 * 1000, 'linewidth', 1.5); grid on;
+xlim([0 data_length/100]);
+xlabel('时间(s)'); ylabel('加速度计零偏(mg)'); legend('X', 'Y', 'Z', 'Orientation','horizontal');
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %%
