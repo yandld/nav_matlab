@@ -16,7 +16,7 @@ sins_enable = false;
 alignment_time = 10e2;
 
 load('data20220303.mat');
-% gnss_data = gnss_data(1:5:end, :);
+gnss_data = gnss_data(1:10:end, :);
 imu_length = length(imu_data);
 gnss_length = length(gnss_data);
 
@@ -72,7 +72,7 @@ gyro_bias = [0 0 0]';
 acc_bias = [0 0 0]';
 
 X = zeros(15,1);
-P = diag([(2*rad)*ones(1,2), (20*rad), 0.1*ones(1,3), 5*ones(1,2), 10,  (10/3600*rad)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
+P = diag([(2*rad)*ones(1,2), (20*rad), 0.2*ones(1,3), 1*ones(1,2), 2,  (10/3600*rad)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
 Q = diag([ones(3,1)*(1/60*rad); ones(3,1)*(2/60); zeros(9,1)])^2 * imu_dT;
 
 att_save = zeros(imu_length, 3);
@@ -190,7 +190,7 @@ for i=1:imu_length
 
         Z = [vel - vel_data(gnss_index,:)'; pos - gnss_enu(gnss_index,:)'];
 
-        R = diag([0.2*ones(3,1); 1*ones(2,1); 2])^2;  %M8P参数
+        R = diag([0.2*ones(2,1); 0.2; 1*ones(2,1); 2])^2;
 
         % 卡尔曼量测更新
         K = P * H' / (H * P * H' + R);
