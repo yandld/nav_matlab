@@ -12,8 +12,10 @@ rad = pi/180;
 g = 9.8;
 Re = 6378137;
 Earth_e = 0.00335281066474748;
+sins_enable = true;
 
 load('data20220303.mat');
+gnss_data = gnss_data(1:5:end, :);
 imu_length = length(imu_data);
 gnss_length = length(gnss_data);
 
@@ -73,7 +75,9 @@ pos_save = zeros(imu_length, 3);
 P_save = zeros(imu_length, 15);
 X_save = zeros(imu_length, 15);
 
-att_sins_save = zeros(imu_length, 3);
+if sins_enable
+    att_sins_save = zeros(imu_length, 3);
+end
 
 tic;
 count_sec = 1;
@@ -99,9 +103,12 @@ for i=1:imu_length
     bQn = quatinv(nQb); %更新bQn
     nCb = quat2dcm(nQb); %更新nCb阵
     bCn = nCb'; %更新bCn阵
-
-    nQb_sins = quatmultiply(nQb_sins, q); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
-    nQb_sins = quatnormalize(nQb_sins); %单位化四元数
+    
+    % 纯惯性姿态更新
+    if sins_enable
+        nQb_sins = quatmultiply(nQb_sins, q); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
+        nQb_sins = quatnormalize(nQb_sins); %单位化四元数
+    end
 
     % 速度更新
     f_b = acc_data(i,:)'*g;
@@ -213,14 +220,16 @@ for i=1:imu_length
     att_save(i,:) = [pitch roll yaw]*deg;
     vel_save(i,:) = vel';
     pos_save(i,:) = pos';
-    
     X_save(i, :) = X';
     P_save(i, :) = sqrt(diag(P))';
 
-    [yaw, pitch, roll] = quat2angle(nQb_sins, 'ZXY');
-    yaw = -yaw;
-    yaw = yaw + (yaw<0)*2*pi;
-    att_sins_save(i,:) = [pitch roll yaw]*deg;
+    % 纯惯性信息存储
+    if sins_enable
+        [yaw, pitch, roll] = quat2angle(nQb_sins, 'ZXY');
+        yaw = -yaw;
+        yaw = yaw + (yaw<0)*2*pi;
+        att_sins_save(i,:) = [pitch roll yaw]*deg;
+    end
 end
 
 clc;
@@ -263,10 +272,13 @@ xlim([0 imu_length/100]);
 xlabel('时间(s)'); ylabel('水平姿态(°)'); legend('Pitch', 'Roll');
 subplot(2,1,2);
 plot((1:imu_length)/100, att_save(:,3), 'linewidth', 1.5); hold on; grid on;
-plot((1:imu_length)/100, att_sins_save(:,3), 'linewidth', 1.5);
+if sins_enable
+    plot((1:imu_length)/100, att_sins_save(:,3), 'linewidth', 1.5);
+    legend('Yaw', '纯惯性', 'Orientation','horizontal');
+end
 xlim([0 imu_length/100]);
 ylim([-30 420]);
-xlabel('时间(s)'); ylabel('航向(°)'); legend('Yaw', '纯惯性', 'Orientation','horizontal');
+xlabel('时间(s)'); ylabel('航向(°)');
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %%
@@ -346,25 +358,25 @@ figure('name','P阵收敛结果'); sgtitle('P阵收敛结果');
 subplot(3,2,1);
 plot((1:imu_length)/100, P_save(:, 1:3) * deg, 'linewidth', 1.5); grid on;
 xlim([0 imu_length/100]);
-xlabel('时间(s)'); ylabel('平台失准角(°)'); legend('Pitch', 'Roll', 'Yaw', 'Orientation','horizontal');
+xlabel('时间(s)'); ylabel('平台失准角(°)'); legend('Pitch', 'Roll', 'Yaw');
 subplot(3,2,3);
 plot((1:imu_length)/100, P_save(:, 4:6), 'linewidth', 1.5); grid on;
 xlim([0 imu_length/100]);
-xlabel('时间(s)'); ylabel('速度误差(m/s)'); legend('Ve', 'Vn', 'Vu', 'Orientation','horizontal');
+xlabel('时间(s)'); ylabel('速度误差(m/s)'); legend('Ve', 'Vn', 'Vu');
 subplot(3,2,5);
 plot((1:imu_length)/100, P_save(:, 7), 'linewidth', 1.5); hold on; grid on;
 plot((1:imu_length)/100, P_save(:, 8), 'linewidth', 1.5);
 plot((1:imu_length)/100, P_save(:, 9), 'linewidth', 1.5);
 xlim([0 imu_length/100]);
-xlabel('时间(s)'); ylabel('位置误差(m)'); legend('Lat', 'Lon', 'Alt', 'Orientation','horizontal');
+xlabel('时间(s)'); ylabel('位置误差(m)'); legend('Lat', 'Lon', 'Alt');
 subplot(3,2,2);
 plot((1:imu_length)/100, P_save(:, 10:12) * 3600 * deg, 'linewidth', 1.5); grid on;
 xlim([0 imu_length/100]);
-xlabel('时间(s)'); ylabel('陀螺零偏(°/h)'); legend('X', 'Y', 'Z', 'Orientation','horizontal');
+xlabel('时间(s)'); ylabel('陀螺零偏(°/h)'); legend('X', 'Y', 'Z');
 subplot(3,2,4);
 plot((1:imu_length)/100, P_save(:, 13:15) / 9.8 * 1000, 'linewidth', 1.5); grid on;
 xlim([0 imu_length/100]);
-xlabel('时间(s)'); ylabel('加速度计零偏(mg)'); legend('X', 'Y', 'Z', 'Orientation','horizontal');
+xlabel('时间(s)'); ylabel('加速度计零偏(mg)'); legend('X', 'Y', 'Z');
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %%
