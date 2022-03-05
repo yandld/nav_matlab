@@ -4,7 +4,7 @@ clc;
 
 format long g;
 format compact;
-gnss_index = 1;
+
 imu_dT = 0.01;
 gnss_dT = 0.1;
 deg = 180/pi;
@@ -12,10 +12,11 @@ rad = pi/180;
 g = 9.8;
 Re = 6378137;
 Earth_e = 0.00335281066474748;
-sins_enable = true;
+sins_enable = false;
+alignment_time = 10e2;
 
 load('data20220303.mat');
-gnss_data = gnss_data(1:5:end, :);
+% gnss_data = gnss_data(1:5:end, :);
 imu_length = length(imu_data);
 gnss_length = length(gnss_data);
 
@@ -27,7 +28,7 @@ gnss_time = gnss_data(:, 1) / 1000;
 lla_data = gnss_data(:, 4:6);
 vel_data = gnss_data(:, 7:9);
 
-gyro_bias0 = mean(gyro_data(1:10e2,:));
+gyro_bias0 = mean(gyro_data(1:alignment_time,:));
 
 %%
 lat0 = lla_data(1, 1);
@@ -55,29 +56,35 @@ end
 
 % plot_enu_vel(gnss_enu, vel_norm_save);
 
-%%
-pitch0 = 0*rad;
-roll0 = 0*rad;
+%% 初始参数设置
+% 粗对准
+g_b = - mean(acc_data(1:alignment_time, :))';
+g_b = g_b/norm(g_b);
+pitch0 = asin(-g_b(2));
+roll0 = atan2( g_b(1), -g_b(3));
 yaw0 = 170*rad;
 nQb = angle2quat(-yaw0, pitch0, roll0, 'ZXY');
 nQb_sins = angle2quat(-yaw0, pitch0, roll0, 'ZXY');
 
 vel = [0 0 0]';
 pos = [0 0 0]';
+gyro_bias = [0 0 0]';
+acc_bias = [0 0 0]';
 
 X = zeros(15,1);
-P = diag([(10*rad)*ones(1,2), (20*rad), 0.2*ones(1,3), 5, 5, 10,  (10/3600*rad)*ones(1,3), (0.1e-3*g)*ones(1,3)])^2;
-Q = diag([ones(3,1)*(1/60*rad); ones(3,1)*(0.1/60); zeros(9,1)])^2 * imu_dT;
+P = diag([(2*rad)*ones(1,2), (20*rad), 0.1*ones(1,3), 5*ones(1,2), 10,  (10/3600*rad)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
+Q = diag([ones(3,1)*(1/60*rad); ones(3,1)*(2/60); zeros(9,1)])^2 * imu_dT;
 
 att_save = zeros(imu_length, 3);
 vel_save = zeros(imu_length, 3);
 pos_save = zeros(imu_length, 3);
 P_save = zeros(imu_length, 15);
 X_save = zeros(imu_length, 15);
-
 if sins_enable
     att_sins_save = zeros(imu_length, 3);
 end
+
+gnss_index = 1;
 
 tic;
 count_sec = 1;
@@ -138,51 +145,52 @@ for i=1:imu_length
     X = F*X;
     P = F*P*F' + Q;
 
-%     % 重力量测
-%     if abs(norm(f_n)-9.8)<1
-%         H = zeros(2,15);
-%         H(1, 2) = 1;
-%         H(2, 1) = -1;
-%         g_n = -f_n/norm(f_n);
-%         
-%         Z = g_n - [0;0;-1];
-%         Z = Z(1:2);
-%         
-%         R = diag([100 100]);
-%         
-%         % 卡尔曼量测更新
-%         K = P * H' / (H * P * H' + R);
-%         X = X + K * (Z - H * X);
-%         P = (eye(length(X)) - K * H) * P;
-%         
-%         % 姿态修正
-%         rv = X(1:3);
-%         rv_norm = norm(rv);
-%         if rv_norm ~= 0
-%             qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-%             nQb = quatmultiply(qe, nQb);
-%             nQb = quatnormalize(nQb); %单位化四元数
-%             bQn = quatinv(nQb); %更新bQn
-%             nCb = quat2dcm(nQb); %更新nCb阵
-%             bCn = nCb'; %更新bCn阵
-%         end
-%         
-%         % 误差清零
-%         X_k(1:3) = zeros(3,1);
-%         
-% %         gyro_bias = X_k(10:12);
-%     end
+    % 重力量测
+    if abs(norm(f_n)-9.8)<0
+        H = zeros(2,15);
+        H(1, 2) = 1;
+        H(2, 1) = -1;
+        g_n = -f_n/norm(f_n);
+        
+        Z = g_n - [0;0;-1];
+        Z = Z(1:2);
+        
+        R = diag([100 100]);
+        
+        % 卡尔曼量测更新
+        K = P * H' / (H * P * H' + R);
+        X = X + K * (Z - H * X);
+        P = (eye(length(X)) - K * H) * P;
+        
+        % 姿态修正
+        rv = X(1:3);
+        rv_norm = norm(rv);
+        if rv_norm ~= 0
+            qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
+            nQb = quatmultiply(qe, nQb);
+            nQb = quatnormalize(nQb); %单位化四元数
+            bQn = quatinv(nQb); %更新bQn
+            nCb = quat2dcm(nQb); %更新nCb阵
+            bCn = nCb'; %更新bCn阵
+        end
+        
+        % 误差清零
+        X_k(1:3) = zeros(3,1);
+
+        % 零偏反馈
+%         gyro_bias = X_k(10:12);
+%         acc_bias = X_k(13:15);
+    end
 
     % GNSS量测更新k
     if (abs(imu_time(i) - gnss_time(gnss_index)) < 0.01)
-       %   gnss_index
         H = zeros(6,15);
         H(1:3,4:6) = eye(3);
         H(4:6,7:9) = eye(3);
 
         Z = [vel - vel_data(gnss_index,:)'; pos - gnss_enu(gnss_index,:)'];
 
-        R = diag([0.2*ones(3,1); 5*ones(3,1)])^2;  %M8P参数
+        R = diag([0.2*ones(3,1); 1*ones(2,1); 2])^2;  %M8P参数
 
         % 卡尔曼量测更新
         K = P * H' / (H * P * H' + R);
@@ -210,8 +218,12 @@ for i=1:imu_length
         % 误差清零
         X(1:9) = zeros(9,1);
 
+        % 零偏反馈
 %         gyro_bias = X_k(10:12);
-        gnss_index = min(gnss_index+1, length(gnss_time)); % index到下一个GNSS数据点
+%         acc_bias = X_k(13:15);
+        
+        % gnss_index到下一个GNSS数据点
+        gnss_index = min(gnss_index+1, length(gnss_time)); 
     end
 
     % 信息存储
