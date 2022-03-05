@@ -19,7 +19,6 @@ gnss_length = length(gnss_data);
 
 imu_time = imu_data(:, 1);
 gyro_data = imu_data(:, 5:7);
-% gyro_data = imu_data(:, 5:7);
 acc_data = imu_data(:, 2:4);
 
 gnss_time = gnss_data(:, 1);
@@ -204,7 +203,7 @@ for i=1:imu_length
         % 误差清零
         X(1:9) = zeros(9,1);
 
-        %     gyro_bias = X_k(10:12);
+%         gyro_bias = X_k(10:12);
     end
 
     % 信息存储
@@ -226,6 +225,21 @@ end
 
 clc;
 fprintf('已处理完毕，用时%.3f秒\n', toc);
+
+%%
+kf_lla = zeros(imu_length, 3);
+for i=1:imu_length
+    kf_lla(i,3) = pos_save(i,3) + alt0;
+    kf_lla(i,1) = pos_save(i,2) / Rmh * deg + lat0;
+    kf_lla(i,2) = pos_save(i,1) / Rnh / cosd(lat0) * deg + lon0;
+end
+
+%% Google Map
+wm = webmap('World Imagery');
+wmline(kf_lla(:,1), kf_lla(:,2), 'Color', 'blue', 'Width', 1, 'OverlayName', 'KF');
+wmline(lla_data(:,1), lla_data(:,2), 'Color', 'red', 'Width', 1, 'OverlayName', 'GNSS');
+% 线性可选颜色： 
+% 'red', 'green', 'blue', 'white', 'cyan', 'magenta', 'yellow', 'black'
 
 %%
 figure('name', '二维轨迹对比');
