@@ -289,14 +289,14 @@ end
 
 %%
 figure('name', '二维轨迹对比');
-plot(log.pos(:,1)/1e3, log.pos(:,2)/1e3, 'b'); hold on;
-plot(gnss_enu(:,1)/1e3, gnss_enu(:,2)/1e3, 'r');
-plot(log.pos(:,1)/1e3, log.pos(:,2)/1e3, 'b.');
-plot(gnss_enu(:,1)/1e3, gnss_enu(:,2)/1e3, 'r.');
+plot(log.pos(:,1), log.pos(:,2), 'b'); hold on;
+plot(gnss_enu(:,1), gnss_enu(:,2), 'r');
+plot(log.pos(:,1), log.pos(:,2), 'b.');
+plot(gnss_enu(:,1), gnss_enu(:,2), 'r.');
 axis equal; grid on;
 legend('KF', 'GNSS');
-xlabel('East(km)');
-ylabel('North(km)');
+xlabel('East(m)');
+ylabel('North(m)');
 title('二维轨迹对比');
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
