@@ -11,16 +11,22 @@ g = 9.8;
 Re = 6378137;
 Earth_e = 0.00335281066474748;
 
+%% 说明
+% KF 状态量: 失准角(3) 速度误差(3) 位置误差(3) 陀螺零篇(3) 加计零篇(3
 %% option
 opt.sins_enable = false;
 opt.alignment_time = 10e2;
 opt.gnss_outage = 'on'; % 模拟GNSS丢失
 opt.outage_start = 700; % 丢失开始时间
-opt.outage_stop = 760; % 丢失结束时间
+opt.outage_stop = 730; % 丢失结束时间
+opt.gnss_intervel = 10;   % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
+opt.inital_yaw = 170;     % 初始方位角 deg
+opt.P_yaw = 200;          % 初始yaw标准差 deg
+opt.Q = diag([ones(3,1)*(1/60*rad);  ones(3,1)*(2/60);  zeros(9,1)])^2;
 
 %% load data
 load('data20220303.mat');
-gnss_data = gnss_data(1:5:end, :);
+gnss_data = gnss_data(1: opt.gnss_intervel: end, :);
 imu_length = length(imu_data);
 gnss_length = length(gnss_data);
 
@@ -68,7 +74,7 @@ g_b = - mean(acc_data(1:opt.alignment_time, :))';
 g_b = g_b/norm(g_b);
 pitch0 = asin(-g_b(2));
 roll0 = atan2( g_b(1), -g_b(3));
-yaw0 = 170*rad;
+yaw0 = opt.inital_yaw*rad;
 nQb = angle2quat(-yaw0, pitch0, roll0, 'ZXY');
 nQb_sins = angle2quat(-yaw0, pitch0, roll0, 'ZXY');
 
@@ -79,8 +85,8 @@ X = zeros(15,1);
 X(10:12) = gyro_bias0*rad;
 gyro_bias = X(10:12);
 acc_bias = X(13:15);
-P = diag([(2*rad)*ones(1,2), (20*rad), 0.2*ones(1,3), 1*ones(1,2), 2, (50/3600*rad)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
-Q = diag([ones(3,1)*(1/60*rad); ones(3,1)*(2/60); zeros(9,1)])^2 * imu_dt;
+P = diag([(2*rad)*ones(1,2), (opt.P_yaw*rad), 0.2*ones(1,3), 1*ones(1,2), 2, (50/3600*rad)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
+Q = opt.Q * imu_dt;
 
 log.att = zeros(imu_length, 3);
 log.vel = zeros(imu_length, 3);
