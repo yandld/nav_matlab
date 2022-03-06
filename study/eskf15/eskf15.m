@@ -28,15 +28,13 @@ imu_time = imu_data(:, 1) / 1000;
 gyro_data = imu_data(:, 5:7);
 acc_data = imu_data(:, 2:4);
 
-
 gnss_time = gnss_data(:, 1) / 1000;
 lla_data = gnss_data(:, 4:6);
 vel_data = gnss_data(:, 7:9);
 
 imu_dt = mean(diff(imu_time));
+gnss_dt = mean(diff(gnss_time));
 gyro_bias0 = mean(gyro_data(1:opt.alignment_time,:));
-
-fprintf("IMU起始时间:%d GNSS起始时间:%d\r\n", imu_time(1), gnss_time(1));
 
 %%
 lat0 = lla_data(1, 1);
@@ -58,8 +56,8 @@ for i=1:gnss_length
     gnss_enu(i,1) = (lla_data(i,2) - lon0) * rad * (Rnh) * cosd(lat0);
     
     log.vel_norm(i) = norm(vel_data(i, :));
-    distance_sum = distance_sum + log.vel_norm(i)*0.1;
-    time_sum = time_sum + 0.1;
+    distance_sum = distance_sum + log.vel_norm(i)*gnss_dt;
+    time_sum = time_sum + gnss_dt;
 end
 
 % plot_enu_vel(gnss_enu, log.vel_norm);
@@ -241,7 +239,8 @@ for i=1:imu_length
         %         X(10:12) = zeros(3,1);
         %         X(13:15) = zeros(3,1);
         end
-       % gnss_index到下一个GNSS数据点
+
+        % gnss_index到下一个GNSS数据点
         gnss_index = min(gnss_index+1, length(gnss_time));
     end
     
@@ -401,9 +400,7 @@ plot((1:imu_length)/100, log.P(:, 4:6), 'linewidth', 1.5); grid on;
 xlim([0 imu_length/100]);
 xlabel('时间(s)'); ylabel('速度误差(m/s)'); legend('Ve', 'Vn', 'Vu');
 subplot(3,2,5);
-plot((1:imu_length)/100, log.P(:, 7), 'linewidth', 1.5); hold on; grid on;
-plot((1:imu_length)/100, log.P(:, 8), 'linewidth', 1.5);
-plot((1:imu_length)/100, log.P(:, 9), 'linewidth', 1.5);
+plot((1:imu_length)/100, log.P(:, 7:9), 'linewidth', 1.5); grid on;
 xlim([0 imu_length/100]);
 xlabel('时间(s)'); ylabel('位置误差(m)'); legend('Lat', 'Lon', 'Alt');
 subplot(3,2,2);
@@ -417,6 +414,8 @@ xlabel('时间(s)'); ylabel('加速度计零偏(mg)'); legend('X', 'Y', 'Z');
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %%
+fprintf("IMU起始时间:%.3fs, GNSS起始时间:%.3fs\n", imu_time(1), gnss_time(1));
 fprintf('行驶距离: %.3fkm\n', distance_sum/1000);
-fprintf('行驶时间: %d小时%d分%.2f秒\n', degrees2dms(time_sum/3600));
+fprintf('行驶时间: %d小时%d分%.3f秒\n', degrees2dms(time_sum/3600));
 fprintf('最高时速: %.3fkm/h\n', max(log.vel_norm)*3.6);
+fprintf('平均时速: %.3fkm/h\n', distance_sum/time_sum*3.6);
