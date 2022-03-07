@@ -14,7 +14,7 @@ Earth_e = 0.00335281066474748;
 %% 说明
 % KF 状态量: 失准角(3) 速度误差(3) 位置误差(3) 陀螺零偏(3) 加计零偏(3)
 
-%% Options
+%% 相关选项及参数设置
 opt.alignment_time = 10e2;  % 初始对准时间
 opt.sins_enable = false;    % 姿态纯惯性积分
 opt.bias_feedback = false;  % IMU零偏反馈
@@ -28,7 +28,7 @@ opt.P0 = diag([(2*rad)*ones(1,2), (180*rad), 0.5*ones(1,3), 5*ones(1,2), 10, (50
 % 系统方差:       角度随机游走           速度随机游走
 opt.Q = diag([(1/60*rad)*ones(1,3),  (2/60)*ones(1,3),  zeros(1,9)])^2;
 
-%% load data
+%% 数据载入
 load('data20220303.mat');
 gnss_data = gnss_data(1: opt.gnss_intervel: end, :);
 imu_length = length(imu_data);
@@ -48,7 +48,7 @@ imu_dt = mean(diff(imu_time));
 gnss_dt = mean(diff(gnss_time));
 gyro_bias0 = mean(gyro_data(1:opt.alignment_time,:));
 
-%%
+%% 经纬度转换为当地东北天坐标系
 lat0 = lla_data(1, 1);
 lon0 = lla_data(1, 2);
 alt0 = lla_data(1, 3);
@@ -89,6 +89,7 @@ pos = [0 0 0]';
 
 X = zeros(15,1);
 % X(10:12) = gyro_bias0*rad;
+X_temp = X;
 gyro_bias = X(10:12);
 acc_bias = X(13:15);
 
@@ -199,6 +200,9 @@ for i=1:imu_length
             bCn = nCb'; %更新bCn阵
         end
 
+        % 暂存状态X
+        X_temp = X;
+
         % 误差清零
         X_k(1:3) = zeros(3,1);
 
@@ -246,6 +250,9 @@ for i=1:imu_length
             % 位置修正
             pos = pos - X(7:9);
 
+            % 暂存状态X
+            X_temp = X;
+
             % 误差清零
             X(1:9) = zeros(9,1);
 
@@ -269,7 +276,7 @@ for i=1:imu_length
     log.att(i,:) = [pitch roll yaw]*deg;
     log.vel(i,:) = vel';
     log.pos(i,:) = pos';
-    log.X(i, :) = X';
+    log.X(i, :) = X_temp';
     log.P(i, :) = sqrt(diag(P))';
 
     % 纯惯性信息存储
@@ -280,11 +287,10 @@ for i=1:imu_length
         log.sins_att(i,:) = [pitch roll yaw]*deg;
     end
 end
-
 clc;
-fprintf('已处理完毕，用时%.3f秒\n', toc);
+fprintf('数据处理完毕，用时%.3f秒\n', toc);
 
-%%
+%% 当地东北天坐标系转换成经纬度
 kf_lla = zeros(imu_length, 3);
 for i=1:imu_length
     kf_lla(i,3) = log.pos(i,3) + alt0;
@@ -299,7 +305,7 @@ end
 % 线性可选颜色：
 % 'red', 'green', 'blue', 'white', 'cyan', 'magenta', 'yellow', 'black'
 
-%%
+%% 二维轨迹对比
 figure('name', '二维轨迹对比');
 plot(log.pos(:,1), log.pos(:,2), 'b'); hold on;
 plot(gnss_enu(:,1), gnss_enu(:,2), 'r');
@@ -312,7 +318,7 @@ ylabel('North(m)');
 title('二维轨迹对比');
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
-%%
+%% 姿态与航向估计曲线
 figure('name', '姿态与航向估计曲线');
 subplot(2,1,1);
 plot((1:imu_length)/100, log.att(:,1), 'linewidth', 1.5); hold on; grid on;
@@ -330,7 +336,7 @@ ylim([-30 420]);
 xlabel('时间(s)'); ylabel('航向(°)');
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
-%%
+%% 速度估计曲线对比
 figure('name', '速度估计曲线对比');
 subplot(3,1,1);
 plot((gnss_time-imu_time(1)), vel_data(:,1), 'r'); hold on; grid on;
@@ -355,7 +361,7 @@ xlim([0 max((imu_time-imu_time(1)))]);
 xlabel('时间(s)'); ylabel('天向速度(m/s)'); legend('KF', 'GNSS');
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
-%%
+%% 位置估计曲线对比
 figure('name', '位置估计曲线对比');
 subplot(3,1,1);
 plot((gnss_time-imu_time(1)), gnss_enu(:,1), 'r'); hold on; grid on;
@@ -380,7 +386,7 @@ xlim([0 max((imu_time-imu_time(1)))]);
 xlabel('时间(s)'); ylabel('天向位置(m)'); legend('KF', 'GNSS');
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
-%%
+%% IMU零偏估计曲线
 figure('name', 'IMU零偏估计曲线');
 subplot(2,2,1);
 plot((1:imu_length)/100, log.X(:, 10) * 3600 * deg, 'r', 'linewidth', 1.5); hold on; grid on;
@@ -407,8 +413,32 @@ title('加速度计零偏协方差收敛曲线'); xlabel('时间(s)'); ylabel('�
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
-%%
-figure('name','P阵收敛结果'); sgtitle('P阵收敛结果');
+%% 状态量曲线
+figure('name','状态量曲线');
+subplot(2,2,1);
+plot((1:imu_length)/100, log.X(:, 1:2) * deg, 'linewidth', 1.5); grid on;
+xlim([0 imu_length/100]);
+xlabel('时间(s)'); ylabel('平台失准角(°)'); legend('Pitch', 'Roll', 'Orientation','horizontal');
+
+subplot(2,2,3);
+plot((1:imu_length)/100, log.X(:, 3) * deg, 'linewidth', 1.5); grid on;
+xlim([0 imu_length/100]);
+xlabel('时间(s)'); ylabel('平台失准角(°)'); legend('Yaw', 'Orientation','horizontal');
+
+subplot(2,2,2);
+plot((1:imu_length)/100, log.X(:, 4:6), 'linewidth', 1.5); grid on;
+xlim([0 imu_length/100]);
+xlabel('时间(s)'); ylabel('速度误差(m/s)'); legend('东', '北', '天', 'Orientation','horizontal');
+
+subplot(2,2,4);
+plot((1:imu_length)/100, log.X(:, 7:9), 'linewidth', 1.5); grid on;
+xlim([0 imu_length/100]);
+xlabel('时间(s)'); ylabel('位置误差(m)'); legend('东', '北', '天', 'Orientation','horizontal');
+
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+
+%% P阵收敛结果
+figure('name','P阵收敛结果');
 subplot(3,2,1);
 plot((1:imu_length)/100, log.P(:, 1:3) * deg, 'linewidth', 1.5); grid on;
 xlim([0 imu_length/100]);
@@ -431,7 +461,7 @@ xlim([0 imu_length/100]);
 xlabel('时间(s)'); ylabel('加速度计零偏(mg)'); legend('X', 'Y', 'Z');
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
-%%
+%% 数据统计
 fprintf("IMU起始时间:%.3fs, GNSS起始时间:%.3fs\n", imu_time(1), gnss_time(1));
 fprintf('行驶距离: %.3fkm\n', distance_sum/1000);
 fprintf('行驶时间: %d小时%d分%.3f秒\n', degrees2dms(time_sum/3600));
