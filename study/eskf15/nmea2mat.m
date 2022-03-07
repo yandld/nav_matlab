@@ -9,6 +9,7 @@ data_length = height(data);
 
 imu_data = [];
 gnss_data = [];
+ins_data = [];
 
 tic;
 count_sec = 1;
@@ -34,9 +35,15 @@ for i = 1:data_length
         sstr = sstr.split(',');
         gnss_data = [gnss_data; double(string(sstr(2:end)))'];
     end
+
+    if (strcmp(str(1:6),'$GNINS'))
+        sstr = string(str);
+        sstr = sstr.split(',');
+        ins_data = [ins_data; double(string(sstr(2:end)))'];
+    end
 end
 
 clc;
 fprintf('已处理完毕，用时%.3f秒\n', toc);
 
-save(file_name, 'imu_data', 'gnss_data');
+save(file_name, 'imu_data', 'gnss_data', 'ins_data');
