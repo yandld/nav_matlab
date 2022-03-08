@@ -21,7 +21,8 @@ opt.bias_feedback = false;  % IMU零偏反馈
 opt.gnss_outage = false;    % 模拟GNSS丢失
 opt.outage_start = 700;     % 丢失开始时间
 opt.outage_stop = 730;      % 丢失结束时间
-opt.gnss_intervel = 1;     % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
+opt.gnss_intervel = 1;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
+opt.imu_intervel = 1;       % IMU间隔时间，如原始数据为100Hz，那么 gnss_intervel=2 则降频为50Hz
 opt.inital_yaw = 170;       % 初始方位角 deg (北偏东为正)
 % 初始状态方差:    水平姿态           航向       东北天速度      水平位置   高度      陀螺零偏                 加速度计零偏
 opt.P0 = diag([(2*rad)*ones(1,2), (180*rad), 0.5*ones(1,3), 5*ones(1,2), 10, (50/3600*rad)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
@@ -30,6 +31,7 @@ opt.Q = diag([(1/60*rad)*ones(1,3),  (2/60)*ones(1,3),  zeros(1,9)])^2;
 
 %% 数据载入
 load('data20220303.mat');
+imu_data = imu_data(1: opt.imu_intervel: end, :);
 gnss_data = gnss_data(1: opt.gnss_intervel: end, :);
 imu_length = length(imu_data);
 gnss_length = length(gnss_data);
@@ -171,7 +173,7 @@ for i=1:imu_length
     X = F*X;
     P = F*P*F' + Q;
 
-    % 重力量测
+    %% 重力量测
     if abs(norm(f_n)-9.8)<0
         H = zeros(2,15);
         H(1, 2) = 1;
@@ -215,8 +217,8 @@ for i=1:imu_length
         end
     end
 
-    % GNSS量测更新k
-    if (abs(imu_time(i) - gnss_time(gnss_index)) < 0.01)
+    %% GNSS量测更新
+    if (abs(imu_time(i) - gnss_time(gnss_index)) < imu_dt)
         if( ~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop )
             H = zeros(6,15);
             H(1:3,4:6) = eye(3);
@@ -390,10 +392,10 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 figure('name', 'IMU零偏估计曲线');
 subplot(2,2,1);
 plot((1:imu_length)/100, log.X(:, 10) * 3600 * deg, 'r', 'linewidth', 1.5); hold on; grid on;
-plot((1:imu_length)/100, log.X(:, 11) * 3600 * deg, 'm', 'linewidth', 1.5);
+plot((1:imu_length)/100, log.X(:, 11) * 3600 * deg, 'g', 'linewidth', 1.5);
 plot((1:imu_length)/100, log.X(:, 12) * 3600 * deg, 'b', 'linewidth', 1.5);
 plot((1:imu_length)/100, gyro_bias0(1) * 3600 * ones(imu_length,1), 'r-.', 'linewidth', 1);
-plot((1:imu_length)/100, gyro_bias0(2) * 3600 * ones(imu_length,1), 'm-.', 'linewidth', 1);
+plot((1:imu_length)/100, gyro_bias0(2) * 3600 * ones(imu_length,1), 'g-.', 'linewidth', 1);
 plot((1:imu_length)/100, gyro_bias0(3) * 3600 * ones(imu_length,1), 'b-.', 'linewidth', 1);
 xlim([0 imu_length/100]);
 title('陀螺仪零偏估计曲线'); xlabel('时间(s)'); ylabel('零偏(°/h)'); legend('X', 'Y', 'Z');
