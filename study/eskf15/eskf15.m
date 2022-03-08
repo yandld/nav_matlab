@@ -18,12 +18,14 @@ Earth_e = 0.00335281066474748;
 opt.alignment_time = 10e2;  % 初始对准时间
 opt.sins_enable = false;    % 姿态纯惯性积分
 opt.bias_feedback = false;  % IMU零偏反馈
-opt.gnss_outage = false;    % 模拟GNSS丢失
-opt.outage_start = 700;     % 丢失开始时间
-opt.outage_stop = 730;      % 丢失结束时间
-opt.gnss_intervel = 1;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
+opt.gnss_outage = true;    % 模拟GNSS丢失
+opt.gravity_update_enable = true; % 使能重力静止量更新
+opt.outage_start = 450;     % 丢失开始时间
+opt.outage_stop = 520;      % 丢失结束时间
+opt.gnss_intervel = 10;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 opt.imu_intervel = 1;       % IMU间隔时间，如原始数据为100Hz，那么 gnss_intervel=2 则降频为50Hz
 opt.inital_yaw = 170;       % 初始方位角 deg (北偏东为正)
+
 % 初始状态方差:    水平姿态           航向       东北天速度      水平位置   高度      陀螺零偏                 加速度计零偏
 opt.P0 = diag([(2*rad)*ones(1,2), (180*rad), 0.5*ones(1,3), 5*ones(1,2), 10, (50/3600*rad)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
 % 系统方差:       角度随机游走           速度随机游走
@@ -85,12 +87,12 @@ roll0 = atan2( g_b(1), -g_b(3));
 yaw0 = opt.inital_yaw*rad;
 nQb = angle2quat(-yaw0, pitch0, roll0, 'ZXY');
 nQb_sins = angle2quat(-yaw0, pitch0, roll0, 'ZXY');
-
+std_acc_sldwin = 100; % acc 滑窗标准差
+std_gyr_sldwin = 100; % gyr 滑窗标准差
 vel = [0 0 0]';
 pos = [0 0 0]';
 
 X = zeros(15,1);
-% X(10:12) = gyro_bias0*rad;
 X_temp = X;
 gyro_bias = X(10:12);
 acc_bias = X(13:15);
@@ -122,13 +124,12 @@ for i=1:imu_length
     
     %% 捷联更新
     % 单子样等效旋转矢量法
-    %     w_nb_b = (gyro_data(i,:) - gyro_bias0)'*rad - gyro_bias;
     w_b = gyro_data(i,:)'*rad - gyro_bias;
     f_b = acc_data(i,:)'*g - acc_bias;
     
+    % 纯惯性姿态更新
     [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, g, imu_dt);
     
-    % 纯惯性姿态更新
     if opt.sins_enable
         nQb_sins = quatmultiply(nQb_sins, q); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
         nQb_sins = quatnormalize(nQb_sins); %单位化四元数
@@ -158,8 +159,16 @@ for i=1:imu_length
     X = F*X;
     P = F*P*F' + Q;
     
+    %% 建立acc ,gyr 滑窗 并求基本统计量
+    if(i > 5)
+        std_acc_sldwin = sum(std(acc_data(i-5:i, :)));
+        std_gyr_sldwin = sum(std(gyro_data(i-5:i, :)));
+        
+        log.std_acc_sldwin(i,1) = std_acc_sldwin;
+        log.std_gyr_sldwin(i,1) = std_gyr_sldwin;
+    end
     %% 重力量测
-    if abs(norm(f_n)-9.8)<0
+    if opt.gravity_update_enable && abs(norm(f_n)-9.8)<0.05 && (std_gyr_sldwin < 0.2) && (std_acc_sldwin < 0.1)
         H = zeros(2,15);
         H(1, 2) = 1;
         H(2, 1) = -1;
@@ -191,7 +200,7 @@ for i=1:imu_length
         X_temp = X;
         
         % 误差清零
-        X_k(1:3) = zeros(3,1);
+        X(1:3) = zeros(3,1);
         
         % 零偏反馈
         if opt.bias_feedback
