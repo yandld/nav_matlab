@@ -124,6 +124,9 @@ for i=1:imu_length
     % 单子样等效旋转矢量法
     %     w_nb_b = (gyro_data(i,:) - gyro_bias0)'*rad - gyro_bias;
     w_nb_b = gyro_data(i,:)'*rad - gyro_bias;
+    
+
+    
     rotate_vector = w_nb_b*imu_dt;
     rotate_vector_norm = norm(rotate_vector);
     if(rotate_vector_norm <1e-10) % fix nan issue
@@ -131,7 +134,7 @@ for i=1:imu_length
     else
         q = [cos(rotate_vector_norm/2); rotate_vector/rotate_vector_norm*sin(rotate_vector_norm/2)]';
     end
-
+    [p, v, q] = ins(w_nb_b, acc_data,  pos, vel, q);
     % 姿态更新
     nQb = quatmultiply(nQb, q); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
     nQb = quatnormalize(nQb); %单位化四元数
