@@ -68,7 +68,7 @@ for i=1:gnss_length
     gnss_enu(i,3) = lla_data(i,3) - alt0;
     gnss_enu(i,2) = (lla_data(i,1) - lat0) * rad * (Rmh);
     gnss_enu(i,1) = (lla_data(i,2) - lon0) * rad * (Rnh) * cosd(lat0);
-
+    
     log.vel_norm(i) = norm(vel_data(i, :));
     distance_sum = distance_sum + log.vel_norm(i)*gnss_dt;
     time_sum = time_sum + gnss_dt;
@@ -119,44 +119,26 @@ for i=1:imu_length
         fprintf('已处理%.3f%%, 用时%.3f秒, 预计还需%.3f秒\n', (i)/(imu_length)*100, current_time, current_time/percent*(1-percent));
         count_sec = count_sec + 1;
     end
-
+    
     %% 捷联更新
     % 单子样等效旋转矢量法
     %     w_nb_b = (gyro_data(i,:) - gyro_bias0)'*rad - gyro_bias;
-    w_nb_b = gyro_data(i,:)'*rad - gyro_bias;
+    w_b = gyro_data(i,:)'*rad - gyro_bias;
+    f_b = acc_data(i,:)'*g - acc_bias;
     
-
+    [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, g, imu_dt);
     
-    rotate_vector = w_nb_b*imu_dt;
-    rotate_vector_norm = norm(rotate_vector);
-    if(rotate_vector_norm <1e-10) % fix nan issue
-        q = [1 0 0 0];
-    else
-        q = [cos(rotate_vector_norm/2); rotate_vector/rotate_vector_norm*sin(rotate_vector_norm/2)]';
-    end
-    [p, v, q] = ins(w_nb_b, acc_data,  pos, vel, q);
-    % 姿态更新
-    nQb = quatmultiply(nQb, q); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
-    nQb = quatnormalize(nQb); %单位化四元数
-    bQn = quatinv(nQb); %更新bQn
-    nCb = quat2dcm(nQb); %更新nCb阵
-    bCn = nCb'; %更新bCn阵
-
     % 纯惯性姿态更新
     if opt.sins_enable
         nQb_sins = quatmultiply(nQb_sins, q); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
         nQb_sins = quatnormalize(nQb_sins); %单位化四元数
     end
-
-    % 速度更新
-    f_b = acc_data(i,:)'*g - acc_bias;
+    
+    bQn = quatinv(nQb); %更新bQn
     f_n = quatrotate(bQn, f_b')';
-    dv = (f_n + [0; 0; -9.8]); %比力方程
-    vel = vel + dv*imu_dt;
-
-    % 位置更新
-    pos = pos + vel*imu_dt;
-
+    nCb = quat2dcm(nQb); %更新nCb阵
+    bCn = nCb'; %更新bCn阵
+    
     %% 卡尔曼滤波
     F = zeros(15);
     F(4,2) = -f_n(3); %f_u天向比力
@@ -168,31 +150,31 @@ for i=1:imu_length
     F(7:9,4:6) = eye(3);
     F(1:3,10:12) = -bCn;
     F(4:6,13:15) = bCn;
-
+    
     % 状态转移矩阵F离散化
     F = eye(15) + F*imu_dt;
-
+    
     % 卡尔曼时间更新
     X = F*X;
     P = F*P*F' + Q;
-
+    
     %% 重力量测
     if abs(norm(f_n)-9.8)<0
         H = zeros(2,15);
         H(1, 2) = 1;
         H(2, 1) = -1;
         g_n = -f_n/norm(f_n);
-
+        
         Z = g_n - [0;0;-1];
         Z = Z(1:2);
-
+        
         R = diag([100 100]);
-
+        
         % 卡尔曼量测更新
         K = P * H' / (H * P * H' + R);
         X = X + K * (Z - H * X);
         P = (eye(length(X)) - K * H) * P;
-
+        
         % 姿态修正
         rv = X(1:3);
         rv_norm = norm(rv);
@@ -204,13 +186,13 @@ for i=1:imu_length
             nCb = quat2dcm(nQb); %更新nCb阵
             bCn = nCb'; %更新bCn阵
         end
-
+        
         % 暂存状态X
         X_temp = X;
-
+        
         % 误差清零
         X_k(1:3) = zeros(3,1);
-
+        
         % 零偏反馈
         if opt.bias_feedback
             gyro_bias = X(10:12);
@@ -219,24 +201,24 @@ for i=1:imu_length
             %         X(13:15) = zeros(3,1);
         end
     end
-
+    
     %% GNSS量测更新
     if (abs(imu_time(i) - gnss_time(gnss_index)) < imu_dt)
         if( ~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop )
             H = zeros(6,15);
             H(1:3,4:6) = eye(3);
             H(4:6,7:9) = eye(3);
-
+            
             Z = [vel - vel_data(gnss_index,:)'; pos - gnss_enu(gnss_index,:)'];
-
+            
             R = diag([0.2*ones(2,1); 0.2; 1*ones(2,1); 2])^2;
-%             R = diag([vel_std_data(gnss_index,:)  pos_std_data(gnss_index,:)])^2;
-
+            %             R = diag([vel_std_data(gnss_index,:)  pos_std_data(gnss_index,:)])^2;
+            
             % 卡尔曼量测更新
             K = P * H' / (H * P * H' + R);
             X = X + K * (Z - H * X);
             P = (eye(length(X)) - K * H) * P;
-
+            
             % 姿态修正
             rv = X(1:3);
             rv_norm = norm(rv);
@@ -248,19 +230,19 @@ for i=1:imu_length
                 nCb = quat2dcm(nQb); %更新nCb阵
                 bCn = nCb'; %更新bCn阵
             end
-
+            
             % 速度修正
             vel = vel - X(4:6);
-
+            
             % 位置修正
             pos = pos - X(7:9);
-
+            
             % 暂存状态X
             X_temp = X;
-
+            
             % 误差清零
             X(1:9) = zeros(9,1);
-
+            
             % 零偏反馈
             if opt.bias_feedback
                 gyro_bias = X(10:12);
@@ -269,11 +251,11 @@ for i=1:imu_length
                 %         X(13:15) = zeros(3,1);
             end
         end
-
+        
         % gnss_index到下一个GNSS数据点
         gnss_index = min(gnss_index+1, length(gnss_time));
     end
-
+    
     % 信息存储
     [yaw, pitch, roll] = quat2angle(nQb, 'ZXY');
     yaw = -yaw;
@@ -283,7 +265,7 @@ for i=1:imu_length
     log.pos(i,:) = pos';
     log.X(i, :) = X_temp';
     log.P(i, :) = sqrt(diag(P))';
-
+    
     % 纯惯性信息存储
     if opt.sins_enable
         [yaw, pitch, roll] = quat2angle(nQb_sins, 'ZXY');
