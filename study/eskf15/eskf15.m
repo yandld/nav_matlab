@@ -19,7 +19,7 @@ opt.alignment_time = 10e2;  % 初始对准时间
 opt.sins_enable = false;    % 姿态纯惯性积分
 opt.bias_feedback = true;  % IMU零偏反馈
 opt.gnss_outage = true;    % 模拟GNSS丢失
-opt.gravity_update_enable = true; % 使能重力静止量更新
+opt.gravity_update_enable = false; % 使能重力静止量更新
 opt.outage_start = 450;     % 丢失开始时间
 opt.outage_stop = 540;      % 丢失结束时间
 opt.gnss_intervel = 10;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
@@ -160,15 +160,18 @@ for i=1:imu_length
     P = F*P*F' + Q;
     
     %% 建立acc ,gyr 滑窗 并求基本统计量
-    if(i > 5)
-        std_acc_sldwin = sum(std(acc_data(i-5:i, :)));
-        std_gyr_sldwin = sum(std(gyro_data(i-5:i, :)));
+    if(i > 20)
+        std_acc_sldwin = sum(std(acc_data(i-20:i, :)));
+        std_gyr_sldwin = sum(std(gyro_data(i-20:i, :)));
         
         log.std_acc_sldwin(i,1) = std_acc_sldwin;
         log.std_gyr_sldwin(i,1) = std_gyr_sldwin;
     end
+
     %% 重力量测
-    if opt.gravity_update_enable && abs(norm(f_n)-9.8)<0.05 && (std_gyr_sldwin < 0.2) && (std_acc_sldwin < 0.1)
+	log.zupt_time(i) = 0;
+    if opt.gravity_update_enable && abs(norm(f_n)-9.8)<0.3 && (std_gyr_sldwin < 0.3) && (std_acc_sldwin < 0.01)
+        log.zupt_time(i) = 1;
         H = zeros(2,15);
         H(1, 2) = 1;
         H(2, 1) = -1;
@@ -209,6 +212,7 @@ for i=1:imu_length
             %         X(10:12) = zeros(3,1);
             %         X(13:15) = zeros(3,1);
         end
+        
     end
     
     %% GNSS量测更新
@@ -458,6 +462,11 @@ xlabel('East(m)');
 ylabel('North(m)');
 title('二维轨迹对比');
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+
+%% 静止检测验证
+figure('name', '静止检测验证');
+plot(log.zupt_time*1, '.-'); hold on;
+plot(sum(abs(acc_data).^2,2).^(1/2)); 
 
 %% 数据统计
 fprintf("IMU起始时间:%.3fs, GNSS起始时间:%.3fs\n", imu_time(1), gnss_time(1));
