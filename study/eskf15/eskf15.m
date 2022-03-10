@@ -16,12 +16,11 @@ Earth_e = 0.00335281066474748;
 
 %% 相关选项及参数设置
 opt.alignment_time = 10e2;  % 初始对准时间
-opt.sins_enable = false;    % 姿态纯惯性积分
 opt.bias_feedback = true;  % IMU零偏反馈
 opt.gnss_outage = true;    % 模拟GNSS丢失
 opt.gravity_update_enable = false; % 使能重力静止量更新
-opt.outage_start = 450;     % 丢失开始时间
-opt.outage_stop = 540;      % 丢失结束时间
+opt.outage_start = 640;     % 丢失开始时间
+opt.outage_stop = 690;      % 丢失结束时间
 opt.gnss_intervel = 10;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 opt.imu_intervel = 1;       % IMU间隔时间，如原始数据为100Hz，那么 gnss_intervel=2 则降频为50Hz
 opt.inital_yaw = 170;       % 初始方位角 deg (北偏东为正)
@@ -105,9 +104,7 @@ log.vel = zeros(imu_length, 3);
 log.pos = zeros(imu_length, 3);
 log.P = zeros(imu_length, 15);
 log.X = zeros(imu_length, 15);
-if opt.sins_enable
-    log.sins_att = zeros(imu_length, 3);
-end
+log.sins_att = zeros(imu_length, 3);
 
 gnss_index = 1;
 
@@ -130,10 +127,8 @@ for i=1:imu_length
     % 纯惯性姿态更新
     [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, g, imu_dt);
     
-    if opt.sins_enable
-        nQb_sins = quatmultiply(nQb_sins, q); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
-        nQb_sins = quatnormalize(nQb_sins); %单位化四元数
-    end
+    nQb_sins = quatmultiply(nQb_sins, q); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
+    nQb_sins = quatnormalize(nQb_sins); %单位化四元数
     
     bQn = quatinv(nQb); %更新bQn
     f_n = quatrotate(bQn, f_b')';
@@ -160,60 +155,63 @@ for i=1:imu_length
     P = F*P*F' + Q;
     
     %% 建立acc ,gyr 滑窗 并求基本统计量
-    if(i > 20)
-        std_acc_sldwin = sum(std(acc_data(i-20:i, :)));
-        std_gyr_sldwin = sum(std(gyro_data(i-20:i, :)));
+    if(i > 50)
+        std_acc_sldwin = sum(std(acc_data(i-50:i, :)));
+        std_gyr_sldwin = sum(std(gyro_data(i-50:i, :)));
         
         log.std_acc_sldwin(i,1) = std_acc_sldwin;
         log.std_gyr_sldwin(i,1) = std_gyr_sldwin;
     end
+    
+    log.zupt_time(i) = 0;
+    
+    %% 静止条件判断
+    if abs(norm(f_n)-9.8)<0.3 && (std_gyr_sldwin < 0.3) && (std_acc_sldwin < 0.01)
+        %% 重力量测更新姿态
+        if opt.gravity_update_enable
+            log.zupt_time(i) = 1;
+            H = zeros(2,15);
+            H(1, 2) = 1;
+            H(2, 1) = -1;
+            g_n = -f_n/norm(f_n);
+            
+            Z = g_n - [0;0;-1];
+            Z = Z(1:2);
+            
+            R = diag([100 100]);
+            
+            % 卡尔曼量测更新
+            K = P * H' / (H * P * H' + R);
+            X = X + K * (Z - H * X);
+            P = (eye(length(X)) - K * H) * P;
+            
+            % 姿态修正
+            rv = X(1:3);
+            rv_norm = norm(rv);
+            if rv_norm ~= 0
+                qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
+                nQb = quatmultiply(qe, nQb);
+                nQb = quatnormalize(nQb); %单位化四元数
+                bQn = quatinv(nQb); %更新bQn
+                nCb = quat2dcm(nQb); %更新nCb阵
+                bCn = nCb'; %更新bCn阵
+            end
+            
+            % 暂存状态X
+            X_temp = X;
+            
+            % 误差清零
+            X(1:3) = zeros(3,1);
+            
+            % 零偏反馈
+            if opt.bias_feedback
+                gyro_bias = X(10:12);
+                acc_bias = X(13:15);
+            end
+        end
 
-    %% 重力量测
-	log.zupt_time(i) = 0;
-    if opt.gravity_update_enable && abs(norm(f_n)-9.8)<0.3 && (std_gyr_sldwin < 0.3) && (std_acc_sldwin < 0.01)
-        log.zupt_time(i) = 1;
-        H = zeros(2,15);
-        H(1, 2) = 1;
-        H(2, 1) = -1;
-        g_n = -f_n/norm(f_n);
-        
-        Z = g_n - [0;0;-1];
-        Z = Z(1:2);
-        
-        R = diag([100 100]);
-        
-        % 卡尔曼量测更新
-        K = P * H' / (H * P * H' + R);
-        X = X + K * (Z - H * X);
-        P = (eye(length(X)) - K * H) * P;
-        
-        % 姿态修正
-        rv = X(1:3);
-        rv_norm = norm(rv);
-        if rv_norm ~= 0
-            qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-            nQb = quatmultiply(qe, nQb);
-            nQb = quatnormalize(nQb); %单位化四元数
-            bQn = quatinv(nQb); %更新bQn
-            nCb = quat2dcm(nQb); %更新nCb阵
-            bCn = nCb'; %更新bCn阵
-        end
-        
-        % 暂存状态X
-        X_temp = X;
-        
-        % 误差清零
-        X(1:3) = zeros(3,1);
-        
-        % 零偏反馈
-        if opt.bias_feedback
-            gyro_bias = X(10:12);
-            acc_bias = X(13:15);
-            %         X(10:12) = zeros(3,1);
-            %         X(13:15) = zeros(3,1);
-        end
-        
     end
+    
     
     %% GNSS量测更新
     if (abs(imu_time(i) - gnss_time(gnss_index)) < imu_dt)
@@ -280,12 +278,10 @@ for i=1:imu_length
     log.P(i, :) = sqrt(diag(P))';
     
     % 纯惯性信息存储
-    if opt.sins_enable
-        [yaw, pitch, roll] = quat2angle(nQb_sins, 'ZXY');
-        yaw = -yaw;
-        yaw = yaw + (yaw<0)*2*pi;
-        log.sins_att(i,:) = [pitch roll yaw]*R2D;
-    end
+    [yaw, pitch, roll] = quat2angle(nQb_sins, 'ZXY');
+    yaw = -yaw;
+    yaw = yaw + (yaw<0)*2*pi;
+    log.sins_att(i,:) = [pitch roll yaw]*R2D;
 end
 clc;
 fprintf('数据处理完毕，用时%.3f秒\n', toc);
@@ -316,10 +312,8 @@ xlim([0 imu_length/100]);
 xlabel('时间(s)'); ylabel('水平姿态(°)'); legend('Pitch', 'Roll');
 subplot(2,1,2);
 plot((1:imu_length)/100, log.att(:,3), 'linewidth', 1.5); hold on; grid on;
-if opt.sins_enable
     plot((1:imu_length)/100, log.sins_att(:,3), 'linewidth', 1.5);
     legend('Yaw', '纯惯性', 'Orientation','horizontal');
-end
 xlim([0 imu_length/100]);
 ylim([-30 420]);
 xlabel('时间(s)'); ylabel('航向(°)');
@@ -466,7 +460,7 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 %% 静止检测验证
 figure('name', '静止检测验证');
 plot(log.zupt_time*1, '.-'); hold on;
-plot(sum(abs(acc_data).^2,2).^(1/2)); 
+plot(sum(abs(acc_data).^2,2).^(1/2));
 
 %% 数据统计
 fprintf("IMU起始时间:%.3fs, GNSS起始时间:%.3fs\n", imu_time(1), gnss_time(1));
