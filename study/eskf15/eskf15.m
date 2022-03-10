@@ -17,7 +17,7 @@ Earth_e = 0.00335281066474748;
 %% 相关选项及参数设置
 opt.alignment_time = 10e2;  % 初始对准时间
 opt.bias_feedback = true;  % IMU零偏反馈
-opt.gnss_outage = true;    % 模拟GNSS丢失
+opt.gnss_outage = false;    % 模拟GNSS丢失
 opt.gravity_update_enable = false; % 使能重力静止量更新
 opt.zupt_enable = true;     % ZUPT
 opt.outage_start = 200;     % 丢失开始时间
@@ -165,6 +165,7 @@ for i=1:imu_length
     end
     
     log.zupt_time(i) = 0;
+
     %% 静止条件判断
     if abs(norm(f_n)-9.8)<0.3 && (std_gyr_sldwin < 0.3) && (std_acc_sldwin < 0.01)
        log.zupt_time(i) = 1;
@@ -172,17 +173,45 @@ for i=1:imu_length
        %% ZUPT
        if opt.zupt_enable
            H = zeros(3, 15);
-           H(1,4) = -1;
-           H(2,5) = -1;
-           H(3,6) = -1;
-           R = diag([10 10 10]);
+%            H(1,4) = -1;
+%            H(2,5) = -1;
+%            H(3,6) = -1;
+           H(1:3,4:6) = eye(3);
+
            Z = -vel;
+
+           R = diag(10*ones(1,3))^2;
+           
            K = P * H' / (H * P * H' + R);
            X = X + K * (Z - H * X);
            P = (eye(length(X)) - K * H) * P;
-           %速度修正
+
+           % 姿态修正
+           rv = X(1:3);
+           rv_norm = norm(rv);
+           if rv_norm ~= 0
+               qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
+               nQb = quatmultiply(qe, nQb);
+               nQb = quatnormalize(nQb); %单位化四元数
+               bQn = quatinv(nQb); %更新bQn
+               nCb = quat2dcm(nQb); %更新nCb阵
+               bCn = nCb'; %更新bCn阵
+           end
+
+           % 速度修正
            vel = vel - X(4:6);
-           X(4:6) = 0;
+
+           % 暂存状态X
+           X_temp = X;
+
+           % 误差清零
+           X(1:6) = zeros(6,1);
+
+           % 零偏反馈
+           if opt.bias_feedback
+               gyro_bias = X(10:12);
+               acc_bias = X(13:15);
+           end
        end
 
         %% 静止状态下重力量测更新姿态
@@ -226,7 +255,6 @@ for i=1:imu_length
                 acc_bias = X(13:15);
             end
         end
-
     end
     
     
@@ -285,20 +313,16 @@ for i=1:imu_length
     end
     
     % 信息存储
-    [yaw, pitch, roll] = quat2angle(nQb, 'ZXY');
-    yaw = -yaw;
-    yaw = yaw + (yaw<0)*2*pi;
-    log.att(i,:) = [pitch roll yaw]*R2D;
+    [pitch,roll,yaw] = q2att(nQb);
+    log.att(i,:) = [pitch roll yaw];
     log.vel(i,:) = vel';
     log.pos(i,:) = pos';
     log.X(i, :) = X_temp';
     log.P(i, :) = sqrt(diag(P))';
     
     % 纯惯性信息存储
-    [yaw, pitch, roll] = quat2angle(nQb_sins, 'ZXY');
-    yaw = -yaw;
-    yaw = yaw + (yaw<0)*2*pi;
-    log.sins_att(i,:) = [pitch roll yaw]*R2D;
+    [pitch,roll,yaw] = q2att(nQb_sins);
+    log.sins_att(i,:) = [pitch roll yaw];
 end
 clc;
 fprintf('数据处理完毕，用时%.3f秒\n', toc);
@@ -317,8 +341,6 @@ end
 % wmline(lla_data(:,1), lla_data(:,2), 'Color', 'red', 'Width', 1, 'OverlayName', 'GNSS');
 % 线性可选颜色：
 % 'red', 'green', 'blue', 'white', 'cyan', 'magenta', 'yellow', 'black'
-
-
 
 %% 姿态与航向估计曲线
 figure('name', '姿态与航向估计曲线');
@@ -476,8 +498,14 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %% 静止检测验证
 figure('name', '静止检测验证');
-plot(log.zupt_time*1, '.-'); hold on;
-plot(sum(abs(acc_data).^2,2).^(1/2));
+zupt_enable_index = find(log.zupt_time==1);
+zupt_disable_index = find(log.zupt_time==0);
+plot(zupt_enable_index*imu_dt, sum(abs(acc_data(zupt_enable_index,:)).^2,2).^(1/2), 'r.'); hold on; grid on;
+plot(zupt_disable_index*imu_dt, sum(abs(acc_data(zupt_disable_index,:)).^2,2).^(1/2), 'b.');
+xlim([0 imu_length*imu_dt]);
+xlabel('时间(s)');
+ylabel('加速度模长(g)');
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %% 数据统计
 fprintf("IMU起始时间:%.3fs, GNSS起始时间:%.3fs\n", imu_time(1), gnss_time(1));
