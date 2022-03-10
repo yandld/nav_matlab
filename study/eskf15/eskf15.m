@@ -19,8 +19,9 @@ opt.alignment_time = 10e2;  % 初始对准时间
 opt.bias_feedback = true;  % IMU零偏反馈
 opt.gnss_outage = true;    % 模拟GNSS丢失
 opt.gravity_update_enable = false; % 使能重力静止量更新
-opt.outage_start = 640;     % 丢失开始时间
-opt.outage_stop = 690;      % 丢失结束时间
+opt.zupt_enable = true;     % ZUPT
+opt.outage_start = 200;     % 丢失开始时间
+opt.outage_stop = 250;      % 丢失结束时间
 opt.gnss_intervel = 10;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 opt.imu_intervel = 1;       % IMU间隔时间，如原始数据为100Hz，那么 gnss_intervel=2 则降频为50Hz
 opt.inital_yaw = 170;       % 初始方位角 deg (北偏东为正)
@@ -164,12 +165,28 @@ for i=1:imu_length
     end
     
     log.zupt_time(i) = 0;
-    
     %% 静止条件判断
     if abs(norm(f_n)-9.8)<0.3 && (std_gyr_sldwin < 0.3) && (std_acc_sldwin < 0.01)
-        %% 重力量测更新姿态
+       log.zupt_time(i) = 1;
+       
+       %% ZUPT
+       if opt.zupt_enable
+           H = zeros(3, 15);
+           H(1,4) = -1;
+           H(2,5) = -1;
+           H(3,6) = -1;
+           R = diag([10 10 10]);
+           Z = -vel;
+           K = P * H' / (H * P * H' + R);
+           X = X + K * (Z - H * X);
+           P = (eye(length(X)) - K * H) * P;
+           %速度修正
+           vel = vel - X(4:6);
+           X(4:6) = 0;
+       end
+
+        %% 静止状态下重力量测更新姿态
         if opt.gravity_update_enable
-            log.zupt_time(i) = 1;
             H = zeros(2,15);
             H(1, 2) = 1;
             H(2, 1) = -1;
