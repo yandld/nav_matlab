@@ -17,7 +17,7 @@ Earth_e = 0.00335281066474748;
 %% 相关选项及参数设置
 opt.alignment_time = 10e2;  % 初始对准时间
 opt.bias_feedback = true;  % IMU零偏反馈
-opt.gnss_outage = false;    % 模拟GNSS丢失
+opt.gnss_outage = true;    % 模拟GNSS丢失
 opt.gravity_update_enable = false; % 使能重力静止量更新
 opt.zupt_enable = true;     % ZUPT
 opt.outage_start = 200;     % 丢失开始时间
@@ -173,14 +173,11 @@ for i=1:imu_length
        %% ZUPT
        if opt.zupt_enable
            H = zeros(3, 15);
-%            H(1,4) = -1;
-%            H(2,5) = -1;
-%            H(3,6) = -1;
            H(1:3,4:6) = eye(3);
 
-           Z = -vel;
+           Z = vel;
 
-           R = diag(10*ones(1,3))^2;
+           R = diag(0.2*ones(1,3))^2;
            
            K = P * H' / (H * P * H' + R);
            X = X + K * (Z - H * X);
