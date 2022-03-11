@@ -2,10 +2,10 @@ close all;
 clear;
 clc;
 
-file_name = 'data20220303';
+file_name = 'data20220311';
 
 data = textread(strcat(file_name,'.txt'),'%s');
-data_length = height(data);
+data_length = length(data);
 
 imu_data = [];
 gnss_data = [];
