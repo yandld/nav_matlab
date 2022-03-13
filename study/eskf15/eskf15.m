@@ -106,6 +106,7 @@ log.pos = zeros(imu_length, 3);
 log.P = zeros(imu_length, 15);
 log.X = zeros(imu_length, 15);
 log.sins_att = zeros(imu_length, 3);
+log.zupt_time = zeros(imu_length, 1);
 
 gnss_index = 1;
 
@@ -155,7 +156,7 @@ for i=1:imu_length
     X = F*X;
     P = F*P*F' + Q;
     
-    %% 建立acc ,gyr 滑窗 并求基本统计量
+    %% 建立IMU滑窗,并求基本统计量
     if(i > 50)
         std_acc_sldwin = sum(std(acc_data(i-50:i, :)));
         std_gyr_sldwin = sum(std(gyro_data(i-50:i, :)));
@@ -164,8 +165,6 @@ for i=1:imu_length
         log.std_gyr_sldwin(i,1) = std_gyr_sldwin;
     end
     
-    log.zupt_time(i) = 0;
-
     %% 静止条件判断
     if abs(norm(f_n)-9.8)<0.3 && (std_gyr_sldwin < 0.3) && (std_acc_sldwin < 0.01)
        log.zupt_time(i) = 1;
@@ -462,19 +461,19 @@ subplot(3,2,1);
 plot((1:imu_length)/100, log.P(:, 1:3) * R2D, 'linewidth', 1.5); grid on;
 xlim([0 imu_length/100]);
 xlabel('时间(s)'); ylabel('平台失准角(°)'); legend('Pitch', 'Roll', 'Yaw');
-subplot(3,2,3);
+subplot(3,2,2);
 plot((1:imu_length)/100, log.P(:, 4:6), 'linewidth', 1.5); grid on;
 xlim([0 imu_length/100]);
 xlabel('时间(s)'); ylabel('速度误差(m/s)'); legend('Ve', 'Vn', 'Vu');
-subplot(3,2,5);
+subplot(3,2,4);
 plot((1:imu_length)/100, log.P(:, 7:9), 'linewidth', 1.5); grid on;
 xlim([0 imu_length/100]);
 xlabel('时间(s)'); ylabel('位置误差(m)'); legend('Lat', 'Lon', 'Alt');
-subplot(3,2,2);
+subplot(3,2,3);
 plot((1:imu_length)/100, log.P(:, 10:12) * 3600 * R2D, 'linewidth', 1.5); grid on;
 xlim([0 imu_length/100]);
 xlabel('时间(s)'); ylabel('陀螺零偏(°/h)'); legend('X', 'Y', 'Z');
-subplot(3,2,4);
+subplot(3,2,5);
 plot((1:imu_length)/100, log.P(:, 13:15) / 9.8 * 1000, 'linewidth', 1.5); grid on;
 xlim([0 imu_length/100]);
 xlabel('时间(s)'); ylabel('加速度计零偏(mg)'); legend('X', 'Y', 'Z');
