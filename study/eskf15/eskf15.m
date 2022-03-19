@@ -7,7 +7,7 @@ format compact;
 
 R2D = 180/pi;
 D2R = pi/180;
-g = 9.8;
+GRAVITY = 9.8;
 Re = 6378137;
 Earth_e = 0.00335281066474748;
 
@@ -20,14 +20,14 @@ opt.bias_feedback = true;  % IMU零偏反馈
 opt.gnss_outage = true;    % 模拟GNSS丢失
 opt.gravity_update_enable = false; % 使能重力静止量更新
 opt.zupt_enable = false;     % ZUPT
-opt.outage_start = 300;     % 丢失开始时间
+opt.outage_start = 280;     % 丢失开始时间
 opt.outage_stop = 360;      % 丢失结束时间
 opt.gnss_intervel = 10;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 opt.imu_intervel = 1;       % IMU间隔时间，如原始数据为100Hz，那么 gnss_intervel=2 则降频为50Hz
 opt.inital_yaw = 170;       % 初始方位角 deg (北偏东为正)
 
 % 初始状态方差:    水平姿态           航向       东北天速度      水平位置   高度      陀螺零偏                 加速度计零偏
-opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,3), 5*ones(1,2), 10, (360/3600*D2R)*ones(1,3), (100e-3*g)*ones(1,3)])^2;
+opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,3), 5*ones(1,2), 10, (360/3600*D2R)*ones(1,3), (100e-3*GRAVITY)*ones(1,3)])^2;
 % 系统方差:       角度随机游走           速度随机游走
 opt.Q = diag([(2/60*D2R)*ones(1,3), (2/60)*ones(1,3), zeros(1,3), 0.0001*ones(1,3), 0.005*ones(1,3)])^2;
 
@@ -125,11 +125,11 @@ for i=1:imu_length
     
     %% 捷联更新
     % 单子样等效旋转矢量法
-    w_b = gyro_data(i,:)'*D2R - gyro_bias;
-    f_b = acc_data(i,:)'*g - acc_bias;
+    w_b = gyro_data(i,:)' - gyro_bias;
+    f_b = acc_data(i,:)' - acc_bias;
     
     % 纯惯性姿态更新
-    [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, g, imu_dt);
+    [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, GRAVITY, imu_dt);
     
     nQb_sins = quatmultiply(nQb_sins, q); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
     nQb_sins = quatnormalize(nQb_sins); %单位化四元数
@@ -159,16 +159,16 @@ for i=1:imu_length
     P = F*P*F' + Q;
     
     %% 建立IMU滑窗,并求基本统计量
-    if(i > 50)
-        std_acc_sldwin = sum(std(acc_data(i-50:i, :)));
-        std_gyr_sldwin = sum(std(gyro_data(i-50:i, :)));
+    if(i > 10)
+        std_acc_sldwin = sum(std(acc_data(i-10:i, :)));
+        std_gyr_sldwin = sum(std(gyro_data(i-10:i, :)));
         
         log.std_acc_sldwin(i,1) = std_acc_sldwin;
         log.std_gyr_sldwin(i,1) = std_gyr_sldwin;
     end
     
     %% 静止条件判断
-    if abs(norm(f_n)-9.8)<0.3 && (std_gyr_sldwin < 0.3) && (std_acc_sldwin < 0.01)
+    if abs(norm(f_n)-9.8)<0.2 && (std_acc_sldwin < 0.1)
        log.zupt_time(i) = 1;
        
        %% ZUPT
