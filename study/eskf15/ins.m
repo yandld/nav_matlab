@@ -1,5 +1,5 @@
-%
 function [nQb, pos, vel, q] = ins(w_b, f_b,  nQb, pos, vel, gravity, dt)
+%% 捷联更新
 rotate_vector = w_b*dt;
 rotate_vector_norm = norm(rotate_vector);
 if(rotate_vector_norm <1e-10) % fix nan issue
@@ -20,6 +20,3 @@ vel = vel + dv*dt;
 
 % 位置更新
 pos = pos + vel*dt;
-
-end
-

@@ -19,17 +19,17 @@ opt.alignment_time = 10e2;  % 初始对准时间
 opt.bias_feedback = true;  % IMU零偏反馈
 opt.gnss_outage = true;    % 模拟GNSS丢失
 opt.gravity_update_enable = false; % 使能重力静止量更新
-opt.zupt_enable = true;     % ZUPT
-opt.outage_start = 200;     % 丢失开始时间
-opt.outage_stop = 250;      % 丢失结束时间
+opt.zupt_enable = false;     % ZUPT
+opt.outage_start = 300;     % 丢失开始时间
+opt.outage_stop = 360;      % 丢失结束时间
 opt.gnss_intervel = 10;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 opt.imu_intervel = 1;       % IMU间隔时间，如原始数据为100Hz，那么 gnss_intervel=2 则降频为50Hz
 opt.inital_yaw = 170;       % 初始方位角 deg (北偏东为正)
 
 % 初始状态方差:    水平姿态           航向       东北天速度      水平位置   高度      陀螺零偏                 加速度计零偏
-opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,3), 5*ones(1,2), 10, (50/3600*D2R)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
+opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,3), 5*ones(1,2), 10, (360/3600*D2R)*ones(1,3), (100e-3*g)*ones(1,3)])^2;
 % 系统方差:       角度随机游走           速度随机游走
-opt.Q = diag([(1/60*D2R)*ones(1,3),  (2/60)*ones(1,3),  zeros(1,9)])^2;
+opt.Q = diag([(2/60*D2R)*ones(1,3), (2/60)*ones(1,3), zeros(1,3), 0.0001*ones(1,3), 0.005*ones(1,3)])^2;
 
 %% 数据载入
 load('data20220303.mat');
@@ -38,11 +38,11 @@ gnss_data = gnss_data(1: opt.gnss_intervel: end, :);
 imu_length = length(imu_data);
 gnss_length = length(gnss_data);
 
-imu_time = imu_data(:, 1) / 1000;
+imu_time = (imu_data(:, 1) - imu_data(1, 1)) / 1000;
 gyro_data = imu_data(:, 5:7);
 acc_data = imu_data(:, 2:4);
 
-gnss_time = gnss_data(:, 1) / 1000;
+gnss_time = (gnss_data(:, 1) - imu_data(1, 1)) / 1000;
 lla_data = gnss_data(:, 4:6);
 vel_data = gnss_data(:, 7:9);
 pos_std_data = gnss_data(:, 10:12);
@@ -105,6 +105,8 @@ log.vel = zeros(imu_length, 3);
 log.pos = zeros(imu_length, 3);
 log.P = zeros(imu_length, 15);
 log.X = zeros(imu_length, 15);
+log.gyro_bias = zeros(imu_length, 3);
+log.acc_bias = zeros(imu_length, 3);
 log.sins_att = zeros(imu_length, 3);
 log.zupt_time = zeros(imu_length, 1);
 
@@ -297,10 +299,10 @@ for i=1:imu_length
             
             % 零偏反馈
             if opt.bias_feedback
-                gyro_bias = X(10:12);
-                acc_bias = X(13:15);
-                %         X(10:12) = zeros(3,1);
-                %         X(13:15) = zeros(3,1);
+                gyro_bias = gyro_bias + X(10:12);
+                acc_bias = acc_bias + X(13:15);
+                X(10:12) = zeros(3,1);
+                X(13:15) = zeros(3,1);
             end
         end
         
@@ -315,6 +317,8 @@ for i=1:imu_length
     log.pos(i,:) = pos';
     log.X(i, :) = X_temp';
     log.P(i, :) = sqrt(diag(P))';
+    log.gyro_bias(i, :) = gyro_bias;
+    log.acc_bias(i, :) = acc_bias;
     
     % 纯惯性信息存储
     [pitch,roll,yaw] = q2att(nQb_sins);
@@ -407,9 +411,9 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 %% IMU零偏估计曲线
 figure('name', 'IMU零偏估计曲线');
 subplot(2,2,1);
-plot((1:imu_length)/100, log.X(:, 10) * 3600 * R2D, 'r', 'linewidth', 1.5); hold on; grid on;
-plot((1:imu_length)/100, log.X(:, 11) * 3600 * R2D, 'g', 'linewidth', 1.5);
-plot((1:imu_length)/100, log.X(:, 12) * 3600 * R2D, 'b', 'linewidth', 1.5);
+plot((1:imu_length)/100, log.gyro_bias(:, 1) * 3600 * R2D, 'r', 'linewidth', 1.5); hold on; grid on;
+plot((1:imu_length)/100, log.gyro_bias(:, 2) * 3600 * R2D, 'g', 'linewidth', 1.5);
+plot((1:imu_length)/100, log.gyro_bias(:, 3) * 3600 * R2D, 'b', 'linewidth', 1.5);
 plot((1:imu_length)/100, gyro_bias0(1) * 3600 * ones(imu_length,1), 'r-.', 'linewidth', 1);
 plot((1:imu_length)/100, gyro_bias0(2) * 3600 * ones(imu_length,1), 'g-.', 'linewidth', 1);
 plot((1:imu_length)/100, gyro_bias0(3) * 3600 * ones(imu_length,1), 'b-.', 'linewidth', 1);
@@ -421,7 +425,7 @@ xlim([0 imu_length/100]);
 title('陀螺仪零偏协方差收敛曲线'); xlabel('时间(s)'); ylabel('零偏标准差(°/h)'); legend('X', 'Y', 'Z');
 
 subplot(2,2,2);
-plot((1:imu_length)/100, log.X(:, 13:15) / 9.8 * 1000, 'linewidth', 1.5); grid on;
+plot((1:imu_length)/100, log.acc_bias(:, 1:3) / 9.8 * 1000, 'linewidth', 1.5); grid on;
 xlim([0 imu_length/100]);
 title('加速度计零偏估计曲线'); xlabel('时间(s)'); ylabel('零偏(mg)'); legend('X', 'Y', 'Z');
 subplot(2,2,4);
