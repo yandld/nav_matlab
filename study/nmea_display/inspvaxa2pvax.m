@@ -1,5 +1,6 @@
 function [lat, lon, alt, vel, att, pos_std, vel_std, att_std, ins_status, pos_type, time] = inspvaxa2pvax(file_name)
-    data = importdata(file_name);
+%     data = importdata(file_name);
+    fid = fopen(file_name, 'rt');
     
     lat = [];
     lon = [];
@@ -12,8 +13,11 @@ function [lat, lon, alt, vel, att, pos_std, vel_std, att_std, ins_status, pos_ty
     ins_status = [];
     pos_type = [];
     time = [];
-    for i = 1:length(data)
-        str = char(data(i));
+
+%     for i = 1:length(data)
+%         str = char(data(i));
+    while ~feof(fid)
+        str = fgetl(fid);
         if length(str)>10 && (strcmp(str(1:9),'#INSPVAXA'))
             sstr = string(str);
             sstr = sstr.split(';');
@@ -39,5 +43,7 @@ function [lat, lon, alt, vel, att, pos_std, vel_std, att_std, ins_status, pos_ty
             pos_type = [pos_type; sstr2(2)];
         end
     end
+
+    fclose(fid);
 end
 

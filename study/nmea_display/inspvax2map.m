@@ -37,6 +37,8 @@ xlabel('东向距离(m)');
 ylabel('北向距离(m)');
 legend(legend_str);
 
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+
 %%
 figure('name', '高度与位置方差曲线');
 subplot(2,1,1);
@@ -55,6 +57,8 @@ ylabel('位置方差(m)');
 legend('东向', '北向', '天向', 'Orientation', 'horizontal');
 title('位置方差曲线');
 
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+
 %%
 figure('name', '水平速度曲线');
 subplot(2,1,1);
@@ -67,6 +71,8 @@ plot(sqrt(vel_std(:, 1).^2 + vel_std(:, 2).^2), 'LineWidth', 1.5); hold on; grid
 xlim([0 length(ins_status)]);
 xlabel('时间(s)');
 ylabel('水平速度方差(m/s)');
+
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %%
 figure('name', '东北天速度曲线');
@@ -86,6 +92,8 @@ xlim([0 length(ins_status)]);
 xlabel('时间(s)');
 ylabel('东北天速度方差(m/s)');
 legend('东向', '北向', '天向', 'Orientation', 'horizontal');
+
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %%
 figure('name', '姿态曲线');
@@ -108,7 +116,8 @@ xlim([0 length(ins_status)]);
 xlabel('时间(s)');
 ylabel('方差(°)');
 legend('俯仰', '横滚', '航向', 'Orientation', 'horizontal');
-suptitle('姿态曲线');
+
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %%
 wm = webmap('World Imagery');
