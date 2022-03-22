@@ -27,17 +27,17 @@ opt.imu_intervel = 1;       % IMU间隔时间，如原始数据为100Hz，那么
 opt.inital_yaw = 270;       % 初始方位角 deg (北偏东为正)
 
 % 初始状态方差:    水平姿态           航向       东北天速度      水平位置   高度      陀螺零偏                 加速度计零偏
-opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,3), 5*ones(1,2), 10, (360/3600*D2R)*ones(1,3), (100e-3*g)*ones(1,3), 0.1])^2;
+opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,3), 5*ones(1,2), 10, (360/3600*D2R)*ones(1,3), (100e-3*g)*ones(1,3), 1.5*ones(1,3), 0.1])^2;
 % 系统方差:       角度随机游走           速度随机游走
-opt.Q = diag([(0.3/60*D2R)*ones(1,3), (0.01)*ones(1,3), 0*ones(1,3), 0*ones(1,3), 0*ones(1,3), 0])^2;
+opt.Q = diag([(0.3/60*D2R)*ones(1,3), (0.01)*ones(1,3), 0*ones(1,3), 0*ones(1,3), 0*ones(1,3), 0*ones(1,3), 0])^2;
 
 %% 数据载入
 % load('data20220320_11.mat');
 % load('data20220320_12.mat');
 % load('data20220320_21.mat');
 % load('data20220320_22.mat');
-% load('data20220320_31.mat');
-load('data20220320_32.mat');
+load('data20220320_31.mat');
+% load('data20220320_32.mat');
 imu_data = imu_data(1: opt.imu_intervel: end, :);
 gnss_data = gnss_data(1: opt.gnss_intervel: end, :);
 imu_length = length(imu_data);
@@ -109,8 +109,8 @@ std_gyr_sldwin = 100; % gyr 滑窗标准差
 vel = [0 0 0]';
 pos = [0 0 0]';
 
-X = zeros(16,1);
-X(16) = 0.1;
+X = zeros(19,1);
+X(19) = 0.1;
 X_temp = X;
 gyro_bias = X(10:12);
 acc_bias = X(13:15);
@@ -281,8 +281,10 @@ for i=1:imu_length
             H = zeros(6,length(X));
             H(1:3,4:6) = eye(3);
             H(4:6,7:9) = eye(3);
-            H(1:3,16) = a_n;
-            H(4:6,16) = vel;
+            H(1:3,16:18) = -bCn*v3_skew(w_b);
+            H(4:6,16:18) = -bCn;
+            H(1:3,19) = a_n;
+            H(4:6,19) = vel;
             
             Z = [vel - vel_data(gnss_index,:)'; pos - gnss_enu(gnss_index,:)'];
             
@@ -551,14 +553,29 @@ xlabel('时间(s)');
 ylabel('加速度模长(g)');
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
+%% 杆臂效应
+figure('name', '杆臂效应');
+subplot(2,1,1);
+plot(imu_time, log.X(:, 16:18), 'linewidth', 1.5); hold on; grid on;
+xlim([imu_time(1) imu_time(end)]);
+ylabel('杆臂(m)');
+legend('X','Y','Z');
+subplot(2,1,2);
+plot(imu_time, log.P(:, 16:18), 'linewidth', 1.5); hold on; grid on;
+xlim([imu_time(1) imu_time(end)]);
+xlabel('时间(s)');
+ylabel('估计标准差(m)');
+legend('X','Y','Z');
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+
 %% GNSS不同步误差
 figure('name', 'GNSS不同步误差');
 subplot(2,1,1);
-plot(imu_time, log.X(:, 16), 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, log.X(:, 19), 'linewidth', 1.5); hold on; grid on;
 xlim([imu_time(1) imu_time(end)]);
 ylabel('GNSS量测延迟(s)');
 subplot(2,1,2);
-plot(imu_time, log.P(:, 16), 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, log.P(:, 19), 'linewidth', 1.5); hold on; grid on;
 xlim([imu_time(1) imu_time(end)]);
 xlabel('时间(s)');
 ylabel('估计标准差(s)');
