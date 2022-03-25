@@ -17,7 +17,7 @@ Earth_e = 0.00335281066474748;
 %% 相关选项及参数设置
 opt.alignment_time = 10e2;  % 初始对准时间
 opt.bias_feedback = true;  % IMU零偏反馈
-opt.gnss_outage = true;    % 模拟GNSS丢失
+opt.gnss_outage = false;    % 模拟GNSS丢失
 opt.gravity_update_enable = false; % 使能重力静止量更新
 opt.zupt_enable = false;     % ZUPT
 opt.outage_start = 500;     % 丢失开始时间
@@ -476,23 +476,38 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 %% 状态量曲线
 figure('name','状态量曲线');
 subplot(2,2,1);
-plot(imu_time, log.X(:, 1:2) * R2D, 'linewidth', 1.5); grid on;
+plot(imu_time, log.X(:, 1) * R2D, 'c', 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, log.X(:, 2) * R2D, 'm', 'linewidth', 1.5);
+plot(imu_time, log.P(:, 1) * R2D * 3, 'r-.', 'linewidth', 1);
+plot(imu_time, log.P(:, 2) * R2D * 3, 'g-.', 'linewidth', 1);
+plot(imu_time, log.P(:, 1) * R2D * -3, 'r-.', 'linewidth', 1);
+plot(imu_time, log.P(:, 2) * R2D * -3, 'g-.', 'linewidth', 1);
 xlim([imu_time(1) imu_time(end)]);
+ylim([-0.5 0.5]);
 xlabel('时间(s)'); ylabel('平台失准角(°)'); legend('Pitch', 'Roll', 'Orientation','horizontal');
 
 subplot(2,2,3);
-plot(imu_time, log.X(:, 3) * R2D, 'linewidth', 1.5); grid on;
+plot(imu_time, log.X(:, 3) * R2D, 'c', 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, log.P(:, 3) * R2D * 3, 'b-.', 'linewidth', 1);
+plot(imu_time, log.P(:, 3) * R2D * -3, 'b-.', 'linewidth', 1);
 xlim([imu_time(1) imu_time(end)]);
+ylim([-5 5]);
 xlabel('时间(s)'); ylabel('平台失准角(°)'); legend('Yaw', 'Orientation','horizontal');
 
 subplot(2,2,2);
-plot(imu_time, log.X(:, 4:6), 'linewidth', 1.5); grid on;
+plot(imu_time, log.X(:, 4:6), 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, log.P(:, 4:6) * R2D * 3, '-.', 'linewidth', 1);
+plot(imu_time, log.P(:, 4:6) * R2D * -3, '-.', 'linewidth', 1);
 xlim([imu_time(1) imu_time(end)]);
+ylim([-10 10]);
 xlabel('时间(s)'); ylabel('速度误差(m/s)'); legend('东', '北', '天', 'Orientation','horizontal');
 
 subplot(2,2,4);
-plot(imu_time, log.X(:, 7:9), 'linewidth', 1.5); grid on;
+plot(imu_time, log.X(:, 7:9), 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, log.P(:, 7:9) * R2D * 3, '-.', 'linewidth', 1);
+plot(imu_time, log.P(:, 7:9) * R2D * -3, '-.', 'linewidth', 1);
 xlim([imu_time(1) imu_time(end)]);
+ylim([-100 100]);
 xlabel('时间(s)'); ylabel('位置误差(m)'); legend('东', '北', '天', 'Orientation','horizontal');
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
