@@ -32,10 +32,6 @@ opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,3), 5*ones(1,2), 10, (36
 opt.Q = diag([(0.3/60*D2R)*ones(1,3), (0.01)*ones(1,3), 0*ones(1,3), 0*ones(1,3), 0*ones(1,3)])^2;
 
 %% 数据载入
-% load('data20220320_11.mat');
-% load('data20220320_12.mat');
-% load('data20220320_21.mat');
-% load('data20220320_22.mat');
 % load('data20220320_31.mat');
 load('data20220320_32.mat');
 imu_data = imu_data(1: opt.imu_intervel: end, :);
@@ -88,13 +84,10 @@ end
 % plot_enu_vel(gnss_enu, log.vel_norm);
 
 %% MCU结果转换为当地东北天坐标系
-span_enu = zeros(gnss_length, 3);
-for i=1:span_length
-    span_enu(i,3) = span.lla(i,3) - alt0;
-    span_enu(i,2) = (span.lla(i,1) * D2R - lat0) * (Rmh);
-    span_enu(i,1) = (span.lla(i,2) * D2R - lon0) * (Rnh) * cos(lat0);
-end
-
+span_enu = zeros(span_length, 3);
+    span_enu(:,3) = span.lla(:,3) - alt0;
+    span_enu(:,2) = (span.lla(:,1) * D2R - lat0) * (Rmh);
+    span_enu(:,1) = (span.lla(:,2) * D2R - lon0) * (Rnh) * cos(lat0);
 %% 初始参数设置
 % 粗对准
 g_b = - mean(acc_data(1:opt.alignment_time, :))';
@@ -149,7 +142,7 @@ for i=1:imu_length
     [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, g, imu_dt);
     
     nQb_sins = quatmultiply(nQb_sins, q); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
-    nQb_sins = quatnormalize(nQb_sins); %单位化四元数
+    nQb_sins = ch_qnormlz(nQb_sins); %单位化四元数
     
     bQn = quatinv(nQb); %更新bQn
     f_n = quatrotate(bQn, f_b')';
@@ -207,7 +200,7 @@ for i=1:imu_length
            if rv_norm ~= 0
                qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
                nQb = quatmultiply(qe, nQb);
-               nQb = quatnormalize(nQb); %单位化四元数
+               nQb = ch_qnormlz(nQb); %单位化四元数
                bQn = quatinv(nQb); %更新bQn
                nCb = quat2dcm(nQb); %更新nCb阵
                bCn = nCb'; %更新bCn阵
@@ -252,7 +245,7 @@ for i=1:imu_length
             if rv_norm ~= 0
                 qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
                 nQb = quatmultiply(qe, nQb);
-                nQb = quatnormalize(nQb); %单位化四元数
+                nQb = ch_qnormlz(nQb); %单位化四元数
                 bQn = quatinv(nQb); %更新bQn
                 nCb = quat2dcm(nQb); %更新nCb阵
                 bCn = nCb'; %更新bCn阵
@@ -296,7 +289,7 @@ for i=1:imu_length
             if rv_norm ~= 0
                 qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
                 nQb = quatmultiply(qe, nQb);
-                nQb = quatnormalize(nQb); %单位化四元数
+                nQb = ch_qnormlz(nQb); %单位化四元数
                 bQn = quatinv(nQb); %更新bQn
                 nCb = quat2dcm(nQb); %更新nCb阵
                 bCn = nCb'; %更新bCn阵
