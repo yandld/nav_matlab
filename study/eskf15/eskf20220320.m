@@ -85,9 +85,9 @@ end
 
 %% MCU结果转换为当地东北天坐标系
 span_enu = zeros(span_length, 3);
-    span_enu(:,3) = span.lla(:,3) - alt0;
-    span_enu(:,2) = (span.lla(:,1) * D2R - lat0) * (Rmh);
-    span_enu(:,1) = (span.lla(:,2) * D2R - lon0) * (Rnh) * cos(lat0);
+span_enu(:,3) = span.lla(:,3) - alt0;
+span_enu(:,2) = (span.lla(:,1) * D2R - lat0) * (Rmh);
+span_enu(:,1) = (span.lla(:,2) * D2R - lon0) * (Rnh) * cos(lat0);
 %% 初始参数设置
 % 粗对准
 g_b = - mean(acc_data(1:opt.alignment_time, :))';
@@ -141,13 +141,13 @@ for i=1:imu_length
     % 纯惯性姿态更新
     [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, g, imu_dt);
     
-    nQb_sins = quatmultiply(nQb_sins, q); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
+    nQb_sins = ch_qmul(nQb_sins, q); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
     nQb_sins = ch_qnormlz(nQb_sins); %单位化四元数
     
-    bQn = quatinv(nQb); %更新bQn
-    f_n = quatrotate(bQn, f_b')';
-    nCb = quat2dcm(nQb); %更新nCb阵
-    bCn = nCb'; %更新bCn阵
+    bQn = ch_qconj(nQb); %更新bQn
+    f_n = ch_qmulv(nQb, f_b);
+    bCn = ch_q2m(nQb); %更新bCn阵
+    nCb = bCn'; %更新nCb阵
     
     %% 卡尔曼滤波
     F = zeros(15);
@@ -199,11 +199,11 @@ for i=1:imu_length
            rv_norm = norm(rv);
            if rv_norm ~= 0
                qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-               nQb = quatmultiply(qe, nQb);
+               nQb = ch_qmul(qe, nQb);
                nQb = ch_qnormlz(nQb); %单位化四元数
-               bQn = quatinv(nQb); %更新bQn
-               nCb = quat2dcm(nQb); %更新nCb阵
-               bCn = nCb'; %更新bCn阵
+               bQn = ch_qconj(nQb); %更新bQn
+               bCn = ch_q2m(nQb); %更新bCn阵
+               nCb = bCn'; %更新nCb阵
            end
 
            % 速度修正
@@ -244,11 +244,11 @@ for i=1:imu_length
             rv_norm = norm(rv);
             if rv_norm ~= 0
                 qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-                nQb = quatmultiply(qe, nQb);
+                nQb = ch_qmul(qe, nQb);
                 nQb = ch_qnormlz(nQb); %单位化四元数
-                bQn = quatinv(nQb); %更新bQn
-                nCb = quat2dcm(nQb); %更新nCb阵
-                bCn = nCb'; %更新bCn阵
+                bQn = ch_qconj(nQb); %更新bQn
+                bCn = ch_q2m(nQb); %更新bCn阵
+                nCb = bCn'; %更新nCb阵
             end
             
             % 暂存状态X
@@ -288,11 +288,11 @@ for i=1:imu_length
             rv_norm = norm(rv);
             if rv_norm ~= 0
                 qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-                nQb = quatmultiply(qe, nQb);
+                nQb = ch_qmul(qe, nQb);
                 nQb = ch_qnormlz(nQb); %单位化四元数
-                bQn = quatinv(nQb); %更新bQn
-                nCb = quat2dcm(nQb); %更新nCb阵
-                bCn = nCb'; %更新bCn阵
+                bQn = ch_qconj(nQb); %更新bQn
+                bCn = ch_q2m(nQb); %更新bCn阵
+                nCb = bCn'; %更新nCb阵
             end
             
             % 速度修正
