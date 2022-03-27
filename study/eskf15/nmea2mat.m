@@ -2,7 +2,7 @@ close all;
 clear;
 clc;
 
-file_name = 'data20220320_11';
+file_name = 'data20220327_rtk1hz_1';
 
 data = textread(strcat(file_name, '.txt'),'%s');
 data_length = length(data);

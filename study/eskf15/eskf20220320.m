@@ -15,7 +15,7 @@ Earth_e = 0.00335281066474748;
 % KF 状态量: 失准角(3) 速度误差(3) 位置误差(3) 陀螺零偏(3) 加计零偏(3)
 
 %% 相关选项及参数设置
-opt.alignment_time = 10e2;  % 初始对准时间
+opt.alignment_time = 1e2;  % 初始对准时间
 opt.bias_feedback = true;  % IMU零偏反馈
 opt.gnss_outage = false;    % 模拟GNSS丢失
 opt.gravity_update_enable = false; % 使能重力静止量更新
@@ -24,16 +24,27 @@ opt.outage_start = 500;     % 丢失开始时间
 opt.outage_stop = 560;      % 丢失结束时间
 opt.gnss_intervel = 1;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 opt.imu_intervel = 1;       % IMU间隔时间，如原始数据为100Hz，那么 gnss_intervel=2 则降频为50Hz
-opt.inital_yaw = 270;       % 初始方位角 deg (北偏东为正)
+opt.inital_yaw = 90;       % 初始方位角 deg (北偏东为正)
 
 % 初始状态方差:    水平姿态           航向       东北天速度      水平位置   高度      陀螺零偏                 加速度计零偏
-opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,3), 5*ones(1,2), 10, (360/3600*D2R)*ones(1,3), (100e-3*g)*ones(1,3)])^2;
+opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (50/3600*D2R)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
 % 系统方差:       角度随机游走           速度随机游走
-opt.Q = diag([(0.3/60*D2R)*ones(1,3), (0.01)*ones(1,3), 0*ones(1,3), 0*ones(1,3), 0*ones(1,3)])^2;
+opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), 0*ones(1,3), 0*ones(1,3)])^2;
 
 %% 数据载入
 % load('data20220320_31.mat');
-load('data20220320_32.mat');
+% load('data20220320_32.mat');
+
+load('data20220327_rtk1hz_1.mat');
+opt.inital_yaw = 90;
+
+% load('data20220327_rtk1hz_2.mat');
+% opt.inital_yaw = 270;
+
+gnss_data(find(gnss_data(:,3)==1),:)=[];
+% gnss_data(find(gnss_data(:,3)==4),:)=[];
+% gnss_data(find(gnss_data(:,3)==5),:)=[];
+
 imu_data = imu_data(1: opt.imu_intervel: end, :);
 gnss_data = gnss_data(1: opt.gnss_intervel: end, :);
 imu_length = length(imu_data);
@@ -46,6 +57,15 @@ acc_data = imu_data(:, 3:5);
 gnss_time = (gnss_data(:, 2) - imu_data(1, 2));
 lla_data = gnss_data(:, 5:7);
 vel_data = gnss_data(:, 8:10);
+
+lat0 = lla_data(1, 1);
+lon0 = lla_data(1, 2);
+alt0 = lla_data(1, 3);
+[R_meridian, R_transverse, C_ECEF2ENU, C_ECEF2NED] = ch_earth(lat0, lon0, alt0);
+for i=1:gnss_length
+    vel_data(i,:) = C_ECEF2ENU*vel_data(i, 1:3)';
+end
+
 pos_std_data = gnss_data(:, 11:13);
 vel_std_data = gnss_data(:, 14:16);
 
@@ -275,8 +295,13 @@ for i=1:imu_length
             
             Z = [vel - vel_data(gnss_index,:)'; pos - gnss_enu(gnss_index,:)'];
             
-            %R = diag([0.2*ones(2,1); 0.2; 1*ones(2,1); 2])^2;
-            R = diag([vel_std_data(gnss_index,:)  pos_std_data(gnss_index,:)])^2;
+            R = diag([0.2*ones(2,1); 0.2; 1*ones(2,1); 2])^2;
+%             R = diag([vel_std_data(gnss_index,:)  pos_std_data(gnss_index,:)])^2;
+
+            H = zeros(3,15);
+            H(1:3,7:9) = eye(3);
+            Z = [pos - gnss_enu(gnss_index,:)'];
+            R = diag([1*ones(2,1); 2])^2;
             
             % 卡尔曼量测更新
             K = P * H' / (H * P * H' + R);
