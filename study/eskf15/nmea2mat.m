@@ -2,10 +2,12 @@ close all;
 clear;
 clc;
 
-file_name = 'data20220327_rtk1hz_1';
+file_name = 'data20220405_RTK';
 
 data = textread(strcat(file_name, '.txt'),'%s');
 data_length = length(data);
+
+% data_length = 142058;    %data20220405_RTK后半部分数据有问题，截取前半部分
 
 imu_length = 0;
 gnss_length = 0;
