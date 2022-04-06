@@ -17,13 +17,22 @@ Earth_e = 0.00335281066474748;
 %% 相关选项及参数设置
 opt.alignment_time = 1e2;  % 初始对准时间
 opt.bias_feedback = true;  % IMU零偏反馈
-opt.gnss_outage = false;    % 模拟GNSS丢失
+
 opt.gravity_update_enable = false; % 使能重力静止量更新
+
 opt.zupt_enable = false;     % ZUPT
+opt.zupt_acc_std = 0.35;     % 加速度计方差滑窗阈值
+opt.zupt_gyr_std = 0.01;     % 陀螺仪方差滑窗阈值
+
+opt.gnss_outage = false;    % 模拟GNSS丢失
 opt.outage_start = 500;     % 丢失开始时间
 opt.outage_stop = 560;      % 丢失结束时间
+
+opt.gnss_delay = 0.05;      % GNSS量测延迟 sec
+
 opt.gnss_intervel = 1;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 opt.imu_intervel = 1;       % IMU间隔时间，如原始数据为100Hz，那么 gnss_intervel=2 则降频为50Hz
+
 % opt.inital_yaw = 90;       % 初始方位角 deg (北偏东为正)
 
 % 初始状态方差:    水平姿态           航向       东北天速度      水平位置   高度      陀螺零偏                 加速度计零偏
@@ -35,11 +44,11 @@ opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), 0*ones(1,3), 
 % load('data20220320_1.mat');
 % opt.inital_yaw = 270;
 
-% load('data20220320_2.mat');
-% opt.inital_yaw = 270;
+load('data20220320_2.mat');
+opt.inital_yaw = 270;
 
-load('data20220405_Standalone.mat');
-opt.inital_yaw = 90;
+% load('data20220405_Standalone.mat');
+% opt.inital_yaw = 90;
 
 % load('data20220405_RTK.mat');
 % opt.inital_yaw = 90;
@@ -166,6 +175,7 @@ for i=1:imu_length
     
     bQn = ch_qconj(nQb); %更新bQn
     f_n = ch_qmulv(nQb, f_b);
+    a_n = f_n + [0; 0; -g];
     bCn = ch_q2m(nQb); %更新bCn阵
     nCb = bCn'; %更新nCb阵
     
@@ -193,12 +203,12 @@ for i=1:imu_length
         std_acc_sldwin = sum(std(acc_data(i-50:i, :)));
         std_gyr_sldwin = sum(std(gyro_data(i-50:i, :)));
         
-        log.std_acc_sldwin(i,1) = std_acc_sldwin;
-        log.std_gyr_sldwin(i,1) = std_gyr_sldwin;
+        log.std_acc_sldwin(i) = std_acc_sldwin;
+        log.std_gyr_sldwin(i) = std_gyr_sldwin;
     end
     
     %% 静止条件判断
-    if abs(norm(f_n)-9.8)<0.3 && (std_gyr_sldwin < 0.3) && (std_acc_sldwin < 0.01)
+    if (std_gyr_sldwin < opt.zupt_gyr_std) && (std_acc_sldwin < opt.zupt_acc_std)
        log.zupt_time(i) = 1;
        
        %% ZUPT
@@ -208,7 +218,7 @@ for i=1:imu_length
 
            Z = vel;
 
-           R = diag(0.2*ones(1,3))^2;
+           R = diag(0.1*ones(1,3))^2;
            
            K = P * H' / (H * P * H' + R);
            X = X + K * (Z - H * X);
@@ -252,7 +262,7 @@ for i=1:imu_length
             Z = g_n - [0;0;-1];
             Z = Z(1:2);
             
-            R = diag([100 100]);
+            R = diag([10 10])^2;
             
             % 卡尔曼量测更新
             K = P * H' / (H * P * H' + R);
@@ -285,7 +295,6 @@ for i=1:imu_length
         end
     end
     
-    
     %% GNSS量测更新
     if (abs(imu_time(i) - gnss_time(gnss_index)) < imu_dt)
         if( ~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop )
@@ -294,8 +303,11 @@ for i=1:imu_length
             H(4:6,7:9) = eye(3);
             
             Z = [vel - vel_data(gnss_index,:)'; pos - gnss_enu(gnss_index,:)'];
+
+            % GNSS量测延迟补偿
+            Z = Z + [a_n; vel]*opt.gnss_delay;
             
-            R = diag([0.2*ones(2,1); 0.2; 1*ones(2,1); 2])^2;
+            R = diag([0.1*ones(2,1); 0.2; 1*ones(2,1); 2])^2;
 %             R = diag([vel_std_data(gnss_index,:)  pos_std_data(gnss_index,:)])^2;
 
             % 只进行GNSS位置修正
@@ -551,13 +563,30 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %% 静止检测验证
 figure('name', '静止检测验证');
+subplot(3,1,1);
 zupt_enable_index = find(log.zupt_time==1);
 zupt_disable_index = find(log.zupt_time==0);
 plot(zupt_enable_index*imu_dt, sum(abs(acc_data(zupt_enable_index,:)).^2,2).^(1/2), 'r.'); hold on; grid on;
 plot(zupt_disable_index*imu_dt, sum(abs(acc_data(zupt_disable_index,:)).^2,2).^(1/2), 'b.');
 xlim([imu_time(1) imu_time(end)]);
-xlabel('时间(s)');
+ylim([7 12]);
 ylabel('加速度模长(g)');
+
+subplot(3,1,2);
+plot(imu_time, log.std_acc_sldwin, 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, opt.zupt_acc_std*ones(size(imu_time)), '-.', 'linewidth', 1.5);
+xlim([imu_time(1) imu_time(end)]);
+ylim([0 opt.zupt_acc_std*3]);
+ylabel('加速度计方差滑窗(g)');
+
+subplot(3,1,3);
+plot(imu_time, log.std_gyr_sldwin, 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, opt.zupt_gyr_std*ones(size(imu_time)), '-.', 'linewidth', 1.5);
+xlim([imu_time(1) imu_time(end)]);
+ylim([0 opt.zupt_gyr_std*3]);
+xlabel('时间(s)');
+ylabel('陀螺仪方差滑窗(rad)');
+
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %% 数据统计
