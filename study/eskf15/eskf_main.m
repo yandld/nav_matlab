@@ -24,7 +24,7 @@ opt.outage_start = 500;     % 丢失开始时间
 opt.outage_stop = 560;      % 丢失结束时间
 opt.gnss_intervel = 1;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 opt.imu_intervel = 1;       % IMU间隔时间，如原始数据为100Hz，那么 gnss_intervel=2 则降频为50Hz
-opt.inital_yaw = 90;       % 初始方位角 deg (北偏东为正)
+% opt.inital_yaw = 90;       % 初始方位角 deg (北偏东为正)
 
 % 初始状态方差:    水平姿态           航向       东北天速度      水平位置   高度      陀螺零偏                 加速度计零偏
 opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (50/3600*D2R)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
@@ -32,25 +32,26 @@ opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, 
 opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), 0*ones(1,3), 0*ones(1,3)])^2;
 
 %% 数据载入
-% load('data20220320_31.mat');
-% load('data20220320_32.mat');
-
-% load('data20220327_rtk1hz_1.mat');
-% opt.inital_yaw = 90;
-
-% load('data20220327_rtk1hz_2.mat');
+% load('data20220320_1.mat');
 % opt.inital_yaw = 270;
 
-% load('data20220405_Standalone.mat');
-load('data20220405_RTK.mat');
+% load('data20220320_2.mat');
+% opt.inital_yaw = 270;
+
+load('data20220405_Standalone.mat');
 opt.inital_yaw = 90;
 
-RTK_index = find(gnss_data(:,3)==4 | gnss_data(:,3)==5);
-gnss_data(RTK_index, 8:10) = gnss_data(RTK_index-1, 8:10);
+% load('data20220405_RTK.mat');
+% opt.inital_yaw = 90;
 
+% 20220405_RTK数据：RTK速度有问题，采用单点解算速度
+% RTK_index = find(gnss_data(:,3)==4 | gnss_data(:,3)==5);
+% gnss_data(RTK_index, 8:10) = gnss_data(RTK_index-1, 8:10);
+
+% 20220405_RTK数据：选用RTK数据还是单点解算数据
 % gnss_data(find(gnss_data(:,3)==1),:)=[];
-gnss_data(find(gnss_data(:,3)==4),:)=[];
-gnss_data(find(gnss_data(:,3)==5),:)=[];
+% gnss_data(find(gnss_data(:,3)==4),:)=[];
+% gnss_data(find(gnss_data(:,3)==5),:)=[];
 
 imu_data = imu_data(1: opt.imu_intervel: end, :);
 gnss_data = gnss_data(1: opt.gnss_intervel: end, :);
@@ -64,14 +65,6 @@ acc_data = imu_data(:, 3:5);
 gnss_time = (gnss_data(:, 2) - imu_data(1, 2));
 lla_data = gnss_data(:, 5:7);
 vel_data = gnss_data(:, 8:10);
-
-% lat0 = lla_data(1, 1);
-% lon0 = lla_data(1, 2);
-% alt0 = lla_data(1, 3);
-% [R_meridian, R_transverse, C_ECEF2ENU, C_ECEF2NED] = ch_earth(lat0, lon0, alt0);
-% for i=1:gnss_length
-%     vel_data(i,:) = C_ECEF2ENU*vel_data(i, 1:3)';
-% end
 
 pos_std_data = gnss_data(:, 11:13);
 vel_std_data = gnss_data(:, 14:16);
