@@ -42,13 +42,13 @@ opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), 0*ones(1,3), 
 
 %% 数据载入
 % load('data20220320_1.mat');
-% opt.inital_yaw = 270;
+% opt.inital_yaw = 250;
 
-load('data20220320_2.mat');
-opt.inital_yaw = 270;
+% load('data20220320_2.mat');
+% opt.inital_yaw = 250;
 
-% load('data20220405_Standalone.mat');
-% opt.inital_yaw = 90;
+load('data20220405_Standalone.mat');
+opt.inital_yaw = 90;
 
 % load('data20220405_RTK.mat');
 % opt.inital_yaw = 90;
@@ -305,7 +305,7 @@ for i=1:imu_length
             Z = [vel - vel_data(gnss_index,:)'; pos - gnss_enu(gnss_index,:)'];
 
             % GNSS量测延迟补偿
-            Z = Z + [a_n; vel]*opt.gnss_delay;
+            Z = Z - [a_n; vel]*opt.gnss_delay;
             
             R = diag([0.1*ones(2,1); 0.2; 1*ones(2,1); 2])^2;
 %             R = diag([vel_std_data(gnss_index,:)  pos_std_data(gnss_index,:)])^2;
