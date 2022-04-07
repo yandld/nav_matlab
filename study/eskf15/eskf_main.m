@@ -28,9 +28,9 @@ opt.gnss_outage = false;    % 模拟GNSS丢失
 opt.outage_start = 500;     % 丢失开始时间
 opt.outage_stop = 560;      % 丢失结束时间
 
-opt.gnss_delay = 0.05;      % GNSS量测延迟 sec
+opt.gnss_delay = 0.01;      % GNSS量测延迟 sec
 
-opt.gnss_intervel = 1;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
+opt.gnss_intervel = 50;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 opt.imu_intervel = 1;       % IMU间隔时间，如原始数据为100Hz，那么 gnss_intervel=2 则降频为50Hz
 
 % opt.inital_yaw = 90;       % 初始方位角 deg (北偏东为正)
@@ -104,7 +104,7 @@ for i=1:gnss_length
     gnss_enu(i,3) = lla_data(i,3) - alt0;
     gnss_enu(i,2) = (lla_data(i,1) - lat0) * (Rmh);
     gnss_enu(i,1) = (lla_data(i,2) - lon0) * (Rnh) * cos(lat0);
-
+    
     log.vel_norm(i) = norm(vel_data(i, :));
     distance_sum = distance_sum + log.vel_norm(i)*gnss_dt;
     time_sum = time_sum + gnss_dt;
@@ -209,49 +209,49 @@ for i=1:imu_length
     
     %% 静止条件判断
     if (std_gyr_sldwin < opt.zupt_gyr_std) && (std_acc_sldwin < opt.zupt_acc_std)
-       log.zupt_time(i) = 1;
-       
-       %% ZUPT
-       if opt.zupt_enable
-           H = zeros(3, 15);
-           H(1:3,4:6) = eye(3);
-
-           Z = vel;
-
-           R = diag(0.1*ones(1,3))^2;
-           
-           K = P * H' / (H * P * H' + R);
-           X = X + K * (Z - H * X);
-           P = (eye(length(X)) - K * H) * P;
-
-           % 姿态修正
-           rv = X(1:3);
-           rv_norm = norm(rv);
-           if rv_norm ~= 0
-               qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-               nQb = ch_qmul(qe, nQb);
-               nQb = ch_qnormlz(nQb); %单位化四元数
-               bQn = ch_qconj(nQb); %更新bQn
-               bCn = ch_q2m(nQb); %更新bCn阵
-               nCb = bCn'; %更新nCb阵
-           end
-
-           % 速度修正
-           vel = vel - X(4:6);
-
-           % 暂存状态X
-           X_temp = X;
-
-           % 误差清零
-           X(1:6) = zeros(6,1);
-
-           % 零偏反馈
-           if opt.bias_feedback
-               gyro_bias = X(10:12);
-               acc_bias = X(13:15);
-           end
-       end
-
+        log.zupt_time(i) = 1;
+        
+        %% ZUPT
+        if opt.zupt_enable
+            H = zeros(3, 15);
+            H(1:3,4:6) = eye(3);
+            
+            Z = vel;
+            
+            R = diag(0.1*ones(1,3))^2;
+            
+            K = P * H' / (H * P * H' + R);
+            X = X + K * (Z - H * X);
+            P = (eye(length(X)) - K * H) * P;
+            
+            % 姿态修正
+            rv = X(1:3);
+            rv_norm = norm(rv);
+            if rv_norm ~= 0
+                qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
+                nQb = ch_qmul(qe, nQb);
+                nQb = ch_qnormlz(nQb); %单位化四元数
+                bQn = ch_qconj(nQb); %更新bQn
+                bCn = ch_q2m(nQb); %更新bCn阵
+                nCb = bCn'; %更新nCb阵
+            end
+            
+            % 速度修正
+            vel = vel - X(4:6);
+            
+            % 暂存状态X
+            X_temp = X;
+            
+            % 误差清零
+            X(1:6) = zeros(6,1);
+            
+            % 零偏反馈
+            if opt.bias_feedback
+                gyro_bias = X(10:12);
+                acc_bias = X(13:15);
+            end
+        end
+        
         %% 静止状态下重力量测更新姿态
         if opt.gravity_update_enable
             H = zeros(2,15);
@@ -303,18 +303,19 @@ for i=1:imu_length
             H(4:6,7:9) = eye(3);
             
             Z = [vel - vel_data(gnss_index,:)'; pos - gnss_enu(gnss_index,:)'];
-
+            
             % GNSS量测延迟补偿
             Z = Z - [a_n; vel]*opt.gnss_delay;
             
             R = diag([0.1*ones(2,1); 0.2; 1*ones(2,1); 2])^2;
-%             R = diag([vel_std_data(gnss_index,:)  pos_std_data(gnss_index,:)])^2;
-
+            
+            %             R = diag([vel_std_data(gnss_index,:)  pos_std_data(gnss_index,:)])^2;
+            
             % 只进行GNSS位置修正
-%             H = zeros(3,15);
-%             H(1:3,7:9) = eye(3);
-%             Z = [pos - gnss_enu(gnss_index,:)'];
-%             R = diag([1*ones(2,1); 2])^2;
+            %             H = zeros(3,15);
+            %             H(1:3,7:9) = eye(3);
+            %             Z = [pos - gnss_enu(gnss_index,:)'];
+            %             R = diag([1*ones(2,1); 2])^2;
             
             % 卡尔曼量测更新
             K = P * H' / (H * P * H' + R);
@@ -383,6 +384,30 @@ for i=1:imu_length
     kf_lla(i,2) = log.pos(i,1) / Rnh / cos(lat0) + lon0;
 end
 
+
+%% 组合导航与GPS点之间误差
+figure('name', '组合导航与GPS定位点之间误差');
+xest = log.pos(:,1)';
+yest = log.pos(:,2)';
+zest = log.pos(:,3)';
+xgps = interp1(gnss_time, gnss_enu(:,1), imu_time,'linear','extrap')';
+ygps = interp1(gnss_time, gnss_enu(:,2), imu_time,'linear','extrap')';
+zgps = interp1(gnss_time, gnss_enu(:,3), imu_time,'linear','extrap')';
+xerr = xest - xgps;
+yerr = yest - ygps;
+zerr = zest - zgps;
+subplot(3,1,1);
+plot(imu_time, xerr);
+subplot(3,1,2);
+plot(imu_time, yerr);
+subplot(3,1,3);
+plot(imu_time, zerr);
+xlabel('time [s]')
+ylabel('position difference [m]')
+title('融合后与GNSS位置误差');
+
+positionerr_RMS = sqrt(mean(xerr.^2+yerr.^2));
+fprintf("融合后轨迹与GPS误差:%.3f\n", positionerr_RMS);
 %% Google Map
 % wm = webmap('World Imagery');
 % wmline(kf_lla(:,1)*R2D, kf_lla(:,2)*R2D, 'Color', 'blue', 'Width', 1, 'OverlayName', 'KF');
