@@ -24,13 +24,15 @@ opt.zupt_enable = false;     % ZUPT
 opt.zupt_acc_std = 0.35;     % 加速度计方差滑窗阈值
 opt.zupt_gyr_std = 0.01;     % 陀螺仪方差滑窗阈值
 
-opt.gnss_outage = false;    % 模拟GNSS丢失
-opt.outage_start = 500;     % 丢失开始时间
-opt.outage_stop = 560;      % 丢失结束时间
+opt.nhc_enable = false;      % 车辆运动学约束
+
+opt.gnss_outage = true;    % 模拟GNSS丢失
+opt.outage_start = 270;     % 丢失开始时间
+opt.outage_stop = 340;      % 丢失结束时间
 
 opt.gnss_delay = 0.01;      % GNSS量测延迟 sec
 
-opt.gnss_intervel = 50;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
+opt.gnss_intervel = 1;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 opt.imu_intervel = 1;       % IMU间隔时间，如原始数据为100Hz，那么 gnss_intervel=2 则降频为50Hz
 
 % opt.inital_yaw = 90;       % 初始方位角 deg (北偏东为正)
@@ -147,6 +149,7 @@ log.X = zeros(imu_length, 15);
 log.gyro_bias = zeros(imu_length, 3);
 log.acc_bias = zeros(imu_length, 3);
 log.sins_att = zeros(imu_length, 3);
+log.vb = zeros(imu_length, 3);
 log.zupt_time = zeros(imu_length, 1);
 
 gnss_index = 1;
@@ -169,7 +172,7 @@ for i=1:imu_length
     
     % 纯惯性姿态更新
     [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, g, imu_dt);
-    
+
     nQb_sins = ch_qmul(nQb_sins, q); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
     nQb_sins = ch_qnormlz(nQb_sins); %单位化四元数
     
@@ -178,6 +181,8 @@ for i=1:imu_length
     a_n = f_n + [0; 0; -g];
     bCn = ch_q2m(nQb); %更新bCn阵
     nCb = bCn'; %更新nCb阵
+
+    log.vb(i, :) = (nCb * vel)';
     
     %% 卡尔曼滤波
     F = zeros(15);
@@ -301,7 +306,7 @@ for i=1:imu_length
             H = zeros(6,15);
             H(1:3,4:6) = eye(3);
             H(4:6,7:9) = eye(3);
-            
+
             Z = [vel - vel_data(gnss_index,:)'; pos - gnss_enu(gnss_index,:)'];
             
             % GNSS量测延迟补偿
@@ -316,6 +321,56 @@ for i=1:imu_length
             %             H(1:3,7:9) = eye(3);
             %             Z = [pos - gnss_enu(gnss_index,:)'];
             %             R = diag([1*ones(2,1); 2])^2;
+            
+            % 卡尔曼量测更新
+            K = P * H' / (H * P * H' + R);
+            X = X + K * (Z - H * X);
+            P = (eye(length(X)) - K * H) * P;
+            
+            % 姿态修正
+            rv = X(1:3);
+            rv_norm = norm(rv);
+            if rv_norm ~= 0
+                qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
+                nQb = ch_qmul(qe, nQb);
+                nQb = ch_qnormlz(nQb); %单位化四元数
+                bQn = ch_qconj(nQb); %更新bQn
+                bCn = ch_q2m(nQb); %更新bCn阵
+                nCb = bCn'; %更新nCb阵
+            end
+            
+            % 速度修正
+            vel = vel - X(4:6);
+            
+            % 位置修正
+            pos = pos - X(7:9);
+            
+            % 暂存状态X
+            X_temp = X;
+            
+            % 误差清零
+            X(1:9) = zeros(9,1);
+            
+            % 零偏反馈
+            if opt.bias_feedback
+                gyro_bias = gyro_bias + X(10:12);
+                acc_bias = acc_bias + X(13:15);
+                X(10:12) = zeros(3,1);
+                X(13:15) = zeros(3,1);
+            end
+
+        elseif opt.nhc_enable
+            H = zeros(3,15);
+            H(1:3,4:6) = eye(3);
+
+            vb_hmc = [log.vb(i,1); log.vb(i,2); 0];
+            vn_hmc = bCn * vb_hmc;
+            
+            Z = vel - vn_hmc;
+            Z(1:2) = zeros(2,1);
+            
+            Rb = diag([1 1 1])^2;
+            R = bCn*Rb*bCn';
             
             % 卡尔曼量测更新
             K = P * H' / (H * P * H' + R);
@@ -384,103 +439,57 @@ for i=1:imu_length
     kf_lla(i,2) = log.pos(i,1) / Rnh / cos(lat0) + lon0;
 end
 
+%% IMU原始数据
+% plot_imu(gyro_data*R2D, acc_data, imu_dt);
 
-%% 组合导航与GPS点之间误差
-figure('name', '组合导航与GPS定位点之间误差');
-xest = log.pos(:,1)';
-yest = log.pos(:,2)';
-zest = log.pos(:,3)';
-xgps = interp1(gnss_time, gnss_enu(:,1), imu_time,'linear','extrap')';
-ygps = interp1(gnss_time, gnss_enu(:,2), imu_time,'linear','extrap')';
-zgps = interp1(gnss_time, gnss_enu(:,3), imu_time,'linear','extrap')';
-xerr = xest - xgps;
-yerr = yest - ygps;
-zerr = zest - zgps;
+%% 静止检测验证
+figure('name', '静止检测验证');
 subplot(3,1,1);
-plot(imu_time, xerr);
-subplot(3,1,2);
-plot(imu_time, yerr);
-subplot(3,1,3);
-plot(imu_time, zerr);
-xlabel('time [s]')
-ylabel('position difference [m]')
-title('融合后与GNSS位置误差');
+zupt_enable_index = find(log.zupt_time==1);
+zupt_disable_index = find(log.zupt_time==0);
+plot(zupt_enable_index*imu_dt, sum(abs(acc_data(zupt_enable_index,:)).^2,2).^(1/2), 'r.'); hold on; grid on;
+plot(zupt_disable_index*imu_dt, sum(abs(acc_data(zupt_disable_index,:)).^2,2).^(1/2), 'b.');
+xlim([imu_time(1) imu_time(end)]);
+ylim([7 12]);
+ylabel('加速度模长(g)');
 
-positionerr_RMS = sqrt(mean(xerr.^2+yerr.^2));
-fprintf("融合后轨迹与GPS误差:%.3f\n", positionerr_RMS);
+subplot(3,1,2);
+plot(imu_time, log.std_acc_sldwin, 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, opt.zupt_acc_std*ones(size(imu_time)), '-.', 'linewidth', 1.5);
+xlim([imu_time(1) imu_time(end)]);
+ylim([0 opt.zupt_acc_std*3]);
+ylabel('加速度计方差滑窗(g)');
+
+subplot(3,1,3);
+plot(imu_time, log.std_gyr_sldwin, 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, opt.zupt_gyr_std*ones(size(imu_time)), '-.', 'linewidth', 1.5);
+xlim([imu_time(1) imu_time(end)]);
+ylim([0 opt.zupt_gyr_std*3]);
+xlabel('时间(s)');
+ylabel('陀螺仪方差滑窗(rad)');
+
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+
 %% Google Map
-% wm = webmap('World Imagery');
-% wmline(kf_lla(:,1)*R2D, kf_lla(:,2)*R2D, 'Color', 'blue', 'Width', 1, 'OverlayName', 'KF');
-% wmline(lla_data(:,1)*R2D, lla_data(:,2)*R2D, 'Color', 'red', 'Width', 1, 'OverlayName', 'GNSS');
-% wmline(span.lla(:,1), span.lla(:,2), 'Color', 'red', 'Width', 1, 'OverlayName', 'MCU');
-% 线性可选颜色：
-% 'red', 'green', 'blue', 'white', 'cyan', 'magenta', 'yellow', 'black'
+% plot_google_map(lla_data*R2D, kf_lla*R2D, span.lla);
+
+%% 二维轨迹与速度
+% plot_enu_vel(gnss_enu, vecnorm(vel_data, 2, 2));
 
 %% 姿态与航向估计曲线
-figure('name', '姿态与航向估计曲线');
-subplot(3,1,1);
-plot(imu_time, log.att(:,1), 'linewidth', 1.5); hold on; grid on;
-plot(span_time, span.att(:,1), 'linewidth', 1.5);
-xlim([imu_time(1) imu_time(end)]);
-ylabel('Pitch(°)'); legend('MATLAB', 'MCU', 'Orientation','horizontal');
-subplot(3,1,2);
-plot(imu_time, log.att(:,2), 'linewidth', 1.5);  hold on; grid on;
-plot(span_time, span.att(:,2), 'linewidth', 1.5);
-xlim([imu_time(1) imu_time(end)]);
-ylabel('Roll(°)'); legend('MATLAB', 'MCU', 'Orientation','horizontal');
-subplot(3,1,3);
-plot(imu_time, log.att(:,3), 'linewidth', 1.5); hold on; grid on;
-plot(span_time, span.att(:,3), 'linewidth', 1.5);
-plot(imu_time, log.sins_att(:,3), 'linewidth', 1.5);
-legend('MATLAB', 'MCU', '纯惯性', 'Orientation','horizontal');
-xlim([imu_time(1) imu_time(end)]);
-ylim([-30 420]);
-xlabel('时间(s)'); ylabel('Yaw(°)');
-set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+plot_att(imu_time,log.att, span_time,span.att, imu_time,log.sins_att);
 
-%% 速度估计曲线对比
-figure('name', '速度估计曲线对比');
-subplot(3,1,1);
-plot(gnss_time, vel_data(:,1), 'r', 'Marker','.'); hold on; grid on;
-plot(imu_time, log.vel(:,1), 'b', 'Marker','.');
-plot(span_time, span.vel(:,1), 'm', 'Marker','.');
-xlim([imu_time(1) imu_time(end)]);
-ylabel('东向速度(m/s)'); legend('GNSS', 'MATLAB', 'MCU');
-subplot(3,1,2);
-plot(gnss_time, vel_data(:,2), 'r', 'Marker','.'); hold on; grid on;
-plot(imu_time, log.vel(:,2), 'b', 'Marker','.');
-plot(span_time, span.vel(:,2), 'm', 'Marker','.');
-xlim([imu_time(1) imu_time(end)]);
-ylabel('北向速度(m/s)'); legend('GNSS', 'MATLAB', 'MCU');
-subplot(3,1,3);
-plot(gnss_time, vel_data(:,3), 'r', 'Marker','.'); hold on; grid on;
-plot(imu_time, log.vel(:,3), 'b', 'Marker','.');
-plot(span_time, span.vel(:,3), 'm', 'Marker','.');
-xlim([imu_time(1) imu_time(end)]);
-xlabel('时间(s)'); ylabel('天向速度(m/s)'); legend('GNSS', 'MATLAB', 'MCU');
-set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+%% 速度估计曲线
+plot_vel(gnss_time,vel_data, imu_time,log.vel);
+% plot_vel(gnss_time,vel_data, imu_time,log.vel, span_time,span.vel);
 
-%% 位置估计曲线对比
-figure('name', '位置估计曲线对比');
-subplot(3,1,1);
-plot(gnss_time, gnss_enu(:,1), 'r', 'Marker','.'); hold on; grid on;
-plot(imu_time, log.pos(:,1), 'b', 'Marker','.');
-plot(span_time, span_enu(:,1), 'm', 'Marker','.');
-xlim([imu_time(1) imu_time(end)]);
-ylabel('东向位置(m)'); legend('GNSS', 'MATLAB', 'MCU');
-subplot(3,1,2);
-plot(gnss_time, gnss_enu(:,2), 'r', 'Marker','.'); hold on; grid on;
-plot(imu_time, log.pos(:,2), 'b', 'Marker','.');
-plot(span_time, span_enu(:,2), 'm', 'Marker','.');
-xlim([imu_time(1) imu_time(end)]);
-ylabel('北向位置(m)'); legend('GNSS', 'MATLAB', 'MCU');
-subplot(3,1,3);
-plot(gnss_time, gnss_enu(:,3), 'r', 'Marker','.'); hold on; grid on;
-plot(imu_time, log.pos(:,3), 'b', 'Marker','.');
-plot(span_time, span_enu(:,3), 'm', 'Marker','.');
-xlim([imu_time(1) imu_time(end)]);
-xlabel('时间(s)'); ylabel('天向位置(m)'); legend('GNSS', 'MATLAB', 'MCU');
-set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+%% 位置估计曲线
+plot_enu(gnss_time,gnss_enu, imu_time,log.pos);
+% plot_enu(gnss_time,gnss_enu, imu_time,log.pos, span_time,span_enu);
+
+%% 二维轨迹
+plot_enu_2d(gnss_enu, log.pos);
+% plot_enu_2d(gnss_enu, log.pos, span_enu);
 
 %% IMU零偏估计曲线
 figure('name', 'IMU零偏估计曲线');
@@ -552,65 +561,32 @@ xlabel('时间(s)'); ylabel('位置误差(m)'); legend('东', '北', '天', 'Ori
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %% P阵收敛结果
-figure('name','P阵收敛结果');
-subplot(3,2,1);
-semilogy(imu_time, log.P(:, 1:3) * R2D, 'linewidth', 1.5); grid on;
-xlim([imu_time(1) imu_time(end)]);
-xlabel('时间(s)'); ylabel('平台失准角(°)'); legend('Pitch', 'Roll', 'Yaw');
-subplot(3,2,2);
-semilogy(imu_time, log.P(:, 4:6), 'linewidth', 1.5); grid on;
-xlim([imu_time(1) imu_time(end)]);
-xlabel('时间(s)'); ylabel('速度误差(m/s)'); legend('Ve', 'Vn', 'Vu');
-subplot(3,2,4);
-semilogy(imu_time, log.P(:, 7:9), 'linewidth', 1.5); grid on;
-xlim([imu_time(1) imu_time(end)]);
-xlabel('时间(s)'); ylabel('位置误差(m)'); legend('Lat', 'Lon', 'Alt');
-subplot(3,2,3);
-semilogy(imu_time, log.P(:, 10:12) * 3600 * R2D, 'linewidth', 1.5); grid on;
-xlim([imu_time(1) imu_time(end)]);
-xlabel('时间(s)'); ylabel('陀螺零偏(°/h)'); legend('X', 'Y', 'Z');
-subplot(3,2,5);
-semilogy(imu_time, log.P(:, 13:15) / 9.8 * 1000, 'linewidth', 1.5); grid on;
-xlim([imu_time(1) imu_time(end)]);
-xlabel('时间(s)'); ylabel('加速度计零偏(mg)'); legend('X', 'Y', 'Z');
-set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+plot_P(imu_time, log.P);
 
-%% 二维轨迹对比
-figure('name', '二维轨迹对比');
-plot(gnss_enu(:,1), gnss_enu(:,2), 'r', 'Marker','.'); hold on; axis equal; grid on;
-plot(log.pos(:,1), log.pos(:,2), 'b', 'Marker','.');
-plot(span_enu(:,1), span_enu(:,2), 'm', 'Marker','.');
-legend('GNSS', 'MATLAB', 'MCU');
-xlabel('East(m)');
-ylabel('North(m)');
-title('二维轨迹对比');
-set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+%% 组合导航结果与GNSS原始数据之间误差
+figure('name', '组合导航结果与GNSS原始数据之间误差');
+xest = log.pos(:,1)';
+yest = log.pos(:,2)';
+zest = log.pos(:,3)';
+xgps = interp1(gnss_time, gnss_enu(:,1), imu_time, 'linear','extrap')';
+ygps = interp1(gnss_time, gnss_enu(:,2), imu_time, 'linear','extrap')';
+zgps = interp1(gnss_time, gnss_enu(:,3), imu_time, 'linear','extrap')';
+xerr = xest - xgps;
+yerr = yest - ygps;
+zerr = zest - zgps;
+herr = sqrt(xerr.^2+yerr.^2);
+positionerr_RMS = rms(herr);
 
-%% 静止检测验证
-figure('name', '静止检测验证');
-subplot(3,1,1);
-zupt_enable_index = find(log.zupt_time==1);
-zupt_disable_index = find(log.zupt_time==0);
-plot(zupt_enable_index*imu_dt, sum(abs(acc_data(zupt_enable_index,:)).^2,2).^(1/2), 'r.'); hold on; grid on;
-plot(zupt_disable_index*imu_dt, sum(abs(acc_data(zupt_disable_index,:)).^2,2).^(1/2), 'b.');
-xlim([imu_time(1) imu_time(end)]);
-ylim([7 12]);
-ylabel('加速度模长(g)');
+subplot(2,1,1);
+plot(imu_time, herr, 'LineWidth',1.5); grid on;
+xlim([0 imu_time(end)]);
+ylabel('水平位置误差(m)');
 
-subplot(3,1,2);
-plot(imu_time, log.std_acc_sldwin, 'linewidth', 1.5); hold on; grid on;
-plot(imu_time, opt.zupt_acc_std*ones(size(imu_time)), '-.', 'linewidth', 1.5);
-xlim([imu_time(1) imu_time(end)]);
-ylim([0 opt.zupt_acc_std*3]);
-ylabel('加速度计方差滑窗(g)');
-
-subplot(3,1,3);
-plot(imu_time, log.std_gyr_sldwin, 'linewidth', 1.5); hold on; grid on;
-plot(imu_time, opt.zupt_gyr_std*ones(size(imu_time)), '-.', 'linewidth', 1.5);
-xlim([imu_time(1) imu_time(end)]);
-ylim([0 opt.zupt_gyr_std*3]);
+subplot(2,1,2);
+plot(imu_time, zerr, 'LineWidth',1.5); grid on;
+xlim([0 imu_time(end)]);
 xlabel('时间(s)');
-ylabel('陀螺仪方差滑窗(rad)');
+ylabel('高度误差(m)');
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
@@ -619,3 +595,4 @@ fprintf('行驶距离: %.3fkm\n', distance_sum/1000);
 fprintf('行驶时间: %d小时%d分%.3f秒\n', degrees2dms(time_sum/3600));
 fprintf('最高时速: %.3fkm/h\n', max(log.vel_norm)*3.6);
 fprintf('平均时速: %.3fkm/h\n', distance_sum/time_sum*3.6);
+fprintf("组合导航轨迹与GNSS轨迹水平位置误差(RMS):%.3fm\n", positionerr_RMS);
