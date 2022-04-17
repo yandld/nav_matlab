@@ -26,7 +26,7 @@ opt.zupt_gyr_std = 0.01;     % 陀螺仪方差滑窗阈值
 
 opt.nhc_enable = false;      % 车辆运动学约束
 
-opt.gnss_outage = true;    % 模拟GNSS丢失
+opt.gnss_outage = false;    % 模拟GNSS丢失
 opt.outage_start = 270;     % 丢失开始时间
 opt.outage_stop = 340;      % 丢失结束时间
 
@@ -49,11 +49,14 @@ opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), 0*ones(1,3), 
 % load('data20220320_2.mat');
 % opt.inital_yaw = 250;
 
-load('data20220405_Standalone.mat');
-opt.inital_yaw = 90;
+% load('data20220405_Standalone.mat');
+% opt.inital_yaw = 90;
 
 % load('data20220405_RTK.mat');
 % opt.inital_yaw = 90;
+
+load('data20220416.mat');
+opt.inital_yaw = 90;
 
 % 20220405_RTK数据：RTK速度有问题，采用单点解算速度
 % RTK_index = find(gnss_data(:,3)==4 | gnss_data(:,3)==5);
@@ -480,16 +483,16 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 plot_att(imu_time,log.att, span_time,span.att, imu_time,log.sins_att);
 
 %% 速度估计曲线
-plot_vel(gnss_time,vel_data, imu_time,log.vel);
-% plot_vel(gnss_time,vel_data, imu_time,log.vel, span_time,span.vel);
+% plot_vel(gnss_time,vel_data, imu_time,log.vel);
+plot_vel(gnss_time,vel_data, imu_time,log.vel, span_time,span.vel);
 
 %% 位置估计曲线
-plot_enu(gnss_time,gnss_enu, imu_time,log.pos);
-% plot_enu(gnss_time,gnss_enu, imu_time,log.pos, span_time,span_enu);
+% plot_enu(gnss_time,gnss_enu, imu_time,log.pos);
+plot_enu(gnss_time,gnss_enu, imu_time,log.pos, span_time,span_enu);
 
 %% 二维轨迹
-plot_enu_2d(gnss_enu, log.pos);
-% plot_enu_2d(gnss_enu, log.pos, span_enu);
+% plot_enu_2d(gnss_enu, log.pos);
+plot_enu_2d(gnss_enu, log.pos, span_enu);
 
 %% IMU零偏估计曲线
 figure('name', 'IMU零偏估计曲线');
