@@ -2,7 +2,7 @@ close all;
 clear;
 clc;
 
-file_name = 'data20220405_RTK';
+file_name = 'data20220405_Standalone';
 
 data = textread(strcat(file_name, '.txt'),'%s');
 data_length = length(data);

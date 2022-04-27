@@ -2,7 +2,7 @@
 *.d
 *.asv
 *.bag
-*.csv
+# *.csv
 
 # Object files
 *.o

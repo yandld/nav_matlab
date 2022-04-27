@@ -122,6 +122,7 @@ span_enu = zeros(span_length, 3);
 span_enu(:,3) = span.lla(:,3) - alt0;
 span_enu(:,2) = (span.lla(:,1) * D2R - lat0) * (Rmh);
 span_enu(:,1) = (span.lla(:,2) * D2R - lon0) * (Rnh) * cos(lat0);
+
 %% 初始参数设置
 % 粗对准
 g_b = - mean(acc_data(1:opt.alignment_time, :))';
