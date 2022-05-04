@@ -43,20 +43,17 @@ opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, 
 opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), 0*ones(1,3), 0*ones(1,3)])^2;
 
 %% 数据载入
-% load('data20220320_1.mat');
+% load('./dataset/data20220320_1.mat');
 % opt.inital_yaw = 250;
 
-% load('data20220320_2.mat');
+% load('./dataset/data20220320_2.mat');
 % opt.inital_yaw = 250;
 
-% load('data20220405_Standalone.mat');
+% load('./dataset/data20220405.mat');
 % opt.inital_yaw = 90;
 
-% load('data20220405_RTK.mat');
-% opt.inital_yaw = 90;
-
-load('data20220416.mat');
-opt.inital_yaw = 90;
+load('./dataset/data20220504.mat');
+opt.inital_yaw = 250;
 
 % 20220405_RTK数据：RTK速度有问题，采用单点解算速度
 % RTK_index = find(gnss_data(:,3)==4 | gnss_data(:,3)==5);
