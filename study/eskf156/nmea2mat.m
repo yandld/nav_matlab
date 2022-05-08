@@ -2,13 +2,10 @@ close all;
 clear;
 clc;
 
-file_name = 'data20220504';
+file_name = 'gnss_data';
 
 data = textread(strcat(file_name, '.txt'),'%s');
 data_length = length(data);
-
-% data_length = 142058;    %data20220405_RTK后半部分数据有问题，截取前半部分
-% data_length = 76863;    %data20220416后半部分数据有问题，截取前半部分
 
 imu_length = 0;
 gnss_length = 0;
@@ -159,17 +156,20 @@ for i = 1:data_length
                 sstr2 = sstr2.split(',');
 
                 if length(sstr1) == 10 && length(sstr2) == 23
-                    span.time(span_p) = str2double(sstr1(7));
-                    span.lat(span_p) = str2double(sstr2(3));
-                    span.lon(span_p) = str2double(sstr2(4));
-                    span.alt(span_p) = str2double(sstr2(5));
+                    
+                    span.time(span_p) = sscanf(sstr1(7),'%f');
+                    span.lat(span_p) = sscanf(sstr2(3),'%f');
+                    span.lon(span_p) = sscanf(sstr2(4),'%f');
+                    span.alt(span_p) = sscanf(sstr2(5),'%f');
                     span.vel(span_p,:) = str2double(sstr2([8,7,9]))';
                     span.att(span_p,:) = str2double(sstr2([11,10,12]))';
                     span.pos_std(span_p,:) = str2double(sstr2(13:15))';
                     span.vel_std(span_p,:) = str2double(sstr2([17,16,18]))';
                     span.att_std(span_p,:) = str2double(sstr2([20,19,21]))';
-                    span.ins_status(span_p) = sstr2(1);
-                    span.pos_type(span_p) = sstr2(2);
+                    % FIXME:  span.ins_status(span_p)  and
+                    % span.pos_type(span_p) case too much time 
+%                     span.ins_status(span_p) = sstr2(1);
+%                     span.pos_type(span_p) = sstr2(2);
                     span_p = span_p + 1;
                 end
             end
