@@ -121,7 +121,7 @@ for i = 1:data_length
             sstr = string(str);
             sstr = sstr.split(',');
             if imu_n == (length(sstr) - 1)
-                imu_data(imu_p,:) = double(string(sstr(2:end)))';
+                imu_data(imu_p,:) = double(sstr(2:end))';
                 imu_p = imu_p + 1;
             end
         end
@@ -130,7 +130,7 @@ for i = 1:data_length
             sstr = string(str);
             sstr = sstr.split(',');
             if gnss_n == (length(sstr) - 1)
-                gnss_data(gnss_p,:) = double(string(sstr(2:end)))';
+                gnss_data(gnss_p,:) = double(sstr(2:end))';
                 gnss_p = gnss_p + 1;
             end
         end
@@ -139,7 +139,7 @@ for i = 1:data_length
             sstr = string(str);
             sstr = sstr.split(',');
             if ins_n == (length(sstr) - 1)
-                ins_data(ins_p,:) = double(string(sstr(2:end)))';
+                ins_data(ins_p,:) = double(sstr(2:end))';
                 ins_p = ins_p + 1;
             end
         end
@@ -156,16 +156,15 @@ for i = 1:data_length
                 sstr2 = sstr2.split(',');
 
                 if length(sstr1) == 10 && length(sstr2) == 23
-                    
-                    span.time(span_p) = sscanf(sstr1(7),'%f');
-                    span.lat(span_p) = sscanf(sstr2(3),'%f');
-                    span.lon(span_p) = sscanf(sstr2(4),'%f');
-                    span.alt(span_p) = sscanf(sstr2(5),'%f');
-                    span.vel(span_p,:) = str2double(sstr2([8,7,9]))';
-                    span.att(span_p,:) = str2double(sstr2([11,10,12]))';
-                    span.pos_std(span_p,:) = str2double(sstr2(13:15))';
-                    span.vel_std(span_p,:) = str2double(sstr2([17,16,18]))';
-                    span.att_std(span_p,:) = str2double(sstr2([20,19,21]))';
+                    span.time(span_p) = double(sstr1(7));
+                    span.lat(span_p) = double(sstr2(3));
+                    span.lon(span_p) = double(sstr2(4));
+                    span.alt(span_p) = double(sstr2(5));
+                    span.vel(span_p,:) = double(sstr2([8,7,9]))';
+                    span.att(span_p,:) = double(sstr2([11,10,12]))';
+                    span.pos_std(span_p,:) = double(sstr2(13:15))';
+                    span.vel_std(span_p,:) = double(sstr2([17,16,18]))';
+                    span.att_std(span_p,:) = double(sstr2([20,19,21]))';
                     % FIXME:  span.ins_status(span_p)  and
                     % span.pos_type(span_p) case too much time 
 %                     span.ins_status(span_p) = sstr2(1);
@@ -181,3 +180,18 @@ clc;
 fprintf('已处理完毕，用时%.3f秒\n', toc);
 
 save(file_name, 'imu_data', 'gnss_data', 'ins_data', 'span');
+
+%% 时间戳完整性检测
+figure;
+plot(diff(imu_data(:,2)));
+ylabel('dT(s)');
+title('IMU dT');
+fprintf('IMU dT：%fs\n', mean(diff(imu_data(:,2))));
+fprintf('IMU数据时间长度：%d小时%d分%.3f秒\n\n', degrees2dms((imu_data(end,2)-imu_data(1,2))/3600));
+
+figure;
+plot(diff(gnss_data(:,2)));
+ylabel('dT(s)');
+title('GNSS dT');
+fprintf('GNSS dT：%fs\n', mean(diff(gnss_data(:,2))));
+fprintf('GNSS数据时间长度：%d小时%d分%.3f秒\n', degrees2dms((gnss_data(end,2)-gnss_data(1,2))/3600));
