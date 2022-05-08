@@ -2,7 +2,7 @@ close all;
 clear;
 clc;
 
-file_name = 'gnss_data';
+file_name = 'data20220508_2';
 
 data = textread(strcat(file_name, '.txt'),'%s');
 data_length = length(data);
@@ -187,7 +187,7 @@ plot(diff(imu_data(:,2)));
 ylabel('dT(s)');
 title('IMU dT');
 fprintf('IMU dT：%fs\n', mean(diff(imu_data(:,2))));
-fprintf('IMU数据时间长度：%d小时%d分%.3f秒\n\n', degrees2dms((imu_data(end,2)-imu_data(1,2))/3600));
+fprintf('IMU数据时间长度：%d小时%d分%.3f秒\n', degrees2dms((imu_data(end,2)-imu_data(1,2))/3600));
 
 figure;
 plot(diff(gnss_data(:,2)));
