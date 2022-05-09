@@ -28,6 +28,12 @@ function plot_att(matlab_time,matlab_att, mcu_time,mcu_att, sins_time,sins_att)
             plot(mcu_time, mcu_att(:,3), 'm', 'linewidth', 1.5);
             legend('MATLAB', 'MCU', 'Orientation','horizontal');
         elseif i==6
+            subplot(3,1,1);
+            plot(sins_time, sins_att(:,1), 'r', 'linewidth', 1.5);
+            legend('MATLAB', 'MCU', '纯惯性', 'Orientation','horizontal');
+            subplot(3,1,2);
+            plot(sins_time, sins_att(:,2), 'r', 'linewidth', 1.5);
+            legend('MATLAB', 'MCU', '纯惯性', 'Orientation','horizontal');
             subplot(3,1,3);
             plot(sins_time, sins_att(:,3), 'r', 'linewidth', 1.5);
             legend('MATLAB', 'MCU', '纯惯性', 'Orientation','horizontal');
