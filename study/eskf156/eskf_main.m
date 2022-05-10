@@ -38,9 +38,9 @@ opt.imu_intervel = 1;       % IMU间隔时间，如原始数据为100Hz，那么
 % opt.inital_yaw = 90;       % 初始方位角 deg (北偏东为正)
 
 % 初始状态方差:    水平姿态           航向       东北天速度      水平位置   高度      陀螺零偏                 加速度计零偏
-opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (50/3600*D2R)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
+opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (500/3600*D2R)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
 % 系统方差:       角度随机游走           速度随机游走
-opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), 0*ones(1,3), 0*ones(1,3)])^2;
+opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (20/3600*D2R)*ones(1,3), 0*ones(1,3)])^2;
 
 %% 数据载入
 % load('dataset/data20220320_1.mat');
@@ -55,11 +55,11 @@ opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), 0*ones(1,3), 
 % load('dataset/data20220504.mat');
 % opt.inital_yaw = 250;
 
-load('dataset/data20220508_1.mat');
-opt.inital_yaw = 165;
+% load('dataset/data20220508_1.mat');
+% opt.inital_yaw = 185;
 
-% load('dataset/data20220508_2.mat');
-% opt.inital_yaw = 70;
+load('dataset/data20220508_2.mat');
+opt.inital_yaw = 96;
 
 % 20220405_RTK数据：RTK速度有问题，采用单点解算速度
 % RTK_index = find(gnss_data(:,3)==4 | gnss_data(:,3)==5);
