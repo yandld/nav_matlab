@@ -15,29 +15,26 @@ Earth_e = 0.00335281066474748;
 % KF 状态量: 失准角(3) 速度误差(3) 位置误差(3) 陀螺零偏(3) 加计零偏(3)
 
 %% 相关选项及参数设置
-opt.alignment_time = 10e2;  % 初始对准时间
-opt.bias_feedback = true;  % IMU零偏反馈
+opt.alignment_time = 10e2;      % 初始对准时间
+opt.bias_feedback = 1;          % IMU零偏反馈
 
-opt.gravity_update_enable = false; % 使能重力静止量更新
+opt.gravity_update_enable = 0;  % 使能重力静止量更新
 
-opt.zupt_enable = false;     % ZUPT
-opt.zupt_acc_std = 0.35;     % 加速度计方差滑窗阈值
-opt.zupt_gyr_std = 0.01;     % 陀螺仪方差滑窗阈值
+opt.zupt_enable = 0;            % ZUPT
+opt.zupt_acc_std = 0.35;        % 加速度计方差滑窗阈值
+opt.zupt_gyr_std = 0.01;        % 陀螺仪方差滑窗阈值
 
-opt.nhc_enable = false;      % 车辆运动学约束
+opt.nhc_enable = 0;             % 车辆运动学约束
 
-opt.gnss_outage = false;    % 模拟GNSS丢失
-opt.outage_start = 270;     % 丢失开始时间
-opt.outage_stop = 340;      % 丢失结束时间
+opt.gnss_outage = 1;            % 模拟GNSS丢失
+opt.outage_start = 270;         % 丢失开始时间
+opt.outage_stop = 340;          % 丢失结束时间
 
-opt.gnss_delay = 0.01;      % GNSS量测延迟 sec
+opt.gnss_delay = 0.01;          % GNSS量测延迟 sec
 
-opt.gnss_intervel = 1;      % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
-opt.imu_intervel = 1;       % IMU间隔时间，如原始数据为100Hz，那么 gnss_intervel=2 则降频为50Hz
+opt.gnss_intervel = 10;         % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
-% opt.inital_yaw = 90;       % 初始方位角 deg (北偏东为正)
-
-% 初始状态方差:    水平姿态           航向       东北天速度      水平位置   高度      陀螺零偏                 加速度计零偏
+% 初始状态方差:    水平姿态           航向       东北天速度        水平位置    高度      陀螺零偏                 加速度计零偏
 opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (500/3600*D2R)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
 opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (20/3600*D2R)*ones(1,3), 0*ones(1,3)])^2;
@@ -46,8 +43,8 @@ opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (20/3600*D2R)
 load('dataset/data20220527.mat');
 opt.inital_yaw = 85;
 
-imu_data = data(1: opt.imu_intervel: end, 21:26);
-gnss_data = data(1: opt.gnss_intervel: end, 27:44);
+imu_data = data(:, 21:26);
+gnss_data = data(:, 27:44);
 span_data = data(:, 3:20);
 imu_length = length(imu_data);
 gnss_length = length(gnss_data);
@@ -68,7 +65,6 @@ pos_std_data = gnss_data(:, 10:12);
 vel_std_data = gnss_data(:, 13:15);
 
 span.lla = span_data(:, [8 7 9]);
-% span.lla(:,1:2) = span.lla(:,1:2)*D2R;
 span.vel = span_data(:, 4:6);
 span.att = span_data(:, 1:3);
 
@@ -88,6 +84,12 @@ for i=2:gnss_length
         gnss_update(i) = 1;
     end
 end
+
+% GNSS数据抽样
+gnss_resample_index = find(gnss_update == 1);
+gnss_resample_index = gnss_resample_index(1:opt.gnss_intervel:end);
+gnss_update = zeros(gnss_length, 1);
+gnss_update(gnss_resample_index) = 1;
 
 %% 经纬度转换为当地东北天坐标系
 lat0 = lla_data(1, 1);
