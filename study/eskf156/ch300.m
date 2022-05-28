@@ -26,13 +26,13 @@ opt.zupt_gyr_std = 0.01;        % 陀螺仪方差滑窗阈值
 
 opt.nhc_enable = 0;             % 车辆运动学约束
 
-opt.gnss_outage = 1;            % 模拟GNSS丢失
+opt.gnss_outage = 0;            % 模拟GNSS丢失
 opt.outage_start = 270;         % 丢失开始时间
 opt.outage_stop = 340;          % 丢失结束时间
 
 opt.gnss_delay = 0.01;          % GNSS量测延迟 sec
 
-opt.gnss_intervel = 10;         % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
+opt.gnss_intervel = 1;         % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 % 初始状态方差:    水平姿态           航向       东北天速度        水平位置    高度      陀螺零偏                 加速度计零偏
 opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (500/3600*D2R)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
@@ -40,7 +40,10 @@ opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, 
 opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (20/3600*D2R)*ones(1,3), 0*ones(1,3)])^2;
 
 %% 数据载入
-load('dataset/data20220527.mat');
+% load('dataset/data20220527.mat');
+% opt.inital_yaw = 85;
+
+load('dataset/data20220528.mat');
 opt.inital_yaw = 85;
 
 imu_data = data(:, 21:26);
