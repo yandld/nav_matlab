@@ -43,8 +43,11 @@ opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (20/3600*D2R)
 % load('dataset/data20220527.mat');
 % opt.inital_yaw = 85;
 
-load('dataset/data20220528.mat');
-opt.inital_yaw = 85;
+% load('dataset/data20220528.mat');
+% opt.inital_yaw = 85;
+
+load('dataset/data20220531.mat');
+opt.inital_yaw = 0;
 
 imu_data = data(:, 21:26);
 gnss_data = data(:, 27:44);
@@ -320,15 +323,15 @@ for i=1:imu_length
             % GNSS量测延迟补偿
             Z = Z - [a_n; vel]*opt.gnss_delay;
             
-            R = diag([0.1*ones(2,1); 0.2; 1*ones(2,1); 2])^2;
+%             R = diag([0.1*ones(2,1); 0.2; 1*ones(2,1); 2])^2;
             
-            %             R = diag([vel_std_data(gnss_index,:)  pos_std_data(gnss_index,:)])^2;
+            R = diag([vel_std_data(gnss_index,:)  pos_std_data(gnss_index,:)])^2;
             
             % 只进行GNSS位置修正
-            %             H = zeros(3,15);
-            %             H(1:3,7:9) = eye(3);
-            %             Z = [pos - gnss_enu(gnss_index,:)'];
-            %             R = diag([1*ones(2,1); 2])^2;
+%             H = zeros(3,15);
+%             H(1:3,7:9) = eye(3);
+%             Z = [pos - gnss_enu(gnss_index,:)'];
+%             R = diag([1*ones(2,1); 2])^2;
             
             % 卡尔曼量测更新
             K = P * H' / (H * P * H' + R);
