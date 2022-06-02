@@ -32,7 +32,7 @@ opt.outage_stop = 340;          % 丢失结束时间
 
 opt.gnss_delay = 0.02;          % GNSS量测延迟 sec
 
-opt.gnss_intervel = 50;         % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
+opt.gnss_intervel = 10;         % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 % 初始状态方差:    水平姿态           航向       东北天速度        水平位置    高度      陀螺零偏                 加速度计零偏
 opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (50/3600*D2R)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
@@ -46,7 +46,7 @@ opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (1/3600*D2R)*
 % load('dataset/data20220528.mat');
 % opt.inital_yaw = 85;
 
-load('dataset/data20220531.mat');
+load('dataset/CH300_1.mat');
 opt.inital_yaw = 0;
 
 imu_data = data(:, 21:26);
