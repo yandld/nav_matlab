@@ -2,6 +2,7 @@ function plot_att(matlab_time,matlab_att, mcu_time,mcu_att, sins_time,sins_att)
 %姿态与航向估计曲线
     for i=2:2:nargin
         if i==2
+            matlab_time = matlab_time/60;
             figure('name', '姿态与航向估计曲线');
             subplot(3,1,1);
             plot(matlab_time, matlab_att(:,1), 'b', 'linewidth', 1.5); hold on; grid on;
@@ -16,8 +17,9 @@ function plot_att(matlab_time,matlab_att, mcu_time,mcu_att, sins_time,sins_att)
             legend('MATLAB', 'Orientation','horizontal');
             xlim([matlab_time(1) matlab_time(end)]);
             ylim([-30 420]);
-            xlabel('时间(s)'); ylabel('Yaw(°)');
+            xlabel('时间(分钟)'); ylabel('Yaw(°)');
         elseif i==4
+            mcu_time = mcu_time/60;
             subplot(3,1,1);
             plot(mcu_time, mcu_att(:,1), 'm', 'linewidth', 1.5);
             legend('MATLAB', 'MCU', 'Orientation','horizontal');
@@ -28,6 +30,7 @@ function plot_att(matlab_time,matlab_att, mcu_time,mcu_att, sins_time,sins_att)
             plot(mcu_time, mcu_att(:,3), 'm', 'linewidth', 1.5);
             legend('MATLAB', 'MCU', 'Orientation','horizontal');
         elseif i==6
+            sins_time = sins_time/60;
             subplot(3,1,1);
             plot(sins_time, sins_att(:,1), 'r', 'linewidth', 1.5);
             legend('MATLAB', 'MCU', '纯惯性', 'Orientation','horizontal');
