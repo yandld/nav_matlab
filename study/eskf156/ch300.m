@@ -32,7 +32,7 @@ opt.outage_stop = 340;          % 丢失结束时间
 
 opt.gnss_delay = 0.02;          % GNSS量测延迟 sec
 
-opt.gnss_intervel = 1;         % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
+opt.gnss_intervel = 10;         % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 % 初始状态方差:    水平姿态           航向       东北天速度        水平位置    高度      陀螺零偏                 加速度计零偏
 opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (50/3600*D2R)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
@@ -104,6 +104,12 @@ evt_gpst = bitand(evt_bit, evt_gpst_mask);
 evt_ins = bitand(evt_bit, evt_ins_mask);
 evt_dualgnss = bitand(evt_bit, evt_dualgnss_mask);
 evt_qx = bitand(evt_bit, evt_qx_mask);
+
+% GNSS数据抽样
+gnss_resample_index = find(evt_gnss == evt_gnss_mask);
+gnss_resample_index = gnss_resample_index(1:opt.gnss_intervel:end);
+evt_gnss = zeros(gnss_length, 1);
+evt_gnss(gnss_resample_index) = evt_gnss_mask;
 
 %% 检测GNSS数据何时更新
 gnss_update = zeros(gnss_length, 1);
