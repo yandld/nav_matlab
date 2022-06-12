@@ -12,11 +12,13 @@ close all;
 % accelReading = imu.acc *  1000;
 % Fs = 400;
 
-load('hi226_hi229.mat');
-gyroReading = imu.gyr * 3600;
-accelReading = imu.acc *  1000;
-Fs = 400;
+load('ch104.mat');
+gyroReading = gyroReading * 3600;
+accelReading = accReading *  1000;
+Fs = 100;
 
+
+(length(gyroReading) / Fs) / 3600
 
 % load('../stim300.mat');
 % gyroReading = imu.gyr;
