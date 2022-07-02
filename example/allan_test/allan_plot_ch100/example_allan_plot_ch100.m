@@ -5,14 +5,7 @@ close all;
 
 
 
-
-
-% load('ch100.mat');
-% gyroReading = imu.gyr * 3600;
-% accelReading = imu.acc *  1000;
-% Fs = 400;
-
-load('ch104.mat');
+load('ch010.mat');
 gyroReading = gyroReading * 3600;
 accelReading = accReading *  1000;
 Fs = 100;
