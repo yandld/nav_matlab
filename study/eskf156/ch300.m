@@ -27,8 +27,8 @@ opt.zupt_gyr_std = 0.01;        % 陀螺仪方差滑窗阈值
 opt.nhc_enable = 0;             % 车辆运动学约束
 
 opt.gnss_outage = 0;            % 模拟GNSS丢失
-opt.outage_start = 270;         % 丢失开始时间
-opt.outage_stop = 340;          % 丢失结束时间
+opt.outage_start = 100;         % 丢失开始时间
+opt.outage_stop = 140;          % 丢失结束时间
 
 opt.gnss_delay = 0.02;          % GNSS量测延迟 sec
 
@@ -37,7 +37,7 @@ opt.gnss_intervel = 10;         % GNSS间隔时间，如原始数据为10Hz，�
 % 初始状态方差:    水平姿态           航向       东北天速度        水平位置    高度      陀螺零偏                 加速度计零偏
 opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (50/3600*D2R)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
-opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (1/3600*D2R)*ones(1,3), 0*ones(1,3)])^2;
+opt.Q = diag([(0.001/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (1/3600*D2R)*ones(1,3), 0*ones(1,3)])^2;
 
 %% 数据载入
 % load('dataset/data20220527.mat');
@@ -50,9 +50,12 @@ opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (1/3600*D2R)*
 % opt.inital_yaw = 90;
 % bl_length0 = 1.18;
 
-load('dataset/CH300_2.mat');
-opt.inital_yaw = 180;
-bl_length0 = 1.18;
+% load('dataset/CH300_2.mat');
+% opt.inital_yaw = 180;
+% bl_length0 = 1.18;
+
+load('dataset/data20220918.mat');
+opt.inital_yaw = 90;
 
 ins_status = data(:, 45);
 pos_type = data(:, 46);
@@ -460,7 +463,8 @@ for i=1:imu_length
     end
 
     %% 双天线
-    if (evt_dualgnss(i))
+ %   if (evt_dualgnss(i))
+ if false
         if abs(bl_length(i) - bl_length0)<0.05
             bl_b = [0; 1; 0];
             bl_n = [sind(bl_yaw(i))*cosd(bl_pitch(i)); cosd(bl_yaw(i))*cosd(bl_pitch(i)); sind(bl_pitch(i))];
@@ -586,7 +590,7 @@ plot_enu_2d(gnss_enu, log.pos, span_enu);
 %% IMU零偏估计曲线
 figure('name', 'IMU零偏估计曲线');
 subplot(2,2,1);
-color_rgb = colororder;
+color_rgb = get(gca,'ColorOrder');
 plot(imu_time/60, log.gyro_bias(:, 1) * 3600 * R2D, 'Color', color_rgb(1,:), 'linewidth', 1.5); hold on; grid on;
 plot(imu_time/60, log.gyro_bias(:, 2) * 3600 * R2D, 'Color', color_rgb(2,:), 'linewidth', 1.5);
 plot(imu_time/60, log.gyro_bias(:, 3) * 3600 * R2D, 'Color', color_rgb(3,:), 'linewidth', 1.5);
