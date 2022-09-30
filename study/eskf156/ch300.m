@@ -21,8 +21,8 @@ opt.bias_feedback = 1;          % IMU零偏反馈
 opt.gravity_update_enable = 0;  % 使能重力静止量更新
 
 opt.zupt_enable = 0;            % ZUPT
-opt.zupt_acc_std = 0.35;        % 加速度计方差滑窗阈值
-opt.zupt_gyr_std = 0.01;        % 陀螺仪方差滑窗阈值
+opt.zupt_acc_std = 0.2;        % 加速度计方差滑窗阈值
+opt.zupt_gyr_std = 0.002;        % 陀螺仪方差滑窗阈值
 
 opt.nhc_enable = 0;             % 车辆运动学约束
 
@@ -30,9 +30,9 @@ opt.gnss_outage = 0;            % 模拟GNSS丢失
 opt.outage_start = 100;         % 丢失开始时间
 opt.outage_stop = 140;          % 丢失结束时间
 
-opt.gnss_delay = 0.02;          % GNSS量测延迟 sec
+opt.gnss_delay = 0.00;          % GNSS量测延迟 sec
 
-opt.gnss_intervel = 10;         % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
+opt.gnss_intervel = 1;         % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 % 初始状态方差:    水平姿态           航向       东北天速度        水平位置    高度      陀螺零偏                 加速度计零偏
 opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (50/3600*D2R)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
@@ -54,8 +54,17 @@ opt.Q = diag([(0.001/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (1/3600*D
 % opt.inital_yaw = 180;
 % bl_length0 = 1.18;
 
-load('dataset/data20220918.mat');
-opt.inital_yaw = 90;
+% load('dataset/data20220918.mat');
+% opt.inital_yaw = 90;
+
+% load('data20220923.mat');
+% opt.inital_yaw = 90;
+
+% load('bug2.mat');
+% opt.inital_yaw = 90;
+
+load('data20220930_2.mat');
+opt.inital_yaw = 270;
 
 ins_status = data(:, 45);
 pos_type = data(:, 46);
@@ -220,7 +229,14 @@ for i=1:imu_length
     [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, g, imu_dt);
 
     % 纯捷联姿态
-    nQb_sins = ch_qmul(nQb_sins, q); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
+    rv = (gyro_data(i,:) - gyro_bias0)'*imu_dt;
+    rv_norm = norm(rv);
+    if(rv_norm <1e-10) % fix nan issue
+        q_sins = [1 0 0 0];
+    else
+        q_sins = [cos(rv_norm/2); rv/rv_norm*sin(rv_norm/2)]';
+    end
+    nQb_sins = ch_qmul(nQb_sins, q_sins); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
     nQb_sins = ch_qnormlz(nQb_sins); %单位化四元数
     
     bQn = ch_qconj(nQb); %更新bQn
