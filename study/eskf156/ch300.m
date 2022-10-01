@@ -63,7 +63,7 @@ opt.Q = diag([(0.001/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (1/3600*D
 % load('bug2.mat');
 % opt.inital_yaw = 90;
 
-load('data20220930_2.mat');
+load('data20220930_3.mat');
 opt.inital_yaw = 270;
 
 ins_status = data(:, 45);
@@ -86,6 +86,8 @@ acc_data = imu_data(:, 4:6);
 
 lla_data = gnss_data(:, [2 1 3]);
 lla_data(:,1:2) = lla_data(:,1:2)*D2R;
+lla0_idx = find(lla_data(:,1)==0);
+lla_data(lla0_idx,:) = NaN(length(lla0_idx),3);
 vel_data = gnss_data(:, 4:6);
 bl_yaw = gnss_data(:, 7);
 bl_pitch = gnss_data(:, 8);
