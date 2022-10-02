@@ -32,12 +32,12 @@ opt.outage_stop = 140;          % 丢失结束时间
 
 opt.gnss_delay = 0.00;          % GNSS量测延迟 sec
 
-opt.gnss_intervel = 1;         % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
+opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 % 初始状态方差:    水平姿态           航向       东北天速度        水平位置    高度      陀螺零偏                 加速度计零偏
-opt.P0 = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (50/3600*D2R)*ones(1,3), (10e-3*g)*ones(1,3)])^2;
+opt.P0 = diag([(2*D2R)*ones(1,2), (5*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (10/3600*D2R)*ones(1,2), (10/3600*D2R), (10e-3*g)*ones(1,3)])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
-opt.Q = diag([(0.001/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (1/3600*D2R)*ones(1,3), 0*ones(1,3)])^2;
+opt.Q = diag([(0.001/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (0/3600*D2R)*ones(1,3), 0*ones(1,3)])^2;
 
 %% 数据载入
 % load('dataset/data20220527.mat');
@@ -62,6 +62,12 @@ opt.Q = diag([(0.001/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (1/3600*D
 
 % load('bug2.mat');
 % opt.inital_yaw = 90;
+
+% load('data20220930_1.mat');
+% opt.inital_yaw = 0;
+
+% load('data20220930_2.mat');
+% opt.inital_yaw = 270;
 
 load('data20220930_3.mat');
 opt.inital_yaw = 270;
@@ -112,7 +118,18 @@ evt_ins_mask = bitshift(1,4);
 evt_dualgnss_mask = bitshift(1,5);
 evt_qx_mask = bitshift(1,6);
 
-evt_gnss = bitand(evt_bit, evt_gnss_mask);
+% evt_gnss = bitand(evt_bit, evt_gnss_mask);
+evt_gnss = zeros(gnss_length, 1);
+for i=2:gnss_length
+    if (gnss_data(i, 1)~=gnss_data(i-1, 1)) || ...
+            (gnss_data(i, 2)~=gnss_data(i-1, 2)) || ...
+            (gnss_data(i, 3)~=gnss_data(i-1, 3)) || ...
+            (gnss_data(i, 4)~=gnss_data(i-1, 4)) || ...
+            (gnss_data(i, 5)~=gnss_data(i-1, 5)) || ...
+            (gnss_data(i, 6)~=gnss_data(i-1, 6))
+        evt_gnss(i) = 1;
+    end
+end
 evt_rtk = bitand(evt_bit, evt_rtk_mask);
 evt_gpst = bitand(evt_bit, evt_gpst_mask);
 evt_ins = bitand(evt_bit, evt_ins_mask);
@@ -191,6 +208,7 @@ vel = [0 0 0]';
 pos = [0 0 0]';
 
 X = zeros(15,1);
+X(10:12) = gyro_bias0';
 X_temp = X;
 gyro_bias = X(10:12);
 acc_bias = X(13:15);
@@ -370,7 +388,7 @@ for i=1:imu_length
     end
     
     %% GNSS量测更新
-    if (evt_gnss(i))
+    if (evt_gnss(i) && ~isnan(gnss_enu(i,1)))
         if( ~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop )
             H = zeros(6,15);
             H(1:3,4:6) = eye(3);
@@ -422,10 +440,21 @@ for i=1:imu_length
             
             % 零偏反馈
             if opt.bias_feedback
-                gyro_bias = gyro_bias + X(10:12);
-                acc_bias = acc_bias + X(13:15);
-                X(10:12) = zeros(3,1);
-                X(13:15) = zeros(3,1);
+%                 gyro_bias = gyro_bias + X(10:12);
+%                 acc_bias = acc_bias + X(13:15);
+                gyro_bias = X(10:12);
+                acc_bias = X(13:15);
+
+                gyro_limit = 0.5*D2R;
+                gyro_bias(find(gyro_bias>gyro_limit)) = gyro_limit;
+                gyro_bias(find(gyro_bias<-gyro_limit)) = -gyro_limit;
+
+                acc_limit = 20e-3*g;
+                acc_bias(find(acc_bias>acc_limit)) = acc_limit;
+                acc_bias(find(acc_bias<-acc_limit)) = -acc_limit;
+
+%                 X(10:12) = zeros(3,1);
+%                 X(13:15) = zeros(3,1);
             end
 
         elseif opt.nhc_enable
