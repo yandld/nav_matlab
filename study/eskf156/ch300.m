@@ -69,8 +69,11 @@ opt.Q = diag([(0.001/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (0/3600*D
 % load('data20220930_2.mat');
 % opt.inital_yaw = 270;
 
-load('data20220930_3.mat');
-opt.inital_yaw = 270;
+% load('data20220930_3.mat');
+% opt.inital_yaw = 270;
+
+load('data20221006.mat');
+opt.inital_yaw = 90;
 
 ins_status = data(:, 45);
 pos_type = data(:, 46);
@@ -118,18 +121,18 @@ evt_ins_mask = bitshift(1,4);
 evt_dualgnss_mask = bitshift(1,5);
 evt_qx_mask = bitshift(1,6);
 
-% evt_gnss = bitand(evt_bit, evt_gnss_mask);
-evt_gnss = zeros(gnss_length, 1);
-for i=2:gnss_length
-    if (gnss_data(i, 1)~=gnss_data(i-1, 1)) || ...
-            (gnss_data(i, 2)~=gnss_data(i-1, 2)) || ...
-            (gnss_data(i, 3)~=gnss_data(i-1, 3)) || ...
-            (gnss_data(i, 4)~=gnss_data(i-1, 4)) || ...
-            (gnss_data(i, 5)~=gnss_data(i-1, 5)) || ...
-            (gnss_data(i, 6)~=gnss_data(i-1, 6))
-        evt_gnss(i) = 1;
-    end
-end
+evt_gnss = bitand(evt_bit, evt_gnss_mask);
+% evt_gnss = zeros(gnss_length, 1);
+% for i=2:gnss_length
+%     if (gnss_data(i, 1)~=gnss_data(i-1, 1)) || ...
+%             (gnss_data(i, 2)~=gnss_data(i-1, 2)) || ...
+%             (gnss_data(i, 3)~=gnss_data(i-1, 3)) || ...
+%             (gnss_data(i, 4)~=gnss_data(i-1, 4)) || ...
+%             (gnss_data(i, 5)~=gnss_data(i-1, 5)) || ...
+%             (gnss_data(i, 6)~=gnss_data(i-1, 6))
+%         evt_gnss(i) = 1;
+%     end
+% end
 evt_rtk = bitand(evt_bit, evt_rtk_mask);
 evt_gpst = bitand(evt_bit, evt_gpst_mask);
 evt_ins = bitand(evt_bit, evt_ins_mask);
@@ -275,6 +278,15 @@ for i=1:imu_length
     F(5,3) = -f_n(1); %f_e东向比力
     F(6,1) = -f_n(2); %f_n北向比力
     F(6,2) = f_n(1); %f_e东向比力
+
+    
+    F(4,2) = -g_n(3); %f_u天向比力
+    F(4,3) = f_n(2); %f_n北向比力
+    F(5,1) = f_n(3); %f_u天向比力
+    F(5,3) = -f_n(1); %f_e东向比力
+    F(6,1) = -f_n(2); %f_n北向比力
+    F(6,2) = f_n(1); %f_e东向比力
+    
     F(7:9,4:6) = eye(3);
     F(1:3,10:12) = -bCn;
     F(4:6,13:15) = bCn;
