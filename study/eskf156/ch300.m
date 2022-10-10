@@ -7,7 +7,7 @@ format compact;
 
 R2D = 180/pi;
 D2R = pi/180;
-g = 9.8;
+GRAVITY = 9.8;
 Re = 6378137;
 Earth_e = 0.00335281066474748;
 
@@ -20,6 +20,15 @@ opt.bias_feedback = 1;          % IMU零偏反馈
 
 opt.gravity_update_enable = 0;  % 使能重力静止量更新
 
+%状态量限幅
+opt.XMAX_PHI = 0.05*D2R;
+opt.XMAX_VEL = 10;
+opt.XMAX_POS = 100;
+opt.XMAX_GB = 1 * D2R;
+opt.XMAX_WB = 1 * GRAVITY;
+
+
+        
 opt.zupt_enable = 0;            % ZUPT
 opt.zupt_acc_std = 0.2;        % 加速度计方差滑窗阈值
 opt.zupt_gyr_std = 0.002;        % 陀螺仪方差滑窗阈值
@@ -35,9 +44,9 @@ opt.gnss_delay = 0.01;          % GNSS量测延迟 sec
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 % 初始状态方差:    水平姿态           航向       东北天速度        水平位置    高度      陀螺零偏                 加速度计零偏
-opt.P0 = diag([(2*D2R)*ones(1,2), (5*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (10/3600*D2R)*ones(1,2), (10/3600*D2R), (10e-3*g)*ones(1,3)])^2;
+opt.P0 = diag([(2*D2R)*ones(1,2), (5*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (10/3600*D2R)*ones(1,2), (10/3600*D2R), (10e-3*GRAVITY)*ones(1,3)])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
-opt.Q = diag([(0.1/60*D2R)*ones(1,3), (1/60)*ones(1,3), 0*ones(1,3), (1/3600*D2R)*ones(1,3), 1e-3*ones(1,3)])^2;
+opt.Q = diag([(0.1/60*D2R)*ones(1,3), (0.1/60)*ones(1,3), 0*ones(1,3), (0.1/3600*D2R)*ones(1,3), 1e-4*ones(1,3)])^2;
 
 %% 数据载入
 % load('dataset/CH300_1.mat');
@@ -60,8 +69,13 @@ opt.Q = diag([(0.1/60*D2R)*ones(1,3), (1/60)*ones(1,3), 0*ones(1,3), (1/3600*D2R
 % load('dataset/data20220930_2.mat');
 % opt.inital_yaw = 270;
 
-load('dataset/data20221006.mat');
-opt.inital_yaw = 90;
+% load('dataset/data20221006.mat');
+% opt.inital_yaw = 90;
+
+
+load('dataset/2022年10月10日15时21分02秒.mat');
+ opt.inital_yaw = 90;
+ 
 
 ins_status = data(:, 45);
 pos_type = data(:, 46);
@@ -235,7 +249,7 @@ for i=1:imu_length
     f_b = acc_data(i,:)' - acc_bias;
     
     % 捷联更新
-    [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, g, imu_dt);
+    [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, GRAVITY, imu_dt);
 
     % 纯捷联姿态
     rv = (gyro_data(i,:) - gyro_bias0)'*imu_dt;
@@ -250,7 +264,7 @@ for i=1:imu_length
     
     bQn = ch_qconj(nQb); %更新bQn
     f_n = ch_qmulv(nQb, f_b);
-    a_n = f_n + [0; 0; -g];
+    a_n = f_n + [0; 0; -GRAVITY];
     bCn = ch_q2m(nQb); %更新bCn阵
     nCb = bCn'; %更新nCb阵
 
@@ -396,6 +410,18 @@ for i=1:imu_length
             X = X + K * (Z - H * X);
             P = (eye(length(X)) - K * H) * P;
             
+            %状态量限制
+            X(X(1:3) > opt.XMAX_PHI) = opt.XMAX_PHI;
+            X(X(1:3) < -opt.XMAX_PHI) = -opt.XMAX_PHI;
+            X(X(4:6) > opt.XMAX_VEL) = opt.XMAX_VEL;
+            X(X(4:6) < -opt.XMAX_VEL) = -opt.XMAX_VEL;
+            X(X(7:9) > opt.XMAX_POS) = opt.XMAX_POS;
+            X(X(7:9) < -opt.XMAX_POS) = -opt.XMAX_POS;
+            X(X(10:12) > opt.XMAX_GB) = opt.XMAX_GB;
+            X(X(10:12) < -opt.XMAX_GB) = -opt.XMAX_GB;
+            X(X(13:15) > opt.XMAX_WB) = opt.XMAX_WB;
+            X(X(13:15) < -opt.XMAX_WB) = -opt.XMAX_WB;          
+            
             % 姿态修正
             rv = X(1:3);
             rv_norm = norm(rv);
@@ -424,17 +450,8 @@ for i=1:imu_length
             if opt.bias_feedback
                  gyro_bias = gyro_bias + X(10:12);
                  acc_bias = acc_bias + X(13:15);
-
-%                 gyro_limit = 1.5*D2R;
-%                 gyro_bias(find(gyro_bias>gyro_limit)) = gyro_limit;
-%                 gyro_bias(find(gyro_bias<-gyro_limit)) = -gyro_limit;
-% 
-%                 acc_limit = 50e-3*g;
-%                 acc_bias(find(acc_bias>acc_limit)) = acc_limit;
-%                 acc_bias(find(acc_bias<-acc_limit)) = -acc_limit;
-
-                 X(10:12) = zeros(3,1);
-                 X(13:15) = zeros(3,1);
+                 X(10:12) = 0;
+                 X(13:15) = 0;
             end
 
         elseif opt.nhc_enable
