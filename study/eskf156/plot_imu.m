@@ -1,7 +1,7 @@
 function plot_imu(gyro, acc, dt)
 %IMU原始数据曲线
     data_length = length(gyro);
-    dt = dt/60;
+%     dt = dt/60;
 
     figure('Name','IMU原始数据曲线');
 
@@ -11,7 +11,7 @@ function plot_imu(gyro, acc, dt)
     plot((1:data_length)*dt, gyro(:,3));
     xlim([1 data_length*dt]);
     legend('X','Y','Z', 'Orientation','horizontal');
-    xlabel('时间(分钟)');
+    xlabel('时间(s)');
     ylabel('角速度(°/s)');
 
     subplot(2,1,2);
@@ -21,7 +21,7 @@ function plot_imu(gyro, acc, dt)
     plot((1:data_length)*dt, acc(:,3));
     xlim([1 data_length*dt]);
     legend('X','Y','Z', 'Orientation','horizontal');
-    xlabel('时间(分钟)');
+    xlabel('时间(s)');
     ylabel('加速度(g)');
 
     sgtitle('IMU原始数据曲线');

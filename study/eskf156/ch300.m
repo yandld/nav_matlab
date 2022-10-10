@@ -21,14 +21,15 @@ opt.bias_feedback = 1;          % IMU零偏反馈
 opt.gravity_update_enable = 0;  % 使能重力静止量更新
 
 %状态量限幅
-opt.XMAX_PHI = 0.05*D2R;
-opt.XMAX_VEL = 10;
-opt.XMAX_POS = 100;
-opt.XMAX_GB = 1 * D2R;
-opt.XMAX_WB = 1 * GRAVITY;
+opt.XMAX_PHI = 0.05*D2R*100000000;
+opt.XMAX_VEL = 10*100000000;
+opt.XMAX_POS = 100*100000000;
+opt.XMAX_GB = 1 * D2R*100000000;
+opt.XMAX_WB = 1 * GRAVITY*100000000;
 
+opt.Xlimit_phi_xy = 0.1*D2R;
+opt.Xlimit_phi_z = 1*D2R;
 
-        
 opt.zupt_enable = 0;            % ZUPT
 opt.zupt_acc_std = 0.2;        % 加速度计方差滑窗阈值
 opt.zupt_gyr_std = 0.002;        % 陀螺仪方差滑窗阈值
@@ -44,9 +45,9 @@ opt.gnss_delay = 0.01;          % GNSS量测延迟 sec
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 % 初始状态方差:    水平姿态           航向       东北天速度        水平位置    高度      陀螺零偏                 加速度计零偏
-opt.P0 = diag([(2*D2R)*ones(1,2), (5*D2R), 0.5*ones(1,2), 1, 5*ones(1,2), 10, (10/3600*D2R)*ones(1,2), (10/3600*D2R), (10e-3*GRAVITY)*ones(1,3)])^2;
+opt.P0 = diag([(2*D2R)*ones(1,2), (5*D2R), 0.1*ones(1,2), 0.2, 5*ones(1,2), 10, (10/3600*D2R)*ones(1,2), (10/3600*D2R), (10e-3*GRAVITY)*ones(1,3)])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
-opt.Q = diag([(0.1/60*D2R)*ones(1,3), (0.1/60)*ones(1,3), 0*ones(1,3), (0.1/3600*D2R)*ones(1,3), 1e-4*ones(1,3)])^2;
+opt.Q = diag([(1/60*D2R)*ones(1,3), (10/60)*ones(1,3), 0*ones(1,3), (0.1/3600*D2R)*ones(1,3), 1e-4*ones(1,3)])^2;
 
 %% 数据载入
 % load('dataset/CH300_1.mat');
@@ -72,10 +73,23 @@ opt.Q = diag([(0.1/60*D2R)*ones(1,3), (0.1/60)*ones(1,3), 0*ones(1,3), (0.1/3600
 % load('dataset/data20221006.mat');
 % opt.inital_yaw = 90;
 
+% load('dataset/2022年10月06日16时55分28秒.mat');
+% opt.inital_yaw = 90;
 
-load('dataset/2022年10月10日15时21分02秒.mat');
- opt.inital_yaw = 90;
- 
+% load('dataset/2022年10月08日16时00分31秒.mat');
+% opt.inital_yaw = 90;
+
+% load('dataset/2022年10月08日17时02分28秒.mat');
+% opt.inital_yaw = 170;
+
+% load('dataset/2022年10月09日14时04分25秒.mat');
+% opt.inital_yaw = 25;
+
+load('dataset/2022年10月10日10时41分51秒.mat');
+opt.inital_yaw = 263;
+
+% load('dataset/2022年10月10日15时21分02秒.mat');
+% opt.inital_yaw = 163;
 
 ins_status = data(:, 45);
 pos_type = data(:, 46);
@@ -97,11 +111,12 @@ acc_data = imu_data(:, 4:6);
 
 lla_data = gnss_data(:, [2 1 3]);
 lla_data(:,1:2) = lla_data(:,1:2)*D2R;
-lla0_idx = find(lla_data(:,1)==0);
-lla_data(lla0_idx,:) = NaN(length(lla0_idx),3);
+lla_data(lla_data(:,1)==0, :) = NaN; %数据去0
 vel_data = gnss_data(:, 4:6);
 bl_yaw = gnss_data(:, 7);
+bl_yaw(bl_yaw==0, :) = NaN; %数据去0
 bl_pitch = gnss_data(:, 8);
+bl_pitch(bl_pitch==0, :) = NaN; %数据去0
 bl_length = gnss_data(:, 9);
 
 pos_std_data = gnss_data(:, 10:12);
@@ -212,7 +227,7 @@ vel = [0 0 0]';
 pos = [0 0 0]';
 
 X = zeros(15,1);
-X(10:12) = gyro_bias0';
+% X(10:12) = gyro_bias0';
 X_temp = X;
 gyro_bias = X(10:12);
 acc_bias = X(13:15);
@@ -252,7 +267,7 @@ for i=1:imu_length
     [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, GRAVITY, imu_dt);
 
     % 纯捷联姿态
-    rv = (gyro_data(i,:) - gyro_bias0)'*imu_dt;
+    rv = (gyro_data(i,:) - gyro_bias0*0)'*imu_dt;
     rv_norm = norm(rv);
     if(rv_norm <1e-10) % fix nan issue
         q_sins = [1 0 0 0];
@@ -411,17 +426,23 @@ for i=1:imu_length
             P = (eye(length(X)) - K * H) * P;
             
             %状态量限制
-            X(X(1:3) > opt.XMAX_PHI) = opt.XMAX_PHI;
-            X(X(1:3) < -opt.XMAX_PHI) = -opt.XMAX_PHI;
-            X(X(4:6) > opt.XMAX_VEL) = opt.XMAX_VEL;
-            X(X(4:6) < -opt.XMAX_VEL) = -opt.XMAX_VEL;
-            X(X(7:9) > opt.XMAX_POS) = opt.XMAX_POS;
-            X(X(7:9) < -opt.XMAX_POS) = -opt.XMAX_POS;
-            X(X(10:12) > opt.XMAX_GB) = opt.XMAX_GB;
-            X(X(10:12) < -opt.XMAX_GB) = -opt.XMAX_GB;
-            X(X(13:15) > opt.XMAX_WB) = opt.XMAX_WB;
-            X(X(13:15) < -opt.XMAX_WB) = -opt.XMAX_WB;          
-            
+%             X(X(1:3) > opt.XMAX_PHI) = opt.XMAX_PHI;
+%             X(X(1:3) < -opt.XMAX_PHI) = -opt.XMAX_PHI;
+%             X(X(4:6) > opt.XMAX_VEL) = opt.XMAX_VEL;
+%             X(X(4:6) < -opt.XMAX_VEL) = -opt.XMAX_VEL;
+%             X(X(7:9) > opt.XMAX_POS) = opt.XMAX_POS;
+%             X(X(7:9) < -opt.XMAX_POS) = -opt.XMAX_POS;
+%             X(X(10:12) > opt.XMAX_GB) = opt.XMAX_GB;
+%             X(X(10:12) < -opt.XMAX_GB) = -opt.XMAX_GB;
+%             X(X(13:15) > opt.XMAX_WB) = opt.XMAX_WB;
+%             X(X(13:15) < -opt.XMAX_WB) = -opt.XMAX_WB;
+
+            X(X(1:2) > opt.Xlimit_phi_xy) = opt.Xlimit_phi_xy;
+            X(X(1:2) < -opt.Xlimit_phi_xy) = -opt.Xlimit_phi_xy;
+
+            X(X(3) > opt.Xlimit_phi_z) = opt.Xlimit_phi_z;
+            X(X(3) < -opt.Xlimit_phi_z) = -opt.Xlimit_phi_z;
+
             % 姿态修正
             rv = X(1:3);
             rv_norm = norm(rv);
@@ -586,25 +607,25 @@ figure('name', '静止检测验证');
 subplot(3,1,1);
 zupt_enable_index = find(log.zupt_time==1);
 zupt_disable_index = find(log.zupt_time==0);
-plot(zupt_enable_index*imu_dt/60, sum(abs(acc_data(zupt_enable_index,:)).^2,2).^(1/2), 'r.'); hold on; grid on;
-plot(zupt_disable_index*imu_dt/60, sum(abs(acc_data(zupt_disable_index,:)).^2,2).^(1/2), 'b.');
-xlim([imu_time(1) imu_time(end)]/60);
+plot(zupt_enable_index*imu_dt, sum(abs(acc_data(zupt_enable_index,:)).^2,2).^(1/2), 'r.'); hold on; grid on;
+plot(zupt_disable_index*imu_dt, sum(abs(acc_data(zupt_disable_index,:)).^2,2).^(1/2), 'b.');
+xlim([imu_time(1) imu_time(end)]);
 ylim([7 12]);
 ylabel('加速度模长(g)');
 
 subplot(3,1,2);
-plot(imu_time/60, log.std_acc_sldwin, 'linewidth', 1.5); hold on; grid on;
-plot(imu_time/60, opt.zupt_acc_std*ones(size(imu_time)), '-.', 'linewidth', 1.5);
-xlim([imu_time(1) imu_time(end)]/60);
+plot(imu_time, log.std_acc_sldwin, 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, opt.zupt_acc_std*ones(size(imu_time)), '-.', 'linewidth', 1.5);
+xlim([imu_time(1) imu_time(end)]);
 ylim([0 opt.zupt_acc_std*3]);
 ylabel('加速度计方差滑窗(g)');
 
 subplot(3,1,3);
-plot(imu_time/60, log.std_gyr_sldwin, 'linewidth', 1.5); hold on; grid on;
-plot(imu_time/60, opt.zupt_gyr_std*ones(size(imu_time)), '-.', 'linewidth', 1.5);
-xlim([imu_time(1) imu_time(end)]/60);
+plot(imu_time, log.std_gyr_sldwin, 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, opt.zupt_gyr_std*ones(size(imu_time)), '-.', 'linewidth', 1.5);
+xlim([imu_time(1) imu_time(end)]);
 ylim([0 opt.zupt_gyr_std*3]);
-xlabel('时间(分钟)');
+xlabel('时间(s)');
 ylabel('陀螺仪方差滑窗(rad)');
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
@@ -617,7 +638,7 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 % plot_enu_vel(gnss_enu, vecnorm(vel_data, 2, 2));
 
 %% 姿态与航向估计曲线
-plot_att(imu_time,log.att, span_time,span.att, imu_time,log.sins_att);
+plot_att(imu_time,log.att, span_time,span.att, imu_time,log.sins_att, imu_time,[bl_pitch bl_yaw]);
 
 %% 速度估计曲线
 % plot_vel(gnss_time,vel_data, imu_time,log.vel);
@@ -635,68 +656,68 @@ plot_enu_2d(gnss_enu, log.pos, span_enu);
 figure('name', 'IMU零偏估计曲线');
 subplot(2,2,1);
 color_rgb = get(gca,'ColorOrder');
-plot(imu_time/60, log.gyro_bias(:, 1) * 3600 * R2D, 'Color', color_rgb(1,:), 'linewidth', 1.5); hold on; grid on;
-plot(imu_time/60, log.gyro_bias(:, 2) * 3600 * R2D, 'Color', color_rgb(2,:), 'linewidth', 1.5);
-plot(imu_time/60, log.gyro_bias(:, 3) * 3600 * R2D, 'Color', color_rgb(3,:), 'linewidth', 1.5);
-plot(imu_time/60, gyro_bias0(1) * 3600 * R2D * ones(imu_length,1), '-.', 'Color', color_rgb(1,:), 'linewidth', 1);
-plot(imu_time/60, gyro_bias0(2) * 3600 * R2D * ones(imu_length,1), '-.', 'Color', color_rgb(2,:), 'linewidth', 1);
-plot(imu_time/60, gyro_bias0(3) * 3600 * R2D * ones(imu_length,1), '-.', 'Color', color_rgb(3,:), 'linewidth', 1);
-xlim([imu_time(1) imu_time(end)]/60);
-title('陀螺仪零偏估计曲线'); xlabel('时间(分钟)'); ylabel('零偏(°/h)'); legend('X', 'Y', 'Z');
+plot(imu_time, log.gyro_bias(:, 1) * 3600 * R2D, 'Color', color_rgb(1,:), 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, log.gyro_bias(:, 2) * 3600 * R2D, 'Color', color_rgb(2,:), 'linewidth', 1.5);
+plot(imu_time, log.gyro_bias(:, 3) * 3600 * R2D, 'Color', color_rgb(3,:), 'linewidth', 1.5);
+plot(imu_time, gyro_bias0(1) * 3600 * R2D * ones(imu_length,1), '-.', 'Color', color_rgb(1,:), 'linewidth', 1);
+plot(imu_time, gyro_bias0(2) * 3600 * R2D * ones(imu_length,1), '-.', 'Color', color_rgb(2,:), 'linewidth', 1);
+plot(imu_time, gyro_bias0(3) * 3600 * R2D * ones(imu_length,1), '-.', 'Color', color_rgb(3,:), 'linewidth', 1);
+xlim([imu_time(1) imu_time(end)]);
+title('陀螺仪零偏估计曲线'); xlabel('时间(s)'); ylabel('零偏(°/h)'); legend('X', 'Y', 'Z');
 
 subplot(2,2,2);
-plot(imu_time/60, log.acc_bias(:, 1:3) / 9.8 * 1000, 'linewidth', 1.5); grid on;
-xlim([imu_time(1) imu_time(end)]/60);
-title('加速度计零偏估计曲线'); xlabel('时间(分钟)'); ylabel('零偏(mg)'); legend('X', 'Y', 'Z');
+plot(imu_time, log.acc_bias(:, 1:3) / 9.8 * 1000, 'linewidth', 1.5); grid on;
+xlim([imu_time(1) imu_time(end)]);
+title('加速度计零偏估计曲线'); xlabel('时间(s)'); ylabel('零偏(mg)'); legend('X', 'Y', 'Z');
 
 subplot(2,2,3);
-semilogy(imu_time/60, log.P(:, 10:12) * 3600 * R2D, 'linewidth', 1.5); grid on;
-xlim([imu_time(1) imu_time(end)]/60);
-title('陀螺仪零偏协方差收敛曲线'); xlabel('时间(分钟)'); ylabel('零偏标准差(°/h)'); legend('X', 'Y', 'Z');
+semilogy(imu_time, log.P(:, 10:12) * 3600 * R2D, 'linewidth', 1.5); grid on;
+xlim([imu_time(1) imu_time(end)]);
+title('陀螺仪零偏协方差收敛曲线'); xlabel('时间(s)'); ylabel('零偏标准差(°/h)'); legend('X', 'Y', 'Z');
 
 subplot(2,2,4);
-semilogy(imu_time/60, log.P(:, 13:15) / 9.8 * 1000, 'linewidth', 1.5); grid on;
-xlim([imu_time(1) imu_time(end)]/60);
-title('加速度计零偏协方差收敛曲线'); xlabel('时间(分钟)'); ylabel('零偏标准差(mg)'); legend('X', 'Y', 'Z');
+semilogy(imu_time, log.P(:, 13:15) / 9.8 * 1000, 'linewidth', 1.5); grid on;
+xlim([imu_time(1) imu_time(end)]);
+title('加速度计零偏协方差收敛曲线'); xlabel('时间(s)'); ylabel('零偏标准差(mg)'); legend('X', 'Y', 'Z');
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %% 状态量曲线
 figure('name','状态量曲线');
 subplot(2,2,1);
-plot(imu_time/60, log.X(:, 1) * R2D, 'c', 'linewidth', 1.5); hold on; grid on;
-plot(imu_time/60, log.X(:, 2) * R2D, 'm', 'linewidth', 1.5);
-plot(imu_time/60, log.P(:, 1) * R2D * 3, 'r-.', 'linewidth', 1);
-plot(imu_time/60, log.P(:, 2) * R2D * 3, 'g-.', 'linewidth', 1);
-plot(imu_time/60, log.P(:, 1) * R2D * -3, 'r-.', 'linewidth', 1);
-plot(imu_time/60, log.P(:, 2) * R2D * -3, 'g-.', 'linewidth', 1);
-xlim([imu_time(1) imu_time(end)]/60);
+plot(imu_time, log.X(:, 1) * R2D, 'c', 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, log.X(:, 2) * R2D, 'm', 'linewidth', 1.5);
+plot(imu_time, log.P(:, 1) * R2D * 1, 'r-.', 'linewidth', 1);
+plot(imu_time, log.P(:, 2) * R2D * 1, 'g-.', 'linewidth', 1);
+plot(imu_time, log.P(:, 1) * R2D * -1, 'r-.', 'linewidth', 1);
+plot(imu_time, log.P(:, 2) * R2D * -1, 'g-.', 'linewidth', 1);
+xlim([imu_time(1) imu_time(end)]);
 ylim([-0.5 0.5]);
-xlabel('时间(分钟)'); ylabel('平台失准角(°)'); legend('Pitch', 'Roll', 'Orientation','horizontal');
+xlabel('时间(s)'); ylabel('平台失准角(°)'); legend('Pitch', 'Roll', 'Orientation','horizontal');
 
 subplot(2,2,3);
-plot(imu_time/60, log.X(:, 3) * R2D, 'c', 'linewidth', 1.5); hold on; grid on;
-plot(imu_time/60, log.P(:, 3) * R2D * 3, 'b-.', 'linewidth', 1);
-plot(imu_time/60, log.P(:, 3) * R2D * -3, 'b-.', 'linewidth', 1);
-xlim([imu_time(1) imu_time(end)]/60);
+plot(imu_time, log.X(:, 3) * R2D, 'c', 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, log.P(:, 3) * R2D * 1, 'b-.', 'linewidth', 1);
+plot(imu_time, log.P(:, 3) * R2D * -1, 'b-.', 'linewidth', 1);
+xlim([imu_time(1) imu_time(end)]);
 ylim([-5 5]);
-xlabel('时间(分钟)'); ylabel('平台失准角(°)'); legend('Yaw', 'Orientation','horizontal');
+xlabel('时间(s)'); ylabel('平台失准角(°)'); legend('Yaw', 'Orientation','horizontal');
 
 subplot(2,2,2);
-plot(imu_time/60, log.X(:, 4:6), 'linewidth', 1.5); hold on; grid on;
-plot(imu_time/60, log.P(:, 4:6) * R2D * 3, '-.', 'linewidth', 1);
-plot(imu_time/60, log.P(:, 4:6) * R2D * -3, '-.', 'linewidth', 1);
-xlim([imu_time(1) imu_time(end)]/60);
+plot(imu_time, log.X(:, 4:6), 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, log.P(:, 4:6) * R2D * 1, '-.', 'linewidth', 1);
+plot(imu_time, log.P(:, 4:6) * R2D * -1, '-.', 'linewidth', 1);
+xlim([imu_time(1) imu_time(end)]);
 ylim([-10 10]);
-xlabel('时间(分钟)'); ylabel('速度误差(m/s)'); legend('东', '北', '天', 'Orientation','horizontal');
+xlabel('时间(s)'); ylabel('速度误差(m/s)'); legend('东', '北', '天', 'Orientation','horizontal');
 
 subplot(2,2,4);
-plot(imu_time/60, log.X(:, 7:9), 'linewidth', 1.5); hold on; grid on;
-plot(imu_time/60, log.P(:, 7:9) * R2D * 3, '-.', 'linewidth', 1);
-plot(imu_time/60, log.P(:, 7:9) * R2D * -3, '-.', 'linewidth', 1);
-xlim([imu_time(1) imu_time(end)]/60);
+plot(imu_time, log.X(:, 7:9), 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, log.P(:, 7:9) * R2D * 1, '-.', 'linewidth', 1);
+plot(imu_time, log.P(:, 7:9) * R2D * -1, '-.', 'linewidth', 1);
+xlim([imu_time(1) imu_time(end)]);
 ylim([-100 100]);
-xlabel('时间(分钟)'); ylabel('位置误差(m)'); legend('东', '北', '天', 'Orientation','horizontal');
+xlabel('时间(s)'); ylabel('位置误差(m)'); legend('东', '北', '天', 'Orientation','horizontal');
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
