@@ -47,7 +47,7 @@ opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，�
 % 初始状态方差:    水平姿态           航向       东北天速度        水平位置    高度      陀螺零偏                 加速度计零偏
 opt.P0 = diag([(2*D2R)*ones(1,2), (5*D2R), 0.1*ones(1,2), 0.2, 5*ones(1,2), 10, (10/3600*D2R)*ones(1,2), (10/3600*D2R), (10e-3*GRAVITY)*ones(1,3)])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
-opt.Q = diag([(1/60*D2R)*ones(1,3), (10/60)*ones(1,3), 0*ones(1,3), (0.1/3600*D2R)*ones(1,3), 1e-4*ones(1,3)])^2;
+opt.Q = diag([(1/60*D2R)*ones(1,3), (1/60)*ones(1,3), 0*ones(1,3), (0*0.1/3600*D2R)*ones(1,3), 0*1e-4*ones(1,3)])^2;
 
 %% 数据载入
 % load('dataset/CH300_1.mat');
@@ -109,14 +109,11 @@ gnss_time = imu_time;
 gyro_data = imu_data(:, 1:3);
 acc_data = imu_data(:, 4:6);
 
-lla_data = gnss_data(:, [2 1 3]);
+lla_data = gnss_data(:, [2 1 3]); lla_data(lla_data(:,1)==0, :) = NaN; %数据去0
 lla_data(:,1:2) = lla_data(:,1:2)*D2R;
-lla_data(lla_data(:,1)==0, :) = NaN; %数据去0
 vel_data = gnss_data(:, 4:6);
-bl_yaw = gnss_data(:, 7);
-bl_yaw(bl_yaw==0, :) = NaN; %数据去0
-bl_pitch = gnss_data(:, 8);
-bl_pitch(bl_pitch==0, :) = NaN; %数据去0
+bl_yaw = gnss_data(:, 7); bl_yaw(bl_yaw==0, :) = NaN; %数据去0
+bl_pitch = gnss_data(:, 8); bl_pitch(bl_pitch==0, :) = NaN; %数据去0
 bl_length = gnss_data(:, 9);
 
 pos_std_data = gnss_data(:, 10:12);
@@ -219,6 +216,9 @@ g_b = g_b/norm(g_b);
 pitch0 = asin(-g_b(2));
 roll0 = atan2( g_b(1), -g_b(3));
 yaw0 = opt.inital_yaw*D2R;
+pitch_sins = pitch0;
+roll_sins = roll0;
+yaw_sins = yaw0;
 nQb = angle2quat(-yaw0, pitch0, roll0, 'ZXY');
 nQb_sins = angle2quat(-yaw0, pitch0, roll0, 'ZXY');
 std_acc_sldwin = 100; % acc 滑窗标准差
@@ -246,7 +246,6 @@ log.sins_att = zeros(imu_length, 3);
 log.vb = zeros(imu_length, 3);
 log.zupt_time = zeros(imu_length, 1);
 
-
 tic;
 count_sec = 1;
 for i=1:imu_length
@@ -268,14 +267,19 @@ for i=1:imu_length
 
     % 纯捷联姿态
     rv = (gyro_data(i,:) - gyro_bias0*0)'*imu_dt;
-    rv_norm = norm(rv);
-    if(rv_norm <1e-10) % fix nan issue
-        q_sins = [1 0 0 0];
-    else
-        q_sins = [cos(rv_norm/2); rv/rv_norm*sin(rv_norm/2)]';
-    end
-    nQb_sins = ch_qmul(nQb_sins, q_sins); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
-    nQb_sins = ch_qnormlz(nQb_sins); %单位化四元数
+%     rv_norm = norm(rv);
+%     if(rv_norm <1e-10) % fix nan issue
+%         q_sins = [1 0 0 0];
+%     else
+%         q_sins = [cos(rv_norm/2); rv/rv_norm*sin(rv_norm/2)]';
+%     end
+%     nQb_sins = ch_qmul(nQb_sins, q_sins); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
+%     nQb_sins = ch_qnormlz(nQb_sins); %单位化四元数
+
+    pitch_sins = pitch_sins + rv(1);
+    roll_sins = roll_sins + rv(2);
+    yaw_sins = yaw_sins - rv(3);
+    yaw_sins = yaw_sins + 2*pi*(yaw_sins<0) - 2*pi*(yaw_sins>2*pi);
     
     bQn = ch_qconj(nQb); %更新bQn
     f_n = ch_qmulv(nQb, f_b);
@@ -575,7 +579,7 @@ for i=1:imu_length
     end
     
     % 信息存储
-    [pitch,roll,yaw] = q2att(nQb);
+    [pitch, roll, yaw] = q2att(nQb);
     log.att(i,:) = [pitch roll yaw];
     log.vel(i,:) = vel';
     log.pos(i,:) = pos';
@@ -585,8 +589,8 @@ for i=1:imu_length
     log.acc_bias(i, :) = acc_bias;
     
     % 纯惯性信息存储
-    [pitch,roll,yaw] = q2att(nQb_sins);
-    log.sins_att(i,:) = [pitch roll yaw];
+%     [pitch_sins, roll_sins, yaw_sins] = q2att(nQb_sins);
+    log.sins_att(i,:) = [pitch_sins*R2D roll_sins*R2D yaw_sins*R2D];
 end
 clc;
 fprintf('数据处理完毕，用时%.3f秒\n', toc);
