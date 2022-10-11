@@ -127,6 +127,10 @@ imu_dt = mean(diff(data(:,2)));
 gnss_dt = imu_dt;
 gyro_bias0 = mean(gyro_data(1:opt.alignment_time,:));
 
+fprintf("陀螺起始零篇估计:%.3f,%.3f,%.3f deg\r\n", gyro_bias0(1)*R2D, gyro_bias0(2)*R2D, gyro_bias0(3)*R2D);
+gyro_bias_end = mean(gyro_data(end-opt.alignment_time:end, :));
+fprintf("陀螺起始零篇估计:%.3f,%.3f,%.3f deg\r\n", gyro_bias_end(1)*R2D, gyro_bias_end(2)*R2D, gyro_bias_end(3)*R2D);
+
 %% EVT Bit
 evt_gnss_mask = bitshift(1,0);
 evt_rtk_mask = bitshift(1,1);
