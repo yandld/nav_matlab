@@ -265,22 +265,6 @@ for i=1:imu_length
     [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, GRAVITY, imu_dt);
 
     % 纯捷联姿态
-<<<<<<< HEAD
-    rv = (gyro_data(i,:) - gyro_bias0*0)'*imu_dt;
-%     rv_norm = norm(rv);
-%     if(rv_norm <1e-10) % fix nan issue
-%         q_sins = [1 0 0 0];
-%     else
-%         q_sins = [cos(rv_norm/2); rv/rv_norm*sin(rv_norm/2)]';
-%     end
-%     nQb_sins = ch_qmul(nQb_sins, q_sins); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
-%     nQb_sins = ch_qnormlz(nQb_sins); %单位化四元数
-
-    pitch_sins = pitch_sins + rv(1);
-    roll_sins = roll_sins + rv(2);
-    yaw_sins = yaw_sins - rv(3);
-    yaw_sins = yaw_sins + 2*pi*(yaw_sins<0) - 2*pi*(yaw_sins>2*pi);
-=======
     rv = (gyro_data(i,:)' - gyro_bias)*imu_dt;
     rv_norm = norm(rv);
     if(rv_norm <1e-10) % fix nan issue
@@ -290,7 +274,6 @@ for i=1:imu_length
     end
     nQb_sins = ch_qmul(nQb_sins, q_sins); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
     nQb_sins = ch_qnormlz(nQb_sins); %单位化四元数
->>>>>>> 15c207d (fix nhc bug)
     
     bQn = ch_qconj(nQb); %更新bQn
     f_n = ch_qmulv(nQb, f_b);
