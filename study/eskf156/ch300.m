@@ -24,9 +24,9 @@ opt.zupt_enable = 0;            % ZUPT
 opt.zupt_acc_std = 0.2;        % 加速度计方差滑窗阈值
 opt.zupt_gyr_std = 0.002;        % 陀螺仪方差滑窗阈值
 
-opt.nhc_enable = 1;             % 车辆运动学约束
+opt.nhc_enable = 0;             % 车辆运动学约束
 
-opt.gnss_outage = 1;            % 模拟GNSS丢失
+opt.gnss_outage = 0;            % 模拟GNSS丢失
 opt.outage_start = 1638;         % 丢失开始时间
 opt.outage_stop = 1738;          % 丢失结束时间
 
@@ -53,17 +53,23 @@ opt.Q = diag([(0.5/60*D2R)*ones(1,3), (0.5/60)*ones(1,3), 0*ones(1,3), (1/3600*D
 
 %% 数据载入
 
-% load('dataset/2022年10月10日15时21分02秒.mat');
-% opt.inital_yaw = 163;
 
 % 
 % load('dataset/2022年10月12日15时40分19秒.mat');
 % opt.inital_yaw = 353;
 
-load('dataset/2022年10月17日15时30分23秒.mat');
-opt.inital_yaw = 90;
+% load('dataset/2022年10月17日15时30分23秒.mat');
+% opt.inital_yaw = 90;
 
 
+% load('dataset/2022年10月12日10时17分46秒.mat');
+% opt.inital_yaw = 353;
+
+% load('dataset/2022年10月12日15时40分19秒.mat');
+% opt.inital_yaw = 87;
+
+load('dataset/2022年10月12日16时38分35秒.mat');
+opt.inital_yaw = 161;
 
 pos_type = data(:, 46);
 evt_bit = data(:, 47);
@@ -101,9 +107,9 @@ imu_dt = mean(diff(data(:,2)));
 gnss_dt = imu_dt;
 gyro_bias0 = mean(gyro_data(1:opt.alignment_time,:));
 
-fprintf("gyro起始时刻bias估计:%.3f,%.3f,%.3f deg\r\n", gyro_bias0(1)*R2D, gyro_bias0(2)*R2D, gyro_bias0(3)*R2D);
+fprintf("gyro起始时刻bias估计:%7.3f,%7.3f,%7.3f deg/s\n", gyro_bias0(1)*R2D, gyro_bias0(2)*R2D, gyro_bias0(3)*R2D);
 gyro_bias_end = mean(gyro_data(end-opt.alignment_time:end, :));
-fprintf("gyro结束零时刻bias估计:%.3f,%.3f,%.3f deg\r\n", gyro_bias_end(1)*R2D, gyro_bias_end(2)*R2D, gyro_bias_end(3)*R2D);
+fprintf("gyro结束时刻bias估计:%7.3f,%7.3f,%7.3f deg/s\n", gyro_bias_end(1)*R2D, gyro_bias_end(2)*R2D, gyro_bias_end(3)*R2D);
 
 %% EVT Bit
 evt_gnss_mask = bitshift(1,0);
@@ -230,9 +236,6 @@ for i=1:imu_length
     
     %% 捷联更新
     % 单子样等效旋转矢量法
-    
-% 	gyro_bias(gyro_bias > 0.5*D2R) = 0.5*D2R;
-% 	 gyro_bias(gyro_bias < -0.5*D2R) = -0.5*D2R;
 
     w_b = gyro_data(i,:)' - gyro_bias;
     f_b = acc_data(i,:)' - acc_bias;
@@ -482,7 +485,8 @@ for i=1:imu_length
     log.acc_bias(i, :) = acc_bias;
     
     % 纯惯性信息存储
-    log.sins_att(i,:) = [pitch_sins*R2D roll_sins*R2D yaw_sins*R2D];
+    [pitch_sins, roll_sins, yaw_sins] = q2att(nQb_sins);
+    log.sins_att(i,:) = [pitch_sins roll_sins yaw_sins];
 end
 clc;
 fprintf('数据处理完毕，用时%.3f秒\n', toc);
