@@ -20,6 +20,20 @@ opt.bias_feedback = 1;          % IMU零偏反馈
 
 opt.gravity_update_enable = 0;  % 使能重力静止量更新
 
+opt.zupt_enable = 0;            % ZUPT
+opt.zupt_acc_std = 0.2;        % 加速度计方差滑窗阈值
+opt.zupt_gyr_std = 0.002;        % 陀螺仪方差滑窗阈值
+
+opt.nhc_enable = 1;             % 车辆运动学约束
+
+opt.gnss_outage = 1;            % 模拟GNSS丢失
+opt.outage_start = 1638;         % 丢失开始时间
+opt.outage_stop = 1738;          % 丢失结束时间
+
+opt.gnss_delay = 0.01;          % GNSS量测延迟 sec
+
+opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
+
 %状态量限幅
 % opt.XMAX_PHI = 0.05*D2R*100000000;
 % opt.XMAX_VEL = 10*100000000;
@@ -30,58 +44,27 @@ opt.gravity_update_enable = 0;  % 使能重力静止量更新
 % opt.Xlimit_phi_xy = 0.1*D2R;
 % opt.Xlimit_phi_z = 1*D2R;
 
-opt.zupt_enable = 0;            % ZUPT
-opt.zupt_acc_std = 0.2;        % 加速度计方差滑窗阈值
-opt.zupt_gyr_std = 0.002;        % 陀螺仪方差滑窗阈值
 
-opt.nhc_enable = 0;             % 车辆运动学约束
-
-opt.gnss_outage = 0;            % 模拟GNSS丢失
-opt.outage_start = 2740;         % 丢失开始时间
-opt.outage_stop = 2750;          % 丢失结束时间
-
-opt.gnss_delay = 0.01;          % GNSS量测延迟 sec
-
-opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
-
-% 初始状态方差:    水平姿态           航向       东北天速度        水平位置    高度      陀螺零偏                 加速度计零偏
-opt.P0 = diag([(2*D2R)*ones(1,2), (5*D2R), 0.1*ones(1,2), 0.2, 5*ones(1,2), 10, (10/3600*D2R)*ones(1,2), (10/3600*D2R), (10e-3*GRAVITY)*ones(1,3)])^2;
+% 初始状态方差:    姿态           东北天速度  水平位置      陀螺零偏                              加速度计零偏
+opt.P0 = diag([ [2 2 5]*D2R, [0.1 0.1 0.2], [ 5 5 10],  [30 30 100]* D2R/3600, [10e-3, 10e-3, 10e-3]*GRAVITY])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
-opt.Q = diag([(1/60*D2R)*ones(1,3), (1/60)*ones(1,3), 0*ones(1,3), (0*0.1/3600*D2R)*ones(1,3), 0*1e-4*ones(1,3)])^2;
+opt.Q = diag([(0.5/60*D2R)*ones(1,3), (0.5/60)*ones(1,3), 0*ones(1,3), (1/3600*D2R)*ones(1,3), 1e-4*GRAVITY*ones(1,3)])^2;
 
 
 %% 数据载入
 
-% load('dataset/2022年10月06日16时55分28秒.mat');
-% opt.inital_yaw = 90;
-
-% load('dataset/2022年10月08日16时00分31秒.mat');
-% opt.inital_yaw = 90;
-
-% load('dataset/2022年10月08日17时02分28秒.mat');
-% opt.inital_yaw = 170;
-
-% load('dataset/2022年10月09日14时04分25秒.mat');
-% opt.inital_yaw = 25;
-
-load('dataset/2022年10月10日10时41分51秒.mat');
-opt.inital_yaw = 263;
-
 % load('dataset/2022年10月10日15时21分02秒.mat');
 % opt.inital_yaw = 163;
 
-
-
-
+% 
 % load('dataset/2022年10月12日15时40分19秒.mat');
 % opt.inital_yaw = 353;
-% 
-% load('dataset/2022年10月12日16时38分35秒.mat');
-% opt.inital_yaw = 353;
+
+load('dataset/2022年10月17日15时30分23秒.mat');
+opt.inital_yaw = 90;
 
 
 
-ins_status = data(:, 45);
 pos_type = data(:, 46);
 evt_bit = data(:, 47);
 
@@ -113,6 +96,7 @@ span.lla = span_data(:, [8 7 9]);
 span.vel = span_data(:, 4:6);
 span.att = span_data(:, 1:3);
 
+last_gnss_evt = 1;
 imu_dt = mean(diff(data(:,2)));
 gnss_dt = imu_dt;
 gyro_bias0 = mean(gyro_data(1:opt.alignment_time,:));
@@ -123,11 +107,8 @@ fprintf("gyro结束零时刻bias估计:%.3f,%.3f,%.3f deg\r\n", gyro_bias_end(1)
 
 %% EVT Bit
 evt_gnss_mask = bitshift(1,0);
-evt_rtk_mask = bitshift(1,1);
 evt_gpst_mask = bitshift(1,2);
 evt_ins_mask = bitshift(1,4);
-evt_dualgnss_mask = bitshift(1,5);
-evt_qx_mask = bitshift(1,6);
 
 % evt_gnss = bitand(evt_bit, evt_gnss_mask);
 evt_gnss = zeros(gnss_length, 1);
@@ -141,10 +122,8 @@ for i=2:gnss_length
         evt_gnss(i) = 1;
     end
 end
-evt_rtk = bitand(evt_bit, evt_rtk_mask);
 evt_gpst = bitand(evt_bit, evt_gpst_mask);
 evt_ins = bitand(evt_bit, evt_ins_mask);
-evt_dualgnss = bitand(evt_bit, evt_dualgnss_mask);
 
 % GNSS数据抽样
 gnss_resample_index = find(evt_gnss == evt_gnss_mask);
@@ -153,23 +132,23 @@ evt_gnss = zeros(gnss_length, 1);
 evt_gnss(gnss_resample_index) = evt_gnss_mask;
 
 %% 检测GNSS数据何时更新
-gnss_update = zeros(gnss_length, 1);
-for i=2:gnss_length
-    if (gnss_data(i, 1)~=gnss_data(i-1, 1)) || ...
-            (gnss_data(i, 2)~=gnss_data(i-1, 2)) || ...
-            (gnss_data(i, 3)~=gnss_data(i-1, 3)) || ...
-            (gnss_data(i, 4)~=gnss_data(i-1, 4)) || ...
-            (gnss_data(i, 5)~=gnss_data(i-1, 5)) || ...
-            (gnss_data(i, 6)~=gnss_data(i-1, 6))
-        gnss_update(i) = 1;
-    end
-end
-
-% GNSS数据抽样
-gnss_resample_index = find(gnss_update == 1);
-gnss_resample_index = gnss_resample_index(1:opt.gnss_intervel:end);
-gnss_update = zeros(gnss_length, 1);
-gnss_update(gnss_resample_index) = 1;
+% gnss_update = zeros(gnss_length, 1);
+% for i=2:gnss_length
+%     if (gnss_data(i, 1)~=gnss_data(i-1, 1)) || ...
+%             (gnss_data(i, 2)~=gnss_data(i-1, 2)) || ...
+%             (gnss_data(i, 3)~=gnss_data(i-1, 3)) || ...
+%             (gnss_data(i, 4)~=gnss_data(i-1, 4)) || ...
+%             (gnss_data(i, 5)~=gnss_data(i-1, 5)) || ...
+%             (gnss_data(i, 6)~=gnss_data(i-1, 6))
+%         gnss_update(i) = 1;
+%     end
+% end
+% 
+% % GNSS数据抽样
+% gnss_resample_index = find(gnss_update == 1);
+% gnss_resample_index = gnss_resample_index(1:opt.gnss_intervel:end);
+% gnss_update = zeros(gnss_length, 1);
+% gnss_update(gnss_resample_index) = 1;
 
 %% 经纬度转换为当地东北天坐标系
 lat0 = lla_data(1, 1);
@@ -194,8 +173,6 @@ for i=1:gnss_length
     distance_sum = distance_sum + log.vel_norm(i)*gnss_dt;
     time_sum = time_sum + gnss_dt;
 end
-
-% plot_enu_vel(gnss_enu, log.vel_norm);
 
 %% MCU结果转换为当地东北天坐标系
 span_enu = zeros(span_length, 3);
@@ -256,7 +233,6 @@ for i=1:imu_length
     
 % 	gyro_bias(gyro_bias > 0.5*D2R) = 0.5*D2R;
 % 	 gyro_bias(gyro_bias < -0.5*D2R) = -0.5*D2R;
-
 
     w_b = gyro_data(i,:)' - gyro_bias;
     f_b = acc_data(i,:)' - acc_bias;
@@ -345,8 +321,7 @@ for i=1:imu_length
             
             % 暂存状态X
             X_temp = X;
-            
-            % 误差清零
+
             X(1:6) = zeros(6,1);
             
             % 零偏反馈
@@ -405,17 +380,17 @@ for i=1:imu_length
     
     %% GNSS量测更新
     if (evt_gnss(i) && ~isnan(gnss_enu(i,1)))
+        last_gnss_evt = i;
         if( (~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop) )
             H = zeros(6,15);
             H(1:3,4:6) = eye(3);
             H(4:6,7:9) = eye(3);
-
+            
             Z = [vel - vel_data(i,:)'; pos - gnss_enu(i,:)'];
             
             % GNSS量测延迟补偿
             Z = Z - [a_n; vel]*opt.gnss_delay;
             
-%         R = diag([0.1*ones(2,1); 0.2; 1*ones(2,1); 2])^2;
             R = diag([vel_std_data(i,:)  pos_std_data(i,:)])^2;
 
             % 卡尔曼量测更新
@@ -453,13 +428,8 @@ for i=1:imu_length
                 nCb = bCn'; %更新nCb阵
             end
             
-            % 速度修正
             vel = vel - X(4:6);
-            
-            % 位置修正
             pos = pos - X(7:9);
-            
-            % 暂存状态X
             X_temp = X;
             
             % 误差清零
@@ -474,106 +444,34 @@ for i=1:imu_length
             end
         end
     end
-    
-       if opt.nhc_enable
+
+      %  imu_time(i) > opt.outage_start && imu_time(i) < opt.outage_stop
+      % (i - last_gnss_evt > 50)
+      %1865
+       if opt.nhc_enable && norm(gyro_data(i,:)) < 2*D2R && (i - last_gnss_evt > 50)
             H = zeros(3,15);
             H(1:3,4:6) = eye(3);
 
             vb_hmc = [log.vb(i,1); log.vb(i,2); log.vb(i,3)];
-%             vb_hmc(1) = 0;
+            vb_hmc(1) = 0;
             vb_hmc(3) = 0;
             vn_hmc = bCn * vb_hmc;
             
             Z = vel - vn_hmc;
             
-            Rb = diag([2 2 2])^2;
+            Rb = diag([ones(1,3)*1])^2;
             R = bCn*Rb*bCn';
+           % R = Rb;
             
             % 卡尔曼量测更新
             K = P * H' / (H * P * H' + R);
             X = X + K * (Z - H * X);
             P = (eye(length(X)) - K * H) * P;
             
-%             % 姿态修正
-%             rv = X(1:3);
-%             rv_norm = norm(rv);
-%             if rv_norm ~= 0
-%                 qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-%                 nQb = ch_qmul(qe, nQb);
-%                 nQb = ch_qnormlz(nQb); %单位化四元数
-%                 bQn = ch_qconj(nQb); %更新bQn
-%                 bCn = ch_q2m(nQb); %更新bCn阵
-%                 nCb = bCn'; %更新nCb阵
-%             end
-%             
-%             % 速度修正
-%             vel = vel - X(4:6);
-%             
-%             % 位置修正
-%             pos = pos - X(7:9);
-%             
-%             % 暂存状态X
-%             X_temp = X;
-%             
-%             % 误差清零
-%             X(1:9) = zeros(9,1);
-%             
-%             % 零偏反馈
-%             if opt.bias_feedback
-%                 gyro_bias = gyro_bias + X(10:12);
-%                 acc_bias = acc_bias + X(13:15);
-%                 X(10:12) = 0;
-%                 X(13:15) = 0;
-%             end
        end
-    %% 双天线
- %   if (evt_dualgnss(i))
- if false
-        if abs(bl_length(i) - bl_length0)<0.05
-            bl_b = [0; 1; 0];
-            bl_n = [sind(bl_yaw(i))*cosd(bl_pitch(i)); cosd(bl_yaw(i))*cosd(bl_pitch(i)); sind(bl_pitch(i))];
-            
-            H = zeros(3, 15);
-            H(1:3,1:3) = askew(bl_n);
 
-            Z = bCn*bl_b - bl_n;
-
-            R = diag([1 1 1])^2;
-            
-            % 卡尔曼量测更新
-            K = P * H' / (H * P * H' + R);
-            X = X + K * (Z - H * X);
-            P = (eye(length(X)) - K * H) * P;
-            
-            % 姿态修正
-            rv = X(1:3);
-            rv_norm = norm(rv);
-            if rv_norm ~= 0
-                qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-                nQb = ch_qmul(qe, nQb);
-                nQb = ch_qnormlz(nQb); %单位化四元数
-                bQn = ch_qconj(nQb); %更新bQn
-                bCn = ch_q2m(nQb); %更新bCn阵
-                nCb = bCn'; %更新nCb阵
-            end
-            
-            % 暂存状态X
-            X_temp = X;
-            
-            % 误差清零
-            X(1:3) = zeros(3,1);
-            
-            % 零偏反馈
-            if opt.bias_feedback
-                gyro_bias = gyro_bias + X(10:12);
-                acc_bias = acc_bias + X(13:15);
-                X(10:12) = zeros(3,1);
-                X(13:15) = zeros(3,1);
-            end
-        end
-    end
     
-    % 信息存储
+    %% 信息存储
     [pitch, roll, yaw] = q2att(nQb);
     log.att(i,:) = [pitch roll yaw];
     log.vel(i,:) = vel';
@@ -584,7 +482,6 @@ for i=1:imu_length
     log.acc_bias(i, :) = acc_bias;
     
     % 纯惯性信息存储
-%     [pitch_sins, roll_sins, yaw_sins] = q2att(nQb_sins);
     log.sins_att(i,:) = [pitch_sins*R2D roll_sins*R2D yaw_sins*R2D];
 end
 clc;
