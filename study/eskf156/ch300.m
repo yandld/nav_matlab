@@ -85,11 +85,20 @@ opt.Q = diag([(1/60*D2R)*ones(1,3), (1/60)*ones(1,3), 0*ones(1,3), (0*0.1/3600*D
 % load('dataset/2022年10月09日14时04分25秒.mat');
 % opt.inital_yaw = 25;
 
-load('dataset/2022年10月10日10时41分51秒.mat');
-opt.inital_yaw = 263;
+% load('dataset/2022年10月10日10时41分51秒.mat');
+% opt.inital_yaw = 263;
 
 % load('dataset/2022年10月10日15时21分02秒.mat');
 % opt.inital_yaw = 163;
+
+% load('dataset/2022年10月12日10时17分46秒.mat');
+% opt.inital_yaw = 353;
+
+% load('dataset/2022年10月12日15时40分19秒.mat');
+% opt.inital_yaw = 87;
+
+load('dataset/2022年10月12日16时38分35秒.mat');
+opt.inital_yaw = 161;
 
 ins_status = data(:, 45);
 pos_type = data(:, 46);
@@ -127,9 +136,10 @@ imu_dt = mean(diff(data(:,2)));
 gnss_dt = imu_dt;
 gyro_bias0 = mean(gyro_data(1:opt.alignment_time,:));
 
-fprintf("陀螺起始零篇估计:%.3f,%.3f,%.3f deg\r\n", gyro_bias0(1)*R2D, gyro_bias0(2)*R2D, gyro_bias0(3)*R2D);
-gyro_bias_end = mean(gyro_data(end-opt.alignment_time:end, :));
-fprintf("陀螺起始零篇估计:%.3f,%.3f,%.3f deg\r\n", gyro_bias_end(1)*R2D, gyro_bias_end(2)*R2D, gyro_bias_end(3)*R2D);
+% fprintf("陀螺起始零篇估计:%.3f,%.3f,%.3f deg\r\n", gyro_bias0(1)*R2D, gyro_bias0(2)*R2D, gyro_bias0(3)*R2D);
+% gyro_bias_end = mean(gyro_data(end-opt.alignment_time:end, :));
+% fprintf("陀螺起始零篇估计:%.3f,%.3f,%.3f deg\r\n", gyro_bias_end(1)*R2D, gyro_bias_end(2)*R2D, gyro_bias_end(3)*R2D);
+% return;
 
 %% EVT Bit
 evt_gnss_mask = bitshift(1,0);
