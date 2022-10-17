@@ -21,14 +21,14 @@ opt.bias_feedback = 1;          % IMU零偏反馈
 opt.gravity_update_enable = 0;  % 使能重力静止量更新
 
 %状态量限幅
-opt.XMAX_PHI = 0.05*D2R*100000000;
-opt.XMAX_VEL = 10*100000000;
-opt.XMAX_POS = 100*100000000;
-opt.XMAX_GB = 1 * D2R*100000000;
-opt.XMAX_WB = 1 * GRAVITY*100000000;
-
-opt.Xlimit_phi_xy = 0.1*D2R;
-opt.Xlimit_phi_z = 1*D2R;
+% opt.XMAX_PHI = 0.05*D2R*100000000;
+% opt.XMAX_VEL = 10*100000000;
+% opt.XMAX_POS = 100*100000000;
+% opt.XMAX_GB = 1e-2 * D2R;
+% opt.XMAX_WB = 1e-2 * GRAVITY;
+% 
+% opt.Xlimit_phi_xy = 0.1*D2R;
+% opt.Xlimit_phi_z = 1*D2R;
 
 opt.zupt_enable = 0;            % ZUPT
 opt.zupt_acc_std = 0.2;        % 加速度计方差滑窗阈值
@@ -37,8 +37,8 @@ opt.zupt_gyr_std = 0.002;        % 陀螺仪方差滑窗阈值
 opt.nhc_enable = 0;             % 车辆运动学约束
 
 opt.gnss_outage = 0;            % 模拟GNSS丢失
-opt.outage_start = 270;         % 丢失开始时间
-opt.outage_stop = 290;          % 丢失结束时间
+opt.outage_start = 2740;         % 丢失开始时间
+opt.outage_stop = 2750;          % 丢失结束时间
 
 opt.gnss_delay = 0.01;          % GNSS量测延迟 sec
 
@@ -49,30 +49,8 @@ opt.P0 = diag([(2*D2R)*ones(1,2), (5*D2R), 0.1*ones(1,2), 0.2, 5*ones(1,2), 10, 
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
 opt.Q = diag([(1/60*D2R)*ones(1,3), (1/60)*ones(1,3), 0*ones(1,3), (0*0.1/3600*D2R)*ones(1,3), 0*1e-4*ones(1,3)])^2;
 
+
 %% 数据载入
-% load('dataset/CH300_1.mat');
-% opt.inital_yaw = 90;
-% bl_length0 = 1.18;
-
-% load('dataset/CH300_2.mat');
-% opt.inital_yaw = 180;
-% bl_length0 = 1.18;
-
-% load('dataset/data20220918.mat');
-% opt.inital_yaw = 90;
-
-% load('dataset/data20220923.mat');
-% opt.inital_yaw = 90;
-
-% load('dataset/data20220930_1.mat');
-% opt.inital_yaw = 0;
-
-% load('dataset/data20220930_2.mat');
-% opt.inital_yaw = 270;
-
-% load('dataset/data20221006.mat');
-% opt.inital_yaw = 90;
-
 % load('dataset/2022年10月06日16时55分28秒.mat');
 % opt.inital_yaw = 90;
 
@@ -136,10 +114,9 @@ imu_dt = mean(diff(data(:,2)));
 gnss_dt = imu_dt;
 gyro_bias0 = mean(gyro_data(1:opt.alignment_time,:));
 
-% fprintf("陀螺起始零篇估计:%.3f,%.3f,%.3f deg\r\n", gyro_bias0(1)*R2D, gyro_bias0(2)*R2D, gyro_bias0(3)*R2D);
-% gyro_bias_end = mean(gyro_data(end-opt.alignment_time:end, :));
-% fprintf("陀螺起始零篇估计:%.3f,%.3f,%.3f deg\r\n", gyro_bias_end(1)*R2D, gyro_bias_end(2)*R2D, gyro_bias_end(3)*R2D);
-% return;
+fprintf("gyro起始时刻bias估计:%7.3f,%7.3f,%7.3f deg/s\n", gyro_bias0(1)*R2D, gyro_bias0(2)*R2D, gyro_bias0(3)*R2D);
+gyro_bias_end = mean(gyro_data(end-opt.alignment_time:end, :));
+fprintf("gyro结束时刻bias估计:%7.3f,%7.3f,%7.3f deg/s\n", gyro_bias_end(1)*R2D, gyro_bias_end(2)*R2D, gyro_bias_end(3)*R2D);
 
 %% EVT Bit
 evt_gnss_mask = bitshift(1,0);
@@ -273,6 +250,10 @@ for i=1:imu_length
     
     %% 捷联更新
     % 单子样等效旋转矢量法
+    
+% 	gyro_bias(gyro_bias > 0.5*D2R) = 0.5*D2R;
+% 	gyro_bias(gyro_bias < -0.5*D2R) = -0.5*D2R;
+
     w_b = gyro_data(i,:)' - gyro_bias;
     f_b = acc_data(i,:)' - acc_bias;
     
@@ -280,20 +261,15 @@ for i=1:imu_length
     [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, GRAVITY, imu_dt);
 
     % 纯捷联姿态
-    rv = (gyro_data(i,:) - gyro_bias0*0)'*imu_dt;
-%     rv_norm = norm(rv);
-%     if(rv_norm <1e-10) % fix nan issue
-%         q_sins = [1 0 0 0];
-%     else
-%         q_sins = [cos(rv_norm/2); rv/rv_norm*sin(rv_norm/2)]';
-%     end
-%     nQb_sins = ch_qmul(nQb_sins, q_sins); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
-%     nQb_sins = ch_qnormlz(nQb_sins); %单位化四元数
-
-    pitch_sins = pitch_sins + rv(1);
-    roll_sins = roll_sins + rv(2);
-    yaw_sins = yaw_sins - rv(3);
-    yaw_sins = yaw_sins + 2*pi*(yaw_sins<0) - 2*pi*(yaw_sins>2*pi);
+    rv = (gyro_data(i,:)' - gyro_bias)*imu_dt;
+    rv_norm = norm(rv);
+    if(rv_norm <1e-10) % fix nan issue
+        q_sins = [1 0 0 0];
+    else
+        q_sins = [cos(rv_norm/2); rv/rv_norm*sin(rv_norm/2)]';
+    end
+    nQb_sins = ch_qmul(nQb_sins, q_sins); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
+    nQb_sins = ch_qnormlz(nQb_sins); %单位化四元数
     
     bQn = ch_qconj(nQb); %更新bQn
     f_n = ch_qmulv(nQb, f_b);
@@ -455,11 +431,11 @@ for i=1:imu_length
 %             X(X(13:15) > opt.XMAX_WB) = opt.XMAX_WB;
 %             X(X(13:15) < -opt.XMAX_WB) = -opt.XMAX_WB;
 
-            X(X(1:2) > opt.Xlimit_phi_xy) = opt.Xlimit_phi_xy;
-            X(X(1:2) < -opt.Xlimit_phi_xy) = -opt.Xlimit_phi_xy;
-
-            X(X(3) > opt.Xlimit_phi_z) = opt.Xlimit_phi_z;
-            X(X(3) < -opt.Xlimit_phi_z) = -opt.Xlimit_phi_z;
+%             X(X(1:2) > opt.Xlimit_phi_xy) = opt.Xlimit_phi_xy;
+%             X(X(1:2) < -opt.Xlimit_phi_xy) = -opt.Xlimit_phi_xy;
+% 
+%             X(X(3) > opt.Xlimit_phi_z) = opt.Xlimit_phi_z;
+%             X(X(3) < -opt.Xlimit_phi_z) = -opt.Xlimit_phi_z;
 
             % 姿态修正
             rv = X(1:3);
@@ -492,18 +468,21 @@ for i=1:imu_length
                  X(10:12) = 0;
                  X(13:15) = 0;
             end
-
-        elseif opt.nhc_enable
+        end
+    end
+    
+       if opt.nhc_enable
             H = zeros(3,15);
             H(1:3,4:6) = eye(3);
 
-            vb_hmc = [log.vb(i,1); log.vb(i,2); 0];
+            vb_hmc = [log.vb(i,1); log.vb(i,2); log.vb(i,3)];
+%             vb_hmc(1) = 0;
+            vb_hmc(3) = 0;
             vn_hmc = bCn * vb_hmc;
             
             Z = vel - vn_hmc;
-            Z(1:2) = zeros(2,1);
             
-            Rb = diag([1 1 1])^2;
+            Rb = diag([2 2 2])^2;
             R = bCn*Rb*bCn';
             
             % 卡尔曼量测更新
@@ -511,40 +490,38 @@ for i=1:imu_length
             X = X + K * (Z - H * X);
             P = (eye(length(X)) - K * H) * P;
             
-            % 姿态修正
-            rv = X(1:3);
-            rv_norm = norm(rv);
-            if rv_norm ~= 0
-                qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-                nQb = ch_qmul(qe, nQb);
-                nQb = ch_qnormlz(nQb); %单位化四元数
-                bQn = ch_qconj(nQb); %更新bQn
-                bCn = ch_q2m(nQb); %更新bCn阵
-                nCb = bCn'; %更新nCb阵
-            end
-            
-            % 速度修正
-            vel = vel - X(4:6);
-            
-            % 位置修正
-            pos = pos - X(7:9);
-            
-            % 暂存状态X
-            X_temp = X;
-            
-            % 误差清零
-            X(1:9) = zeros(9,1);
-            
-            % 零偏反馈
-            if opt.bias_feedback
-                gyro_bias = gyro_bias + X(10:12);
-                acc_bias = acc_bias + X(13:15);
-                X(10:12) = zeros(3,1);
-                X(13:15) = zeros(3,1);
-            end
-        end
-    end
-
+%             % 姿态修正
+%             rv = X(1:3);
+%             rv_norm = norm(rv);
+%             if rv_norm ~= 0
+%                 qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
+%                 nQb = ch_qmul(qe, nQb);
+%                 nQb = ch_qnormlz(nQb); %单位化四元数
+%                 bQn = ch_qconj(nQb); %更新bQn
+%                 bCn = ch_q2m(nQb); %更新bCn阵
+%                 nCb = bCn'; %更新nCb阵
+%             end
+%             
+%             % 速度修正
+%             vel = vel - X(4:6);
+%             
+%             % 位置修正
+%             pos = pos - X(7:9);
+%             
+%             % 暂存状态X
+%             X_temp = X;
+%             
+%             % 误差清零
+%             X(1:9) = zeros(9,1);
+%             
+%             % 零偏反馈
+%             if opt.bias_feedback
+%                 gyro_bias = gyro_bias + X(10:12);
+%                 acc_bias = acc_bias + X(13:15);
+%                 X(10:12) = 0;
+%                 X(13:15) = 0;
+%             end
+       end
     %% 双天线
  %   if (evt_dualgnss(i))
  if false
@@ -603,8 +580,8 @@ for i=1:imu_length
     log.acc_bias(i, :) = acc_bias;
     
     % 纯惯性信息存储
-%     [pitch_sins, roll_sins, yaw_sins] = q2att(nQb_sins);
-    log.sins_att(i,:) = [pitch_sins*R2D roll_sins*R2D yaw_sins*R2D];
+    [pitch_sins, roll_sins, yaw_sins] = q2att(nQb_sins);
+    log.sins_att(i,:) = [pitch_sins roll_sins yaw_sins];
 end
 clc;
 fprintf('数据处理完毕，用时%.3f秒\n', toc);
