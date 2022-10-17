@@ -53,7 +53,6 @@ opt.Q = diag([(0.5/60*D2R)*ones(1,3), (0.5/60)*ones(1,3), 0*ones(1,3), (1/3600*D
 
 %% 数据载入
 
-
 % 
 % load('dataset/2022年10月12日15时40分19秒.mat');
 % opt.inital_yaw = 353;
@@ -68,8 +67,12 @@ opt.Q = diag([(0.5/60*D2R)*ones(1,3), (0.5/60)*ones(1,3), 0*ones(1,3), (1/3600*D
 % load('dataset/2022年10月12日15时40分19秒.mat');
 % opt.inital_yaw = 87;
 
-load('dataset/2022年10月12日16时38分35秒.mat');
+% load('dataset/2022年10月12日16时38分35秒.mat');
+% opt.inital_yaw = 161;
+
+load('dataset/2022年10月17日13时37分50秒.mat');
 opt.inital_yaw = 161;
+
 
 pos_type = data(:, 46);
 evt_bit = data(:, 47);
@@ -204,7 +207,6 @@ vel = [0 0 0]';
 pos = [0 0 0]';
 
 X = zeros(15,1);
-% X(10:12) = gyro_bias0';
 X_temp = X;
 gyro_bias = X(10:12);
 acc_bias = X(13:15);
@@ -241,18 +243,10 @@ for i=1:imu_length
     f_b = acc_data(i,:)' - acc_bias;
     
     % 捷联更新
-    [nQb, pos, vel, q] = ins(w_b, f_b, nQb, pos, vel, GRAVITY, imu_dt);
+    [nQb, pos, vel, ~] = ins(w_b, f_b, nQb, pos, vel, GRAVITY, imu_dt);
 
     % 纯捷联姿态
-    rv = (gyro_data(i,:)' - gyro_bias)*imu_dt;
-    rv_norm = norm(rv);
-    if(rv_norm <1e-10) % fix nan issue
-        q_sins = [1 0 0 0];
-    else
-        q_sins = [cos(rv_norm/2); rv/rv_norm*sin(rv_norm/2)]';
-    end
-    nQb_sins = ch_qmul(nQb_sins, q_sins); %四元数更新（秦永元《惯性导航（第二版）》P260公式9.3.3）
-    nQb_sins = ch_qnormlz(nQb_sins); %单位化四元数
+    [nQb_sins, ~, ~, ~] = ins(w_b, f_b, nQb_sins, pos, vel, GRAVITY, imu_dt);
     
     bQn = ch_qconj(nQb); %更新bQn
     f_n = ch_qmulv(nQb, f_b);
