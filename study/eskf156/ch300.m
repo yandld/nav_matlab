@@ -5,11 +5,12 @@ clc;
 format long g;
 format compact;
 
-R2D = 180/pi;
-D2R = pi/180;
-GRAVITY = 9.8;
-Re = 6378137;
-Earth_e = 0.00335281066474748;
+N = 15;                 %ESKF维度
+R2D = 180/pi;       % Rad to Deg
+D2R = pi/180;       % Deg to Rad
+GRAVITY = 9.8;     % 重力加速度
+Re = 6378137;      %地球半径
+Earth_e = 0.00335281066474748; %地球扁率
 
 %% 说明
 % KF 状态量: 失准角(3) 速度误差(3) 位置误差(3) 陀螺零偏(3) 加计零偏(3)
@@ -18,20 +19,18 @@ Earth_e = 0.00335281066474748;
 opt.alignment_time = 10e2;      % 初始对准时间
 opt.bias_feedback = 1;          % IMU零偏反馈
 
-opt.gravity_update_enable = 0;  % 使能重力静止量更新
+opt.gravity_update_enable = 1;  % 使能重力静止量更新
+opt.nhc_enable = 0;             % 车辆运动学约束
 
-opt.zupt_enable = 0;            % ZUPT
 opt.zupt_acc_std = 0.2;        % 加速度计方差滑窗阈值
 opt.zupt_gyr_std = 0.002;        % 陀螺仪方差滑窗阈值
 
-opt.nhc_enable = 0;             % 车辆运动学约束
-
 opt.gnss_outage = 0;            % 模拟GNSS丢失
-opt.outage_start = 1638;         % 丢失开始时间
-opt.outage_stop = 1738;          % 丢失结束时间
+opt.outage_start = 2892;         % 丢失开始时间
+opt.outage_stop = 3122;          % 丢失结束时间
 
-opt.gnss_delay = 0.01;          % GNSS量测延迟 sec
-
+opt.gnss_delay = 0;          % GNSS量测延迟 sec
+opt.gravity_R = 0.2;          % 重力更新 噪声
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 %状态量限幅
@@ -46,7 +45,7 @@ opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，�
 
 
 % 初始状态方差:    姿态           东北天速度  水平位置      陀螺零偏                              加速度计零偏
-opt.P0 = diag([ [2 2 5]*D2R, [0.1 0.1 0.2], [ 5 5 10],  [30 30 100]* D2R/3600, [10e-3, 10e-3, 10e-3]*GRAVITY])^2;
+opt.P0 = diag([ [2 2 5]*D2R, [0.1 0.1 0.1], [ 10 10 10],  [100 100 100]* D2R/3600, [10e-3, 10e-3, 10e-3]*GRAVITY])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
 opt.Q = diag([(0.5/60*D2R)*ones(1,3), (0.5/60)*ones(1,3), 0*ones(1,3), (1/3600*D2R)*ones(1,3), 1e-4*GRAVITY*ones(1,3)])^2;
 
@@ -284,52 +283,7 @@ for i=1:imu_length
         log.std_gyr_sldwin(i) = std_gyr_sldwin;
     end
     
-    %% 静止条件判断
-    if (std_gyr_sldwin < opt.zupt_gyr_std) && (std_acc_sldwin < opt.zupt_acc_std)
-        log.zupt_time(i) = 1;
-        
-        %% ZUPT
-        if opt.zupt_enable
-            H = zeros(3, 15);
-            H(1:3,4:6) = eye(3);
-            
-            Z = vel;
-            
-            R = diag(0.1*ones(1,3))^2;
-            
-            K = P * H' / (H * P * H' + R);
-            X = X + K * (Z - H * X);
-            P = (eye(length(X)) - K * H) * P;
-            
-            % 姿态修正
-            rv = X(1:3);
-            rv_norm = norm(rv);
-            if rv_norm ~= 0
-                qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-                nQb = ch_qmul(qe, nQb);
-                nQb = ch_qnormlz(nQb); %单位化四元数
-                bQn = ch_qconj(nQb); %更新bQn
-                bCn = ch_q2m(nQb); %更新bCn阵
-                nCb = bCn'; %更新nCb阵
-            end
-            
-            % 速度修正
-            vel = vel - X(4:6);
-            
-            % 暂存状态X
-            X_temp = X;
 
-            X(1:6) = zeros(6,1);
-            
-            % 零偏反馈
-            if opt.bias_feedback
-                gyro_bias = gyro_bias + X(10:12);
-                acc_bias = acc_bias + X(13:15);
-                X(10:12) = zeros(3,1);
-                X(13:15) = zeros(3,1);
-            end
-        end
-        
         %% 静止状态下重力量测更新姿态
         if opt.gravity_update_enable
             H = zeros(2,15);
@@ -340,45 +294,33 @@ for i=1:imu_length
             Z = g_n - [0;0;-1];
             Z = Z(1:2);
             
-            R = diag([10 10])^2;
+            R = diag([opt.gravity_R  opt.gravity_R])^2;
             
             % 卡尔曼量测更新
             K = P * H' / (H * P * H' + R);
             X = X + K * (Z - H * X);
-            P = (eye(length(X)) - K * H) * P;
+            P = (eye(N) - K * H) * P;
             
             % 姿态修正
             rv = X(1:3);
             rv_norm = norm(rv);
-            if rv_norm ~= 0
-                qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-                nQb = ch_qmul(qe, nQb);
-                nQb = ch_qnormlz(nQb); %单位化四元数
-                bQn = ch_qconj(nQb); %更新bQn
-                bCn = ch_q2m(nQb); %更新bCn阵
-                nCb = bCn'; %更新nCb阵
-            end
-            
-            % 暂存状态X
-            X_temp = X;
-            
-            % 误差清零
-            X(1:3) = zeros(3,1);
-            
-            % 零偏反馈
-            if opt.bias_feedback
-                gyro_bias = gyro_bias + X(10:12);
-                acc_bias = acc_bias + X(13:15);
-                X(10:12) = zeros(3,1);
-                X(13:15) = zeros(3,1);
-            end
+            qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
+            nQb = ch_qmul(qe, nQb);
+            nQb = ch_qnormlz(nQb); %单位化四元数
+            bQn = ch_qconj(nQb); %更新bQn
+            bCn = ch_q2m(nQb); %更新bCn阵
+            nCb = bCn'; %更新nCb阵
+            X(1:3) = 0;
         end
-    end
-    
+
+        %% 静止条件判断
+   % if (std_gyr_sldwin < opt.zupt_gyr_std) && (std_acc_sldwin < opt.zupt_acc_std)
+ %   end
     %% GNSS量测更新
     if (evt_gnss(i) && ~isnan(gnss_enu(i,1)))
         last_gnss_evt = i;
-        if( (~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop) )
+        if( (~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop))
+            if(norm(vel_std_data(i,:) - vel_std_data(i-1,:)) < 0.02) % 踢掉GNSS输出的可能的不可靠结果
             H = zeros(6,15);
             H(1:3,4:6) = eye(3);
             H(4:6,7:9) = eye(3);
@@ -393,19 +335,9 @@ for i=1:imu_length
             % 卡尔曼量测更新
             K = P * H' / (H * P * H' + R);
             X = X + K * (Z - H * X);
-            P = (eye(length(X)) - K * H) * P;
+            P = (eye(N) - K * H) * P;
             
             %状态量限制
-%             X(X(1:3) > opt.XMAX_PHI) = opt.XMAX_PHI;
-%             X(X(1:3) < -opt.XMAX_PHI) = -opt.XMAX_PHI;
-%             X(X(4:6) > opt.XMAX_VEL) = opt.XMAX_VEL;
-%             X(X(4:6) < -opt.XMAX_VEL) = -opt.XMAX_VEL;
-%             X(X(7:9) > opt.XMAX_POS) = opt.XMAX_POS;
-%             X(X(7:9) < -opt.XMAX_POS) = -opt.XMAX_POS;
-%             X(X(10:12) > opt.XMAX_GB) = opt.XMAX_GB;
-%             X(X(10:12) < -opt.XMAX_GB) = -opt.XMAX_GB;
-%             X(X(13:15) > opt.XMAX_WB) = opt.XMAX_WB;
-%             X(X(13:15) < -opt.XMAX_WB) = -opt.XMAX_WB;
 
 %             X(X(1:2) > opt.Xlimit_phi_xy) = opt.Xlimit_phi_xy;
 %             X(X(1:2) < -opt.Xlimit_phi_xy) = -opt.Xlimit_phi_xy;
@@ -416,21 +348,19 @@ for i=1:imu_length
             % 姿态修正
             rv = X(1:3);
             rv_norm = norm(rv);
-            if rv_norm ~= 0
                 qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
                 nQb = ch_qmul(qe, nQb);
                 nQb = ch_qnormlz(nQb); %单位化四元数
                 bQn = ch_qconj(nQb); %更新bQn
                 bCn = ch_q2m(nQb); %更新bCn阵
                 nCb = bCn'; %更新nCb阵
-            end
             
             vel = vel - X(4:6);
             pos = pos - X(7:9);
             X_temp = X;
             
             % 误差清零
-            X(1:9) = zeros(9,1);
+            X(1:9) = 0;
             
             % 零偏反馈
             if opt.bias_feedback
@@ -438,6 +368,7 @@ for i=1:imu_length
                  acc_bias = acc_bias + X(13:15);
                  X(10:12) = 0;
                  X(13:15) = 0;
+            end
             end
         end
     end
@@ -463,7 +394,7 @@ for i=1:imu_length
             % 卡尔曼量测更新
             K = P * H' / (H * P * H' + R);
             X = X + K * (Z - H * X);
-            P = (eye(length(X)) - K * H) * P;
+            P = (eye(N) - K * H) * P;
             
        end
 
@@ -550,14 +481,14 @@ plot_enu_2d(gnss_enu, log.pos, span_enu);
 figure('name', 'IMU零偏估计曲线');
 subplot(2,2,1);
 color_rgb = get(gca,'ColorOrder');
-plot(imu_time, log.gyro_bias(:, 1) * 3600 * R2D, 'Color', color_rgb(1,:), 'linewidth', 1.5); hold on; grid on;
-plot(imu_time, log.gyro_bias(:, 2) * 3600 * R2D, 'Color', color_rgb(2,:), 'linewidth', 1.5);
-plot(imu_time, log.gyro_bias(:, 3) * 3600 * R2D, 'Color', color_rgb(3,:), 'linewidth', 1.5);
-plot(imu_time, gyro_bias0(1) * 3600 * R2D * ones(imu_length,1), '-.', 'Color', color_rgb(1,:), 'linewidth', 1);
-plot(imu_time, gyro_bias0(2) * 3600 * R2D * ones(imu_length,1), '-.', 'Color', color_rgb(2,:), 'linewidth', 1);
-plot(imu_time, gyro_bias0(3) * 3600 * R2D * ones(imu_length,1), '-.', 'Color', color_rgb(3,:), 'linewidth', 1);
+plot(imu_time, log.gyro_bias(:, 1)  * R2D, 'Color', color_rgb(1,:), 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, log.gyro_bias(:, 2)  * R2D, 'Color', color_rgb(2,:), 'linewidth', 1.5);
+plot(imu_time, log.gyro_bias(:, 3)  * R2D, 'Color', color_rgb(3,:), 'linewidth', 1.5);
+plot(imu_time, gyro_bias0(1)  * R2D * ones(imu_length,1), '-.', 'Color', color_rgb(1,:), 'linewidth', 1);
+plot(imu_time, gyro_bias0(2)  * R2D * ones(imu_length,1), '-.', 'Color', color_rgb(2,:), 'linewidth', 1);
+plot(imu_time, gyro_bias0(3)  * R2D * ones(imu_length,1), '-.', 'Color', color_rgb(3,:), 'linewidth', 1);
 xlim([imu_time(1) imu_time(end)]);
-title('陀螺仪零偏估计曲线'); xlabel('时间(s)'); ylabel('零偏(°/h)'); legend('X', 'Y', 'Z');
+title('陀螺仪零偏估计曲线'); xlabel('时间(s)'); ylabel('零偏(dps)'); legend('X', 'Y', 'Z');
 
 subplot(2,2,2);
 plot(imu_time, log.acc_bias(:, 1:3) / 9.8 * 1000, 'linewidth', 1.5); grid on;
@@ -565,9 +496,9 @@ xlim([imu_time(1) imu_time(end)]);
 title('加速度计零偏估计曲线'); xlabel('时间(s)'); ylabel('零偏(mg)'); legend('X', 'Y', 'Z');
 
 subplot(2,2,3);
-semilogy(imu_time, log.P(:, 10:12) * 3600 * R2D, 'linewidth', 1.5); grid on;
+semilogy(imu_time, log.P(:, 10:12)  * R2D, 'linewidth', 1.5); grid on;
 xlim([imu_time(1) imu_time(end)]);
-title('陀螺仪零偏协方差收敛曲线'); xlabel('时间(s)'); ylabel('零偏标准差(°/h)'); legend('X', 'Y', 'Z');
+title('陀螺仪零偏协方差收敛曲线'); xlabel('时间(s)'); ylabel('零偏标准差(dps)'); legend('X', 'Y', 'Z');
 
 subplot(2,2,4);
 semilogy(imu_time, log.P(:, 13:15) / 9.8 * 1000, 'linewidth', 1.5); grid on;
