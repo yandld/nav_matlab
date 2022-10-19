@@ -66,11 +66,11 @@ opt.Q = diag([(0.5/60*D2R)*ones(1,3), (0.5/60)*ones(1,3), 0*ones(1,3), (1/3600*D
 % load('dataset/2022年10月12日15时40分19秒.mat');
 % opt.inital_yaw = 87;
 
-% load('dataset/2022年10月12日16时38分35秒.mat');
-% opt.inital_yaw = 161;
-
-load('dataset/2022年10月17日13时37分50秒.mat');
+load('dataset/2022年10月12日16时38分35秒.mat');
 opt.inital_yaw = 161;
+
+% load('dataset/2022年10月17日13时37分50秒.mat');
+% opt.inital_yaw = 161;
 
 
 pos_type = data(:, 46);
@@ -223,6 +223,10 @@ log.acc_bias = zeros(imu_length, 3);
 log.sins_att = zeros(imu_length, 3);
 log.vb = zeros(imu_length, 3);
 log.zupt_time = zeros(imu_length, 1);
+log.std_acc_sldwin = NaN(imu_length, 1);;
+log.std_gyr_sldwin = NaN(imu_length, 1);;
+log.mean_acc_sldwin = NaN(imu_length, 1);;
+log.mean_gyr_sldwin = NaN(imu_length, 1);;
 
 tic;
 count_sec = 1;
@@ -278,40 +282,46 @@ for i=1:imu_length
     if(i > 50)
         std_acc_sldwin = sum(std(acc_data(i-50:i, :)));
         std_gyr_sldwin = sum(std(gyro_data(i-50:i, :)));
+
+        mean_acc_sldwin = sum(mean(acc_data(i-50:i, :)));
+        mean_gyr_sldwin = sum(mean(gyro_data(i-50:i, :)));
         
         log.std_acc_sldwin(i) = std_acc_sldwin;
         log.std_gyr_sldwin(i) = std_gyr_sldwin;
+
+        log.mean_acc_sldwin(i) = mean_acc_sldwin;
+        log.mean_gyr_sldwin(i) = mean_gyr_sldwin;
     end
     
 
-        %% 静止状态下重力量测更新姿态
-        if opt.gravity_update_enable
-            H = zeros(2,15);
-            H(1, 2) = 1;
-            H(2, 1) = -1;
-            g_n = -f_n/norm(f_n);
-            
-            Z = g_n - [0;0;-1];
-            Z = Z(1:2);
-            
-            R = diag([opt.gravity_R  opt.gravity_R])^2;
-            
-            % 卡尔曼量测更新
-            K = P * H' / (H * P * H' + R);
-            X = X + K * (Z - H * X);
-            P = (eye(N) - K * H) * P;
-            
-            % 姿态修正
-            rv = X(1:3);
-            rv_norm = norm(rv);
-            qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-            nQb = ch_qmul(qe, nQb);
-            nQb = ch_qnormlz(nQb); %单位化四元数
-            bQn = ch_qconj(nQb); %更新bQn
-            bCn = ch_q2m(nQb); %更新bCn阵
-            nCb = bCn'; %更新nCb阵
-            X(1:3) = 0;
-        end
+    %% 静止状态下重力量测更新姿态
+    if opt.gravity_update_enable
+        H = zeros(2,15);
+        H(1, 2) = 1;
+        H(2, 1) = -1;
+        g_n = -f_n/norm(f_n);
+        
+        Z = g_n - [0;0;-1];
+        Z = Z(1:2);
+        
+        R = diag([opt.gravity_R  opt.gravity_R])^2;
+        
+        % 卡尔曼量测更新
+        K = P * H' / (H * P * H' + R);
+        X = X + K * (Z - H * X);
+        P = (eye(N) - K * H) * P;
+        
+        % 姿态修正
+        rv = X(1:3);
+        rv_norm = norm(rv);
+        qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
+        nQb = ch_qmul(qe, nQb);
+        nQb = ch_qnormlz(nQb); %单位化四元数
+        bQn = ch_qconj(nQb); %更新bQn
+        bCn = ch_q2m(nQb); %更新bCn阵
+        nCb = bCn'; %更新nCb阵
+        X(1:3) = 0;
+    end
 
         %% 静止条件判断
    % if (std_gyr_sldwin < opt.zupt_gyr_std) && (std_acc_sldwin < opt.zupt_acc_std)
@@ -426,6 +436,49 @@ end
 
 %% IMU原始数据
 % plot_imu(gyro_data*R2D, acc_data, imu_dt);
+
+%% 静止检测验证
+figure('name', '静止检测验证');
+
+subplot(3,2,1);
+plot(imu_time, sum(acc_data.^2,2).^(1/2), 'linewidth', 0.1);
+xlim([imu_time(1) imu_time(end)]);
+ylim([9 11]);
+ylabel('加速度瞬时模长(g)');
+
+subplot(3,2,3);
+plot(imu_time, log.std_acc_sldwin, 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, opt.zupt_acc_std*ones(size(imu_time)), '-.', 'linewidth', 1.5);
+xlim([imu_time(1) imu_time(end)]);
+ylim([0 opt.zupt_acc_std*3]);
+ylabel('加速度计方差滑窗(g)');
+
+subplot(3,2,5);
+plot(imu_time(2:end), diff(log.mean_acc_sldwin), 'linewidth', 1.5); hold on; grid on;
+xlim([imu_time(1) imu_time(end)]);
+xlabel('时间(s)');
+ylabel('加速度计均值滑窗差分(g)');
+
+subplot(3,2,2);
+plot(imu_time, sum(gyro_data.^2,2).^(1/2)*R2D, 'linewidth', 0.1);
+xlim([imu_time(1) imu_time(end)]);
+ylim([0 1]);
+ylabel('陀螺仪瞬时模长(deg/s)');
+
+subplot(3,2,4);
+plot(imu_time, log.std_gyr_sldwin, 'linewidth', 1.5); hold on; grid on;
+plot(imu_time, opt.zupt_gyr_std*ones(size(imu_time)), '-.', 'linewidth', 1.5);
+xlim([imu_time(1) imu_time(end)]);
+ylim([0 opt.zupt_gyr_std*3]);
+ylabel('陀螺仪方差滑窗(rad/s)');
+
+subplot(3,2,6);
+plot(imu_time(2:end), diff(log.mean_gyr_sldwin), 'linewidth', 1.5); hold on; grid on;
+xlim([imu_time(1) imu_time(end)]);
+xlabel('时间(s)');
+ylabel('陀螺仪均值滑窗差分(rad/s)');
+
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %% 静止检测验证
 figure('name', '静止检测验证');
