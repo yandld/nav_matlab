@@ -30,48 +30,19 @@ opt.outage_start = 2892;         % 丢失开始时间
 opt.outage_stop = 3122;          % 丢失结束时间
 
 opt.gnss_delay = 0;          % GNSS量测延迟 sec
-opt.gravity_R = 0.2;          % 重力更新 噪声
+opt.gravity_R = 0.1;          % 重力更新 噪声
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
-%状态量限幅
-% opt.XMAX_PHI = 0.05*D2R*100000000;
-% opt.XMAX_VEL = 10*100000000;
-% opt.XMAX_POS = 100*100000000;
-% opt.XMAX_GB = 1e-2 * D2R;
-% opt.XMAX_WB = 1e-2 * GRAVITY;
-% 
-% opt.Xlimit_phi_xy = 0.1*D2R;
-% opt.Xlimit_phi_z = 1*D2R;
 
 
 % 初始状态方差:    姿态           东北天速度  水平位置      陀螺零偏                              加速度计零偏
 opt.P0 = diag([ [2 2 5]*D2R, [0.1 0.1 0.1], [ 10 10 10],  [100 100 100]* D2R/3600, [10e-3, 10e-3, 10e-3]*GRAVITY])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
-opt.Q = diag([(0.5/60*D2R)*ones(1,3), (0.5/60)*ones(1,3), 0*ones(1,3), (1/3600*D2R)*ones(1,3), 1e-4*GRAVITY*ones(1,3)])^2;
+opt.Q = diag([(1/60*D2R)*ones(1,3), (1/60)*ones(1,3), 0*ones(1,3), (0.1/3600*D2R)*ones(1,3), 0*GRAVITY*ones(1,3)])^2;
 
 
 %% 数据载入
-
-% 
-% load('dataset/2022年10月12日15时40分19秒.mat');
-% opt.inital_yaw = 353;
-
-% load('dataset/2022年10月17日15时30分23秒.mat');
-% opt.inital_yaw = 90;
-
-
-% load('dataset/2022年10月12日10时17分46秒.mat');
-% opt.inital_yaw = 353;
-
-% load('dataset/2022年10月12日15时40分19秒.mat');
-% opt.inital_yaw = 87;
-
-load('dataset/2022年10月12日16时38分35秒.mat');
-opt.inital_yaw = 161;
-
-% load('dataset/2022年10月17日13时37分50秒.mat');
-% opt.inital_yaw = 161;
-
+load('dataset/2022年10月31日17时23分23秒.mat');
 
 pos_type = data(:, 46);
 evt_bit = data(:, 47);
@@ -172,6 +143,20 @@ distance_sum = 0;
 time_sum = 0;
 gnss_enu = zeros(gnss_length, 3);
 log.vel_norm = zeros(gnss_length, 1);
+
+% 根据速度 获得初始航向角
+for i=1:gnss_length
+    if norm(vel_data(i,:)) >2
+        opt.inital_yaw = atan2(vel_data(i,1),vel_data(i,2));
+        if(opt.inital_yaw < 0) 
+            opt.inital_yaw =  opt.inital_yaw + 360*D2R;
+            fprintf("初始航向角:%.2f°\r\n",  opt.inital_yaw*R2D);
+        end
+        
+        break;
+    end
+end
+
 for i=1:gnss_length
     gnss_enu(i,3) = lla_data(i,3) - alt0;
     gnss_enu(i,2) = (lla_data(i,1) - lat0) * (Rmh);
@@ -194,7 +179,7 @@ g_b = - mean(acc_data(1:opt.alignment_time, :))';
 g_b = g_b/norm(g_b);
 pitch0 = asin(-g_b(2));
 roll0 = atan2( g_b(1), -g_b(3));
-yaw0 = opt.inital_yaw*D2R;
+yaw0 = opt.inital_yaw;
 pitch_sins = pitch0;
 roll_sins = roll0;
 yaw_sins = yaw0;
@@ -347,13 +332,7 @@ for i=1:imu_length
             X = X + K * (Z - H * X);
             P = (eye(N) - K * H) * P;
             
-            %状态量限制
-
-%             X(X(1:2) > opt.Xlimit_phi_xy) = opt.Xlimit_phi_xy;
-%             X(X(1:2) < -opt.Xlimit_phi_xy) = -opt.Xlimit_phi_xy;
-% 
-%             X(X(3) > opt.Xlimit_phi_z) = opt.Xlimit_phi_z;
-%             X(X(3) < -opt.Xlimit_phi_z) = -opt.Xlimit_phi_z;
+   
 
             % 姿态修正
             rv = X(1:3);
@@ -383,9 +362,6 @@ for i=1:imu_length
         end
     end
 
-      %  imu_time(i) > opt.outage_start && imu_time(i) < opt.outage_stop
-      % (i - last_gnss_evt > 50)
-      %1865
        if opt.nhc_enable && norm(gyro_data(i,:)) < 2*D2R && (i - last_gnss_evt > 50)
             H = zeros(3,15);
             H(1:3,4:6) = eye(3);
@@ -509,8 +485,8 @@ ylabel('陀螺仪方差滑窗(rad)');
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %% Google Map
-% plot_google_map(lla_data*R2D, kf_lla*R2D, span.lla);
-% plot_google_map(lla_data*R2D, kf_lla*R2D);
+%  plot_google_map(lla_data*R2D, kf_lla*R2D, span.lla);
+%  plot_google_map(lla_data*R2D, kf_lla*R2D);
 
 %% 二维轨迹与速度
 % plot_enu_vel(gnss_enu, vecnorm(vel_data, 2, 2));
