@@ -26,11 +26,11 @@ opt.zupt_acc_std = 0.2;        % 加速度计方差滑窗阈值
 opt.zupt_gyr_std = 0.002;        % 陀螺仪方差滑窗阈值
 
 opt.gnss_outage = 0;            % 模拟GNSS丢失
-opt.outage_start = 2892;         % 丢失开始时间
-opt.outage_stop = 3122;          % 丢失结束时间
+opt.outage_start = 205;         % 丢失开始时间
+opt.outage_stop = 230;          % 丢失结束时间
 
 opt.gnss_delay = 0;          % GNSS量测延迟 sec
-opt.gravity_R = 0.1;          % 重力更新 噪声
+opt.gravity_R = 0.2;          % 重力更新 噪声
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 
@@ -38,11 +38,11 @@ opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，�
 % 初始状态方差:    姿态           东北天速度  水平位置      陀螺零偏                              加速度计零偏
 opt.P0 = diag([ [2 2 5]*D2R, [0.1 0.1 0.1], [ 10 10 10],  [100 100 100]* D2R/3600, [10e-3, 10e-3, 10e-3]*GRAVITY])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
-opt.Q = diag([(1/60*D2R)*ones(1,3), (1/60)*ones(1,3), 0*ones(1,3), (0.1/3600*D2R)*ones(1,3), 0*GRAVITY*ones(1,3)])^2;
+opt.Q = diag([(1/60*D2R)*ones(1,3), (1/60)*ones(1,3), 0*ones(1,3), (0.3/3600*D2R)*ones(1,3), 0*GRAVITY*ones(1,3)])^2;
 
 
 %% 数据载入
-load('dataset/2022年10月31日17时23分23秒.mat');
+load('dataset/2022年11月05日22时46分58秒.mat');
 
 pos_type = data(:, 46);
 evt_bit = data(:, 47);
@@ -146,15 +146,18 @@ log.vel_norm = zeros(gnss_length, 1);
 
 % 根据速度 获得初始航向角
 for i=1:gnss_length
-    if norm(vel_data(i,:)) >2
+    if norm(vel_data(i,:)) >5
         opt.inital_yaw = atan2(vel_data(i,1),vel_data(i,2));
         if(opt.inital_yaw < 0) 
             opt.inital_yaw =  opt.inital_yaw + 360*D2R;
             fprintf("初始航向角:%.2f°\r\n",  opt.inital_yaw*R2D);
         end
-        
         break;
     end
+end
+if i == gnss_length
+    opt.inital_yaw = 0;
+	fprintf("无法找到初始航向角，设置为:%.2f°\r\n",  opt.inital_yaw*R2D);
 end
 
 for i=1:gnss_length
@@ -279,34 +282,7 @@ for i=1:imu_length
     end
     
 
-    %% 静止状态下重力量测更新姿态
-    if opt.gravity_update_enable
-        H = zeros(2,15);
-        H(1, 2) = 1;
-        H(2, 1) = -1;
-        g_n = -f_n/norm(f_n);
-        
-        Z = g_n - [0;0;-1];
-        Z = Z(1:2);
-        
-        R = diag([opt.gravity_R  opt.gravity_R])^2;
-        
-        % 卡尔曼量测更新
-        K = P * H' / (H * P * H' + R);
-        X = X + K * (Z - H * X);
-        P = (eye(N) - K * H) * P;
-        
-        % 姿态修正
-        rv = X(1:3);
-        rv_norm = norm(rv);
-        qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-        nQb = ch_qmul(qe, nQb);
-        nQb = ch_qnormlz(nQb); %单位化四元数
-        bQn = ch_qconj(nQb); %更新bQn
-        bCn = ch_q2m(nQb); %更新bCn阵
-        nCb = bCn'; %更新nCb阵
-        X(1:3) = 0;
-    end
+  
 
         %% 静止条件判断
    % if (std_gyr_sldwin < opt.zupt_gyr_std) && (std_acc_sldwin < opt.zupt_acc_std)
@@ -384,7 +360,34 @@ for i=1:imu_length
             
        end
 
-    
+      %% 静止状态下重力量测更新姿态
+    if opt.gravity_update_enable && (i - last_gnss_evt > 50)
+        H = zeros(2,15);
+        H(1, 2) = 1;
+        H(2, 1) = -1;
+        g_n = -f_n/norm(f_n);
+        
+        Z = g_n - [0;0;-1];
+        Z = Z(1:2);
+        
+        R = diag([opt.gravity_R  opt.gravity_R])^2;
+        
+        % 卡尔曼量测更新
+        K = P * H' / (H * P * H' + R);
+        X = X + K * (Z - H * X);
+        P = (eye(N) - K * H) * P;
+        
+        % 姿态修正
+        rv = X(1:3);
+        rv_norm = norm(rv);
+        qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
+        nQb = ch_qmul(qe, nQb);
+        nQb = ch_qnormlz(nQb); %单位化四元数
+        bQn = ch_qconj(nQb); %更新bQn
+        bCn = ch_q2m(nQb); %更新bCn阵
+        nCb = bCn'; %更新nCb阵
+        X(1:3) = 0;
+    end
     %% 信息存储
     [pitch, roll, yaw] = q2att(nQb);
     log.att(i,:) = [pitch roll yaw];
