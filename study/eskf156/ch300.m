@@ -20,29 +20,30 @@ opt.alignment_time = 10e2;      % 初始对准时间
 opt.bias_feedback = 1;          % IMU零偏反馈
 
 opt.gravity_update_enable = 1;  % 使能重力静止量更新
-opt.nhc_enable = 0;             % 车辆运动学约束
+opt.nhc_enable = 1;             % 车辆运动学约束
 
 opt.zupt_acc_std = 0.2;        % 加速度计方差滑窗阈值
 opt.zupt_gyr_std = 0.002;        % 陀螺仪方差滑窗阈值
 
 opt.gnss_outage = 0;            % 模拟GNSS丢失
-opt.outage_start = 205;         % 丢失开始时间
-opt.outage_stop = 230;          % 丢失结束时间
+opt.outage_start = 1085;         % 丢失开始时间(s)
+opt.outage_stop = 1210;          % 丢失结束时间(s)
 
 opt.gnss_delay = 0;          % GNSS量测延迟 sec
 opt.gravity_R = 0.2;          % 重力更新 噪声
+opt.nhc_R = 0.1;               % 车载非完整性约束噪声
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 
 
 % 初始状态方差:    姿态           东北天速度  水平位置      陀螺零偏                              加速度计零偏
-opt.P0 = diag([ [2 2 5]*D2R, [0.1 0.1 0.1], [ 10 10 10],  [100 100 100]* D2R/3600, [10e-3, 10e-3, 10e-3]*GRAVITY])^2;
+opt.P0 = diag([ [2 2 10]*D2R, [0.1 0.1 0.1], [ 40 40 40],  [100 100 100]* D2R/3600, [10e-3, 10e-3, 10e-3]*GRAVITY])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
 opt.Q = diag([(1/60*D2R)*ones(1,3), (1/60)*ones(1,3), 0*ones(1,3), (0.3/3600*D2R)*ones(1,3), 0*GRAVITY*ones(1,3)])^2;
 
 
 %% 数据载入
-load('dataset/2022年11月05日22时46分58秒.mat');
+load('dataset/2022年11月15日14时56分47秒.mat');
 
 pos_type = data(:, 46);
 evt_bit = data(:, 47);
@@ -150,11 +151,11 @@ for i=1:gnss_length
         opt.inital_yaw = atan2(vel_data(i,1),vel_data(i,2));
         if(opt.inital_yaw < 0) 
             opt.inital_yaw =  opt.inital_yaw + 360*D2R;
-            fprintf("初始航向角:%.2f°\r\n",  opt.inital_yaw*R2D);
         end
+            fprintf("初始航向角:%.2f°\r\n",  opt.inital_yaw*R2D);
         break;
     end
-end
+end%
 if i == gnss_length
     opt.inital_yaw = 0;
 	fprintf("无法找到初始航向角，设置为:%.2f°\r\n",  opt.inital_yaw*R2D);
@@ -229,7 +230,6 @@ for i=1:imu_length
     
     %% 捷联更新
     % 单子样等效旋转矢量法
-
     w_b = gyro_data(i,:)' - gyro_bias;
     f_b = acc_data(i,:)' - acc_bias;
     
@@ -280,18 +280,13 @@ for i=1:imu_length
         log.mean_acc_sldwin(i) = mean_acc_sldwin;
         log.mean_gyr_sldwin(i) = mean_gyr_sldwin;
     end
-    
+   
 
-  
-
-        %% 静止条件判断
-   % if (std_gyr_sldwin < opt.zupt_gyr_std) && (std_acc_sldwin < opt.zupt_acc_std)
- %   end
     %% GNSS量测更新
     if (evt_gnss(i) && ~isnan(gnss_enu(i,1)))
         last_gnss_evt = i;
         if( (~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop))
-            if(norm(vel_std_data(i,:) - vel_std_data(i-1,:)) < 0.02) % 踢掉GNSS输出的可能的不可靠结果
+            if(norm(vel_std_data(i,:) - vel_std_data(i-1,:)) < 0.2) % 踢掉GNSS输出的可能的不可靠结果
             H = zeros(6,15);
             H(1:3,4:6) = eye(3);
             H(4:6,7:9) = eye(3);
@@ -308,8 +303,6 @@ for i=1:imu_length
             X = X + K * (Z - H * X);
             P = (eye(N) - K * H) * P;
             
-   
-
             % 姿态修正
             rv = X(1:3);
             rv_norm = norm(rv);
@@ -338,20 +331,20 @@ for i=1:imu_length
         end
     end
 
-       if opt.nhc_enable && norm(gyro_data(i,:)) < 2*D2R && (i - last_gnss_evt > 50)
+       if opt.nhc_enable && norm(gyro_data(i,:)) < 3*D2R && (i - last_gnss_evt > 50)
             H = zeros(3,15);
             H(1:3,4:6) = eye(3);
 
-            vb_hmc = [log.vb(i,1); log.vb(i,2); log.vb(i,3)];
-            vb_hmc(1) = 0;
-            vb_hmc(3) = 0;
-            vn_hmc = bCn * vb_hmc;
+            vb_nhc = [log.vb(i,1); log.vb(i,2); log.vb(i,3)];
+            vb_nhc(1) = 0;
+            vb_nhc(3) = 0;
+            vb_nhc = bCn * vb_nhc;
             
-            Z = vel - vn_hmc;
+            Z = vel - vb_nhc;
             
-            Rb = diag([ones(1,3)*1])^2;
+            Rb = diag([ones(1,3)*opt.nhc_R])^2;
             R = bCn*Rb*bCn';
-           % R = Rb;
+           % R = Rb; %简化算法
             
             % 卡尔曼量测更新
             K = P * H' / (H * P * H' + R);
@@ -377,8 +370,7 @@ for i=1:imu_length
         X = X + K * (Z - H * X);
         P = (eye(N) - K * H) * P;
         
-        % 姿态修正
-        rv = X(1:3);
+        rv = X(1:3); %反馈姿态
         rv_norm = norm(rv);
         qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
         nQb = ch_qmul(qe, nQb);
@@ -387,6 +379,10 @@ for i=1:imu_length
         bCn = ch_q2m(nQb); %更新bCn阵
         nCb = bCn'; %更新nCb阵
         X(1:3) = 0;
+        
+       vel = vel - X(4:6); %反馈速度
+       X(4:6) = 0;
+       
     end
     %% 信息存储
     [pitch, roll, yaw] = q2att(nQb);
