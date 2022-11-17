@@ -26,12 +26,12 @@ opt.zupt_acc_std = 0.2;        % 加速度计方差滑窗阈值
 opt.zupt_gyr_std = 0.002;        % 陀螺仪方差滑窗阈值
 
 opt.gnss_outage = 0;            % 模拟GNSS丢失
-opt.outage_start = 1085;         % 丢失开始时间(s)
-opt.outage_stop = 1210;          % 丢失结束时间(s)
+opt.outage_start = 247;         % 丢失开始时间(s)
+opt.outage_stop = 255;          % 丢失结束时间(s)
 
 opt.gnss_delay = 0;          % GNSS量测延迟 sec
-opt.gravity_R = 0.2;          % 重力更新 噪声
-opt.nhc_R = 0.1;               % 车载非完整性约束噪声
+opt.gravity_R = 0.8;          % 重力更新 噪声
+opt.nhc_R = 0.4;               % 车载非完整性约束噪声
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 
@@ -46,6 +46,7 @@ opt.Q = diag([(1/60*D2R)*ones(1,3), (1/60)*ones(1,3), 0*ones(1,3), (0.3/3600*D2R
 load('dataset/2022年11月15日14时56分47秒.mat');
 
 pos_type = data(:, 46);
+
 evt_bit = data(:, 47);
 
 imu_data = data(:, 21:26);
@@ -232,7 +233,6 @@ for i=1:imu_length
     % 单子样等效旋转矢量法
     w_b = gyro_data(i,:)' - gyro_bias;
     f_b = acc_data(i,:)' - acc_bias;
-    
     % 捷联更新
     [nQb, pos, vel, ~] = ins(w_b, f_b, nQb, pos, vel, GRAVITY, imu_dt);
 
@@ -286,7 +286,7 @@ for i=1:imu_length
     if (evt_gnss(i) && ~isnan(gnss_enu(i,1)))
         last_gnss_evt = i;
         if( (~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop))
-            if(norm(vel_std_data(i,:) - vel_std_data(i-1,:)) < 0.2) % 踢掉GNSS输出的可能的不可靠结果
+            if(norm(vel_std_data(i,:) - vel_std_data(i-1,:)) < 0.2 && norm(gnss_enu(i,:) - gnss_enu(i-1,:)) < 10000) % 踢掉GNSS输出的可能的不可靠结果
             H = zeros(6,15);
             H(1:3,4:6) = eye(3);
             H(4:6,7:9) = eye(3);
@@ -332,25 +332,32 @@ for i=1:imu_length
     end
 
        if opt.nhc_enable && norm(gyro_data(i,:)) < 3*D2R && (i - last_gnss_evt > 50)
-            H = zeros(3,15);
-            H(1:3,4:6) = eye(3);
 
-            vb_nhc = [log.vb(i,1); log.vb(i,2); log.vb(i,3)];
-            vb_nhc(1) = 0;
-            vb_nhc(3) = 0;
-            vb_nhc = bCn * vb_nhc;
-            
-            Z = vel - vb_nhc;
-            
-            Rb = diag([ones(1,3)*opt.nhc_R])^2;
-            R = bCn*Rb*bCn';
-           % R = Rb; %简化算法
-            
+           % 算法: Z定义在N系, 王博的
+%            H = zeros(3,15);
+%             H(1:3,4:6) = eye(3);
+%             vb_nhc = [log.vb(i,1); log.vb(i,2); log.vb(i,3)];
+%             vb_nhc(1) = 0;
+%             vb_nhc(3) = 0;
+%             vb_nhc = bCn * vb_nhc;
+%              Z = vel - vb_nhc;
+%             Rb = diag(ones(1, size(H, 1))*opt.nhc_R)^2;
+%             R = bCn*Rb*bCn';
+             
+           %算法2: Z定义在b系， 书上标准的
+            H = zeros(2,15);
+            A = [1 0 0; 0 0 1];
+            H(1:2,4:6) = A*nCb;
+            Z = 0 + (A*nCb)*vel;
+            R = diag(ones(1, size(H, 1))*opt.nhc_R)^2;
+
             % 卡尔曼量测更新
             K = P * H' / (H * P * H' + R);
             X = X + K * (Z - H * X);
             P = (eye(N) - K * H) * P;
             
+
+       
        end
 
       %% 静止状态下重力量测更新姿态
@@ -382,7 +389,6 @@ for i=1:imu_length
         
        vel = vel - X(4:6); %反馈速度
        X(4:6) = 0;
-       
     end
     %% 信息存储
     [pitch, roll, yaw] = q2att(nQb);
