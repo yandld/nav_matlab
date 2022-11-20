@@ -30,20 +30,20 @@ opt.outage_start = 247;         % 丢失开始时间(s)
 opt.outage_stop = 255;          % 丢失结束时间(s)
 
 opt.gnss_delay = 0;          % GNSS量测延迟 sec
-opt.gravity_R = 0.8;          % 重力更新 噪声
-opt.nhc_R = 0.4;               % 车载非完整性约束噪声
+opt.gravity_R = 1.0;          % 重力更新 噪声
+opt.nhc_R = 0.5;               % 车载非完整性约束噪声
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 
 
 % 初始状态方差:    姿态           东北天速度  水平位置      陀螺零偏                              加速度计零偏
-opt.P0 = diag([ [2 2 10]*D2R, [0.1 0.1 0.1], [ 40 40 40],  [100 100 100]* D2R/3600, [10e-3, 10e-3, 10e-3]*GRAVITY])^2;
+opt.P0 = diag([ [2 2 100]*D2R, [0.1 0.1 0.1], [ 40 40 40],  [100 100 100]* D2R/3600, [10e-3, 10e-3, 10e-3]*GRAVITY])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
-opt.Q = diag([(1/60*D2R)*ones(1,3), (1/60)*ones(1,3), 0*ones(1,3), (0.3/3600*D2R)*ones(1,3), 0*GRAVITY*ones(1,3)])^2;
+opt.Q = diag([(1/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (0.5/3600*D2R)*ones(1,3), 1e-5*GRAVITY*ones(1,3)])^2;
 
 
 %% 数据载入
-load('dataset/2022年11月15日14时56分47秒.mat');
+load('dataset/2022年11月17日13时09分25秒.mat');
 
 pos_type = data(:, 46);
 
@@ -332,7 +332,7 @@ for i=1:imu_length
     end
 
        if opt.nhc_enable && norm(gyro_data(i,:)) < 3*D2R && (i - last_gnss_evt > 50)
-
+           
            % 算法: Z定义在N系, 王博的
 %            H = zeros(3,15);
 %             H(1:3,4:6) = eye(3);
@@ -389,6 +389,7 @@ for i=1:imu_length
         
        vel = vel - X(4:6); %反馈速度
        X(4:6) = 0;
+       
     end
     %% 信息存储
     [pitch, roll, yaw] = q2att(nQb);
