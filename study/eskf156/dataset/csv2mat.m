@@ -2,7 +2,7 @@ close all;
 clear;
 clc;
 
-file_name = '2022年11月19日16时42分06秒';
+file_name = '2022年11月22日16时45分57秒';
 
 
 data = csvread(strcat(file_name, '.csv'), 1);
@@ -24,8 +24,7 @@ plot(diff_time);
 
 
 fprintf("保存数据...\r\n");
-save(file_name, 'data');
-
+save(fullfile(file_name + ".mat"), 'data');
 
 %  file_list = ls("*.csv");
  
@@ -38,3 +37,4 @@ save(file_name, 'data');
 %     
 %     save(file_name(1:end-4), 'data');
 % end
+fprintf("保存完成\r\n");
