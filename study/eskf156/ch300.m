@@ -21,40 +21,46 @@ opt.alignment_time = 10e2;      % 初始对准时间
 opt.bias_feedback_enable = 1;          % IMU零偏反馈
 opt.save_kml_enable = 0;                   %生成KML文件
 opt.webmap_enable = 0;                     %生成卫星地图
-opt.gravity_update_enable = 1;  % 使能重力静止量更新
+opt.gravity_update_enable = 0;  % 使能重力静止量更新
 opt.nhc_enable = 1;             % 车辆运动学约束
-opt.zupt_enable = 1;              % ZUPT
+opt.zupt_enable = 0;              % ZUPT
 opt.gnss_outage = 0;            % 模拟GNSS丢失
-opt.outage_start = 580;         % 丢失开始时间(s)·
-opt.outage_stop = 620;          % 丢失结束时间(s)
+opt.outage_start = 380;         % 丢失开始时间(s)·
+opt.outage_stop = 390;          % 丢失结束时间(s)
+
+opt.nhc_disable = 0; 
+opt.nhc_disable_start = 440;
+opt.nhc_disable_stop = 460;
+
 
 opt.gnss_delay = 0;          % GNSS量测延迟 sec
-opt.gravity_R = 0.5;          % 重力更新 噪声
-opt.nhc_R = 0.4;               % 车载非完整性约束噪声
+opt.gravity_R = 5.0;          % 重力更新 噪声
+opt.nhc_R = 2.0;               % 车载非完整性约束噪声
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
- 
+
 % 初始状态方差:    姿态           东北天速度  水平位置      陀螺零偏                              加速度计零偏
 opt.P0 = diag([ [5 5 100]*D2R, [1 1 1], [ 10 10 10],  [100 100 100]* D2R/3600, [1e-3, 1e-3 1e-3]*GRAVITY])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
-opt.Q = diag([(1/60*D2R)*ones(1,3), (1/60)*ones(1,3), 0*ones(1,3), (0.3/3600*D2R)*ones(1,3), 0*GRAVITY*ones(1,3)])^2;
+opt.Q = diag([(3/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (0.3/3600*D2R)*ones(1,3), 0*GRAVITY*ones(1,3)])^2;
 
 
 %% 数据载入
-load('dataset/2022年12月01日14时45分29秒.mat');
+load('dataset/2022年11月22日17时26分23秒.mat');
+% total_len = length(data);
+% data = data(1:total_len*3/4, :);
 
 pos_type = data(:, 46);
-
 evt_bit = data(:, 47);
 
 imu_data = data(:, 21:26);
 gnss_data = data(:, 27:44);
-span_data = data(:, 3:20);
+mcu_data = data(:, 3:20);
 imu_length = length(imu_data);
 gnss_length = length(gnss_data);
-span_length = length(span_data);
+mcu_length = length(mcu_data);
 
 imu_time = (data(:, 2) - data(1, 2));
-span_time = imu_time;
+mcu_time = imu_time;
 
 gyro_data = imu_data(:, 1:3);
 acc_data = imu_data(:, 4:6);
@@ -69,9 +75,9 @@ bl_length = gnss_data(:, 9);
 pos_std_data = gnss_data(:, 10:12);
 vel_std_data = gnss_data(:, 13:15);
 
-span.lla = span_data(:, [8 7 9]);
-span.vel = span_data(:, 4:6);
-span.att = span_data(:, 1:3);
+mcu.lla = mcu_data(:, [8 7 9]);
+mcu.vel = mcu_data(:, 4:6);
+mcu.att = mcu_data(:, 1:3);
 
 last_gnss_evt = 1;
 imu_dt = 0.01;
@@ -120,7 +126,7 @@ evt_gnss(gnss_resample_index) = evt_gnss_mask;
 %         gnss_update(i) = 1;
 %     end
 % end
-% 
+%
 % % GNSS数据抽样
 % gnss_resample_index = find(gnss_update == 1);
 % gnss_resample_index = gnss_resample_index(1:opt.gnss_intervel:end);
@@ -141,16 +147,16 @@ log.vel_norm = zeros(gnss_length, 1);
 for i=1:gnss_length
     if norm(vel_data(i,:)) >5
         opt.inital_yaw = atan2(vel_data(i,1),vel_data(i,2));
-        if(opt.inital_yaw < 0) 
+        if(opt.inital_yaw < 0)
             opt.inital_yaw =  opt.inital_yaw + 360*D2R;
         end
-            fprintf("初始航向角:%.2f°\r\n",  opt.inital_yaw*R2D);
+        fprintf("初始航向角:%.2f°\r\n",  opt.inital_yaw*R2D);
         break;
     end
 end
 if i == gnss_length
     opt.inital_yaw = 0;
-	fprintf("无法通过速度矢量找到初始航向角，设置为:%.2f°\r\n",  opt.inital_yaw*R2D);
+    fprintf("无法通过速度矢量找到初始航向角，设置为:%.2f°\r\n",  opt.inital_yaw*R2D);
 end
 
 for i=1:gnss_length
@@ -159,9 +165,9 @@ for i=1:gnss_length
 end
 
 %% MCU结果转换为当地东北天坐标系
-span_enu = zeros(span_length, 3);
-for i=1:span_length
-    [span_enu(i,1), span_enu(i,2), span_enu(i,3)] =  ch_LLA2ENU(span.lla(i,1)*D2R, span.lla(i,2)*D2R, span.lla(i,3), lat0, lon0, h0);
+mcu_enu = zeros(mcu_length, 3);
+for i=1:mcu_length
+    [mcu_enu(i,1), mcu_enu(i,2), mcu_enu(i,3)] =  ch_LLA2ENU(mcu.lla(i,1)*D2R, mcu.lla(i,2)*D2R, mcu.lla(i,3), lat0, lon0, h0);
 end
 
 
@@ -206,6 +212,7 @@ log.std_gyr_sldwin = zeros(imu_length, 1);
 tic;
 count_sec = 1;
 for i=1:imu_length
+    fb_flag = 0; %反馈标志
     current_time = toc;
     if current_time>count_sec
         percent = (i)/(imu_length);
@@ -220,7 +227,7 @@ for i=1:imu_length
     f_b = acc_data(i,:)' - acc_bias;
     % 捷联更新
     [nQb, pos, vel, ~] = ins(w_b, f_b, nQb, pos, vel, GRAVITY, imu_dt);
-
+    
     % 纯捷联姿态
     [nQb_sins, ~, ~, ~] = ins(w_b, f_b, nQb_sins, pos, vel, GRAVITY, imu_dt);
     
@@ -229,7 +236,7 @@ for i=1:imu_length
     a_n = f_n + [0; 0; -GRAVITY];
     bCn = ch_q2m(nQb); %更新bCn阵
     nCb = bCn'; %更新nCb阵
-
+    
     log.vb(i, :) = (nCb * vel)';
     
     %% 卡尔曼滤波
@@ -261,89 +268,79 @@ for i=1:imu_length
     
     if(log.std_acc_sldwin(i) < 0.3 && log.std_gyr_sldwin(i) < 0.05)
         
-     %   imu_time(i)
-      %  vel = [ 0 0 0]';
+        %   imu_time(i)
+        %  vel = [ 0 0 0]';
     end
-   
-
+    
+    
     %% GNSS量测更新
     if (evt_gnss(i) && ~isnan(gnss_enu(i,1)))
         last_gnss_evt = i;
         if( (~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop))
-            if(norm(vel_std_data(i,:) - vel_std_data(i-1,:)) < 0.02 && norm(gnss_enu(i,:) - gnss_enu(i-1,:)) < 10000 && norm(vel_std_data(i,:))<1 ) % 踢掉GNSS输出的可能的不可靠结果
-            H = zeros(6,15);
-            H(1:3,4:6) = eye(3);
-            H(4:6,7:9) = eye(3);
-            
-            Z = [vel - vel_data(i,:)'; pos - gnss_enu(i,:)'];
-            
-            % GNSS量测延迟补偿
-            Z = Z - [a_n; vel]*opt.gnss_delay;
-            
-            R = diag([vel_std_data(i,:)  pos_std_data(i,:)])^2;
-
-            % 卡尔曼量测更新
-            K = P * H' / (H * P * H' + R);
-            X = X + K * (Z - H * X);
-            P = (eye(N) - K * H) * P;
-            
-            % 姿态修正
-            rv = X(1:3);
-            rv_norm = norm(rv);
-                qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-                nQb = ch_qmul(qe, nQb);
-                nQb = ch_qnormlz(nQb); %单位化四元数
-                bQn = ch_qconj(nQb); %更新bQn
-                bCn = ch_q2m(nQb); %更新bCn阵
-                nCb = bCn'; %更新nCb阵
-            
-            vel = vel - X(4:6);
-            pos = pos - X(7:9);
-            X_temp = X;
-            
-            % 误差清零
-            X(1:9) = 0;
-            
-            % 零偏反馈
-            if opt.bias_feedback_enable
-                 gyro_bias = gyro_bias + X(10:12);
-                 acc_bias = acc_bias + X(13:15);
-                 X(10:12) = 0;
-                 X(13:15) = 0;
-            end
+            if(norm(vel_std_data(i,:) - vel_std_data(i-1,:)) < 0.2 && norm(gnss_enu(i,:) - gnss_enu(i-1,:)) < 10000 && norm(vel_std_data(i,:))<1 ) % 踢掉GNSS输出的可能的不可靠结果
+                H = zeros(6,15);
+                H(1:3,4:6) = eye(3);
+                H(4:6,7:9) = eye(3);
+                
+                Z = [vel - vel_data(i,:)'; pos - gnss_enu(i,:)'];
+                
+                % GNSS量测延迟补偿
+                Z = Z - [a_n; vel]*opt.gnss_delay;
+                
+                R = diag([vel_std_data(i,:)  pos_std_data(i,:)])^2;
+                
+                % 卡尔曼量测更新
+                K = P * H' / (H * P * H' + R);
+                X = X + K * (Z - H * X);
+                P = (eye(N) - K * H) * P;
+                
+                fb_flag = 1;
+                
             end
         end
     end
+    
+    if opt.nhc_enable && norm(gyro_data(i, :)) < 3*D2R;
+                if( (~opt.nhc_disable || imu_time(i) < opt.nhc_disable_start || imu_time(i) > opt.nhc_disable_stop))
 
-       if opt.nhc_enable && norm(gyro_data(i,:)) < 5*D2R && (i - last_gnss_evt > 10)
-           
-           % 算法: Z定义在N系, 王博的
-%            H = zeros(3,15);
-%             H(1:3,4:6) = eye(3);
-%             vb_nhc = [log.vb(i,1); log.vb(i,2); log.vb(i,3)];
-%             vb_nhc(1) = 0;
-%             vb_nhc(3) = 0;
-%             vb_nhc = bCn * vb_nhc;
-%              Z = vel - vb_nhc;
-%             Rb = diag(ones(1, size(H, 1))*opt.nhc_R)^2;
-%             R = bCn*Rb*bCn';
-             
-           %算法2: Z定义在b系， 书上标准的
-            H = zeros(2,15);
-            A = [1 0 0; 0 0 1];
-            H(1:2,4:6) = A*nCb;
-            Z = 0 + (A*nCb)*vel;
-            R = diag(ones(1, size(H, 1))*opt.nhc_R)^2;
-
-            % 卡尔曼量测更新
-            K = P * H' / (H * P * H' + R);
-            X = X + K * (Z - H * X);
-            P = (eye(N) - K * H) * P;
-            
-       end
-
-      %% 静止状态下重力量测更新姿态
-    if opt.gravity_update_enable && (i - last_gnss_evt > 10)
+    %    tR = opt.nhc_R  +  norm(gyro_data(i, :))*R2D*100 ;
+   tR = opt.nhc_R ;
+        %         if(i - last_gnss_evt < 10)
+        %             opt.nhc_R = 10;
+        %         else
+        %             opt.nhc_R = 2.4;
+        %         end
+        
+        % 算法: Z定义在N系, 王博的
+        %            H = zeros(3,15);
+        %             H(1:3,4:6) = eye(3);
+        %             vb_nhc = [log.vb(i,1); log.vb(i,2); log.vb(i,3)];
+        %             vb_nhc(1) = 0;
+        %             vb_nhc(3) = 0;
+        %             vb_nhc = bCn * vb_nhc;
+        %              Z = vel - vb_nhc;
+        %             Rb = diag(ones(1, size(H, 1))*opt.nhc_R)^2;
+        %             R = bCn*Rb*bCn';
+        
+        %算法2: Z定义在b系， 书上标准的
+        H = zeros(2,15);
+        A = [1 0 0; 0 0 1];
+        H(1:2,4:6) = A*nCb;
+        Z = 0 + (A*nCb)*vel;
+        R = diag(ones(1, size(H, 1))*tR)^2;
+        
+        % 卡尔曼量测更新
+        K = P * H' / (H * P * H' + R);
+        X = X + K * (Z - H * X);
+        P = (eye(N) - K * H) * P;
+        
+        
+        fb_flag = 1;
+                end
+    end
+    
+    %% 静止状态下重力量测更新姿态
+    if opt.gravity_update_enable
         H = zeros(2,15);
         H(1, 2) = 1;
         H(2, 1) = -1;
@@ -359,7 +356,14 @@ for i=1:imu_length
         X = X + K * (Z - H * X);
         P = (eye(N) - K * H) * P;
         
-        rv = X(1:3); %反馈姿态
+        
+    end
+    
+    if fb_flag
+        % 姿态修正
+        X_temp = X;
+        
+        rv = X(1:3);
         rv_norm = norm(rv);
         qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
         nQb = ch_qmul(qe, nQb);
@@ -369,10 +373,21 @@ for i=1:imu_length
         nCb = bCn'; %更新nCb阵
         X(1:3) = 0;
         
-       vel = vel - X(4:6); %反馈速度
-       X(4:6) = 0;
-       
+        vel = vel - X(4:6);
+        X(4:6) = 0;
+        
+        pos = pos - X(7:9);
+        X(7:9) = 0;
+        
+        % 零偏反馈
+        if opt.bias_feedback_enable
+            gyro_bias = gyro_bias + X(10:12);
+            acc_bias = acc_bias + X(13:15);
+            X(10:12) = 0;
+            X(13:15) = 0;
+        end
     end
+    
     %% 信息存储
     [pitch, roll, yaw] = q2att(nQb);
     log.att(i,:) = [pitch roll yaw];
@@ -396,29 +411,29 @@ for i=1:imu_length
     [kf_lla(i,1), kf_lla(i,2), kf_lla(i,3)] = ch_ENU2LLA( log.pos(i,1), log.pos(i,2) ,log.pos(i,3), lat0, lon0, h0);
 end
 
-%% IMU原始数据
-% plot_imu(gyro_data*R2D, acc_data, imu_dt);
 
 
-
-
-%% 二维轨迹与速度
-% plot_enu_vel(gnss_enu, vecnorm(vel_data, 2, 2));
+%% IMU原始值
+figure('name', 'IMU数据');
+subplot(2,1,1);
+plot(imu_time, acc_data, 'linewidth', 1.5); hold on; grid on;
+ylabel('m/^(2)'); legend('X', 'Y','Z');
+subplot(2,1,2);
+plot(imu_time, gyro_data*R2D, 'linewidth', 1.5); hold on; grid on;
+ylabel('deg'); legend('X', 'Y','Z');
 
 %% 姿态与航向估计曲线
-plot_att(imu_time,log.att, span_time,span.att, imu_time,log.sins_att, imu_time,[bl_pitch bl_yaw]);
+plot_att(imu_time,log.att, mcu_time,mcu.att, imu_time,log.sins_att, imu_time,[bl_pitch bl_yaw]);
 
 %% 速度估计曲线
-% plot_vel(gnss_time,vel_data, imu_time,log.vel);
-plot_vel(imu_time,vel_data, imu_time,log.vel, span_time,span.vel);
+plot_vel(imu_time,vel_data, imu_time,log.vel, mcu_time,mcu.vel);
 
 %% 位置估计曲线
-% plot_enu(gnss_time,gnss_enu, imu_time,log.pos);
-plot_enu(imu_time, gnss_enu, imu_time,log.pos, span_time, span_enu);
+plot_enu(imu_time, gnss_enu, imu_time,log.pos, mcu_time, mcu_enu);
 
 %% 二维轨迹
 % plot_enu_2d(gnss_enu, log.pos);
-plot_enu_2d(gnss_enu, log.pos, span_enu);
+plot_enu_2d(gnss_enu, log.pos, mcu_enu);
 
 %% IMU零偏估计曲线
 figure('name', 'IMU零偏估计曲线');
@@ -498,14 +513,14 @@ fprintf('最高时速: %.3fkm/h\n', max(log.vel_norm)*3.6);
 
 
 if opt.webmap_enable
- plot_google_map(lla_data*R2D, kf_lla*R2D, span.lla);
- plot_google_map(lla_data*R2D, kf_lla*R2D);
+    plot_google_map(lla_data*R2D, kf_lla*R2D, mcu.lla);
+    plot_google_map(lla_data*R2D, kf_lla*R2D);
 end
 
 if opt.save_kml_enable
-kmlname = fullfile('gnss.kml');
-fprintf("写入GNSS数据到: %s\r\n", kmlname);
-kmlwriteline(kmlname,lla_data(:,1)*R2D,lla_data(:,2)*R2D, 'Color', 'blue');
-kmlwriteline(kmlname,kf_lla(:,1)*R2D,kf_lla(:,2)*R2D, 'Color', 'cyan');
+    kmlname = fullfile('gnss.kml');
+    fprintf("写入GNSS数据到: %s\r\n", kmlname);
+    kmlwriteline(kmlname,lla_data(:,1)*R2D,lla_data(:,2)*R2D, 'Color', 'blue');
+    kmlwriteline(kmlname,kf_lla(:,1)*R2D,kf_lla(:,2)*R2D, 'Color', 'cyan');
 end
 
