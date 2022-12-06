@@ -12,7 +12,7 @@ function plot_enu_2d(gnss_enu, matlab_enu, mcu_enu)
             plot(matlab_enu(:,1), matlab_enu(:,2), 'b', 'Marker','.'); hold on;
             p = plot(matlab_enu(:,1), matlab_enu(:,2),'s');
             p.MarkerSize = 5;
-            p.MarkerIndices = 1:100:length(matlab_enu);
+            p.MarkerIndices = 1:200:length(matlab_enu);
             legend('GNSS', 'MATLAB');
         elseif i==3
             plot(mcu_enu(:,1), mcu_enu(:,2), 'm', 'Marker','.');

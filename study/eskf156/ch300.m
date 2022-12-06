@@ -25,29 +25,27 @@ opt.gravity_update_enable = 0;  % 使能重力静止量更新
 opt.nhc_enable = 1;             % 车辆运动学约束
 opt.zupt_enable = 0;              % ZUPT
 opt.gnss_outage = 0;            % 模拟GNSS丢失
-opt.outage_start = 380;         % 丢失开始时间(s)·
-opt.outage_stop = 390;          % 丢失结束时间(s)
+opt.outage_start = 1180;         % 丢失开始时间(s)·
+opt.outage_stop = 1240;          % 丢失结束时间(s)
 
-opt.nhc_disable = 0; 
-opt.nhc_disable_start = 440;
-opt.nhc_disable_stop = 460;
 
 
 opt.gnss_delay = 0;          % GNSS量测延迟 sec
-opt.gravity_R = 5.0;          % 重力更新 噪声
-opt.nhc_R = 2.0;               % 车载非完整性约束噪声
+opt.gravity_R = 3.0;          % 重力更新 噪声
+opt.nhc_R = 3.0;               % 车载非完整性约束噪声
+opt.zuptR = 0.01;
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 % 初始状态方差:    姿态           东北天速度  水平位置      陀螺零偏                              加速度计零偏
-opt.P0 = diag([ [5 5 100]*D2R, [1 1 1], [ 10 10 10],  [100 100 100]* D2R/3600, [1e-3, 1e-3 1e-3]*GRAVITY])^2;
+opt.P0 = diag([ [2 2 30]*D2R, [1 1 1], [5 5 5],  [200 200 200]* D2R/3600, [1e-3 1e-3 1e-3]*GRAVITY])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
-opt.Q = diag([(3/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (0.3/3600*D2R)*ones(1,3), 0*GRAVITY*ones(1,3)])^2;
+opt.Q = diag([(3/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (2/3600*D2R)*ones(1,3), 0*GRAVITY*ones(1,3)])^2;
 
 
 %% 数据载入
-load('dataset/2022年11月22日17时26分23秒.mat');
-% total_len = length(data);
-% data = data(1:total_len*3/4, :);
+load('dataset/2022年12月06日11时24分00秒.mat');
+total_len = length(data);
+data = data(1:total_len/3.6, :);
 
 pos_type = data(:, 46);
 evt_bit = data(:, 47);
@@ -79,7 +77,7 @@ mcu.lla = mcu_data(:, [8 7 9]);
 mcu.vel = mcu_data(:, 4:6);
 mcu.att = mcu_data(:, 1:3);
 
-last_gnss_evt = 1;
+zupt_cntr = 0;
 imu_dt = 0.01;
 gnss_dt = imu_dt;
 gyro_bias0 = mean(gyro_data(1:opt.alignment_time,:));
@@ -194,7 +192,6 @@ gyro_bias = X(10:12);
 acc_bias = X(13:15);
 
 P = opt.P0;
-Q = opt.Q * imu_dt;
 
 log.att = zeros(imu_length, 3);
 log.vel = zeros(imu_length, 3);
@@ -256,26 +253,25 @@ for i=1:imu_length
     
     % 卡尔曼时间更新
     X = F*X;
-    P = F*P*F' + Q;
+    P = F*P*F' + opt.Q*imu_dt;
     
     %% 建立IMU滑窗,并求基本统计量
     if(i > 100)
-        std_acc_sldwin = sum(std(acc_data(i-100:i, :)));
-        std_gyr_sldwin = sum(std(gyro_data(i-100:i, :)));
+        std_acc_sldwin = sum(std(acc_data(i-20:i, :)));
+        std_gyr_sldwin = sum(std(gyro_data(i-20:i, :)));
         log.std_acc_sldwin(i) = std_acc_sldwin;
         log.std_gyr_sldwin(i) = std_gyr_sldwin;
     end
     
-    if(log.std_acc_sldwin(i) < 0.3 && log.std_gyr_sldwin(i) < 0.05)
-        
-        %   imu_time(i)
-        %  vel = [ 0 0 0]';
+    % ZUPT计数器
+    if(log.std_acc_sldwin(i) < 0.3 && log.std_gyr_sldwin(i) < 0.01 && norm(gyro_data(i,:)) < 0.5*D2R)
+        zupt_cntr = zupt_cntr+1;
+    else
+        zupt_cntr = 0;
     end
-    
     
     %% GNSS量测更新
     if (evt_gnss(i) && ~isnan(gnss_enu(i,1)))
-        last_gnss_evt = i;
         if( (~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop))
             if(norm(vel_std_data(i,:) - vel_std_data(i-1,:)) < 0.2 && norm(gnss_enu(i,:) - gnss_enu(i-1,:)) < 10000 && norm(vel_std_data(i,:))<1 ) % 踢掉GNSS输出的可能的不可靠结果
                 H = zeros(6,15);
@@ -300,16 +296,9 @@ for i=1:imu_length
         end
     end
     
-    if opt.nhc_enable && norm(gyro_data(i, :)) < 3*D2R;
-                if( (~opt.nhc_disable || imu_time(i) < opt.nhc_disable_start || imu_time(i) > opt.nhc_disable_stop))
-
-    %    tR = opt.nhc_R  +  norm(gyro_data(i, :))*R2D*100 ;
-   tR = opt.nhc_R ;
-        %         if(i - last_gnss_evt < 10)
-        %             opt.nhc_R = 10;
-        %         else
-        %             opt.nhc_R = 2.4;
-        %         end
+    if opt.nhc_enable && norm(gyro_data(i, :)) < 2000*D2R
+        tR = opt.nhc_R  +  0*norm(gyro_data(i, :))*R2D / 5 ;
+        
         
         % 算法: Z定义在N系, 王博的
         %            H = zeros(3,15);
@@ -336,7 +325,6 @@ for i=1:imu_length
         
         
         fb_flag = 1;
-                end
     end
     
     %% 静止状态下重力量测更新姿态
@@ -355,8 +343,27 @@ for i=1:imu_length
         K = P * H' / (H * P * H' + R);
         X = X + K * (Z - H * X);
         P = (eye(N) - K * H) * P;
-        
-        
+        fb_flag = 1;
+    end
+    
+    
+    if opt.zupt_enable
+        if zupt_cntr > 100
+            log.zupt_state(i,1) = 1;
+            
+            H = zeros(3,15);
+            H(1:3,4:6) = eye(3);
+            
+            Z = vel - 0;
+            R = diag(ones(1, size(H, 1))*opt.zuptR)^2;
+            
+            % 卡尔曼量测更新
+            K = P * H' / (H * P * H' + R);
+            X = X + K * (Z - H * X);
+            P = (eye(N) - K * H) * P;
+        else
+            log.zupt_state(i,1) = 0;
+        end
     end
     
     if fb_flag
@@ -420,7 +427,12 @@ plot(imu_time, acc_data, 'linewidth', 1.5); hold on; grid on;
 ylabel('m/^(2)'); legend('X', 'Y','Z');
 subplot(2,1,2);
 plot(imu_time, gyro_data*R2D, 'linewidth', 1.5); hold on; grid on;
-ylabel('deg'); legend('X', 'Y','Z');
+ylabel('deg');
+if  opt.zupt_enable
+plot(imu_time, log.zupt_state*10, 'linewidth', 1.0); hold on; grid on;
+legend('X', 'Y','Z','ZUPT_STATE');
+end
+
 
 %% 姿态与航向估计曲线
 plot_att(imu_time,log.att, mcu_time,mcu.att, imu_time,log.sins_att, imu_time,[bl_pitch bl_yaw]);

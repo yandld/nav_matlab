@@ -2,7 +2,7 @@ close all;
 clear;
 clc;
 
-file_name = '2022年11月22日16时45分57秒';
+file_name = '2022年12月06日11时24分00秒';
 
 
 data = csvread(strcat(file_name, '.csv'), 1);
