@@ -46,7 +46,7 @@ plot(P(1,:), P(2,:), '*');
 A = [ P(1,:); P(2,:); ones(1,n)]';
 b = sum(P.*P, 1)';
 
-ls solution
+% ls solution
 a= (A'*A)^(-1)*A'*b;
 
 xc = 0.5*a(1);

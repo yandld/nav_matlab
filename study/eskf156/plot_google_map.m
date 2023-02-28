@@ -12,8 +12,8 @@ function plot_google_map(gnss, matlab, mcu)
             wmline(mcu(:,1), mcu(:,2), 'Color', 'magenta', 'Width', 2, 'OverlayName', 'MCU');
         end
     end
-    wmmarker(gnss(1,1), gnss(1,1), 'Color', 'g');
-    wmmarker(gnss(end,1), gnss(end,1), 'Color', 'r');
+    wmmarker(gnss(1,1)*R2D, gnss(1,1)*R2D, 'Color', 'g');
+    wmmarker(gnss(end,1)*R2D, gnss(end,1)*R2D, 'Color', 'r');
     % 线性可选颜色：
     % 'red', 'green', 'blue', 'white', 'cyan', 'magenta', 'yellow', 'black'
 end

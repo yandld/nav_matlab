@@ -23,6 +23,7 @@ Earth_e = 0.00335281066474748;
     end
 [p r y] = q2att(nQb');
 eul = ([p r y])
+nQb
 pos
 vel
 

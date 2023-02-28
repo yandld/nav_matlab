@@ -13,39 +13,40 @@ D2R = pi/180;       % Deg to Rad
 GRAVITY = 9.8;     % 重力加速度
 
 
+ESKF156_FB_A = bitshift(1,0);
+ESKF156_FB_V = bitshift(1,1);
+ESKF156_FB_P = bitshift(1,2);
+ESKF156_FB_W = bitshift(1,3); %反馈陀螺零篇
+ESKF156_FB_G = bitshift(1,4); %反馈加计零篇
 %% 说明
 % KF 状态量: 失准角(3) 速度误差(3) 位置误差(3) 陀螺零偏(3) 加计零偏(3)
 
 %% 相关选项及参数设置
 opt.alignment_time = 10e2;      % 初始对准时间
-opt.bias_feedback_enable = 1;          % IMU零偏反馈
 opt.save_kml_enable = 0;                   %生成KML文件
 opt.webmap_enable = 0;                     %生成卫星地图
-opt.gravity_update_enable = 0;  % 使能重力静止量更新
+opt.gravity_update_enable = 1;  % 使能重力静止量更新
 opt.nhc_enable = 1;             % 车辆运动学约束
 opt.zupt_enable = 0;              % ZUPT
 opt.gnss_outage = 0;            % 模拟GNSS丢失
-opt.outage_start = 1180;         % 丢失开始时间(s)·
-opt.outage_stop = 1240;          % 丢失结束时间(s)
-
+opt.outage_start = 900;         % 丢失开始时间(s)·
+opt.outage_stop = 1280;          % 丢失结束时间(s)
 
 
 opt.gnss_delay = 0;          % GNSS量测延迟 sec
-opt.gravity_R = 3.0;          % 重力更新 噪声
-opt.nhc_R = 3.0;               % 车载非完整性约束噪声
+opt.gravity_R = 0.8;          % 重力更新 噪声
+opt.nhc_R = 2.0;               % 车载非完整性约束噪声
 opt.zuptR = 0.01;
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 % 初始状态方差:    姿态           东北天速度  水平位置      陀螺零偏                              加速度计零偏
-opt.P0 = diag([ [2 2 30]*D2R, [1 1 1], [5 5 5],  [200 200 200]* D2R/3600, [1e-3 1e-3 1e-3]*GRAVITY])^2;
+opt.P0 = diag([ [2 2 10]*D2R, [1 1 1], [5 5 5],  [50 50 50]* D2R/3600, [1e-2 1e-2 1e-3]*GRAVITY])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
-opt.Q = diag([(3/60*D2R)*ones(1,3), (2/60)*ones(1,3), 0*ones(1,3), (2/3600*D2R)*ones(1,3), 0*GRAVITY*ones(1,3)])^2;
+opt.Q = diag([(5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), [2.0 2.0 2.0]/3600*D2R, 30*1e-6*GRAVITY*ones(1,3)])^2;
 
 
 %% 数据载入
-load('dataset/2022年12月06日11时24分00秒.mat');
-total_len = length(data);
-data = data(1:total_len/3.6, :);
+load('dataset/2022年11月04日17时00分49秒.mat');
 
 pos_type = data(:, 46);
 evt_bit = data(:, 47);
@@ -90,6 +91,7 @@ fprintf("gyro结束时刻bias估计:%7.3f,%7.3f,%7.3f deg/s\n", gyro_bias_end(1)
 evt_gnss_mask = bitshift(1,0);
 evt_gpst_mask = bitshift(1,2);
 evt_ins_mask = bitshift(1,4);
+evt_dual_mask = bitshift(1,5);
 
 % evt_gnss = bitand(evt_bit, evt_gnss_mask);
 evt_gnss = zeros(gnss_length, 1);
@@ -105,6 +107,7 @@ for i=2:gnss_length
 end
 evt_gpst = bitand(evt_bit, evt_gpst_mask);
 evt_ins = bitand(evt_bit, evt_ins_mask);
+evt_dual = bitand(evt_bit, evt_dual_mask);
 
 % GNSS数据抽样
 gnss_resample_index = find(evt_gnss == evt_gnss_mask);
@@ -209,7 +212,7 @@ log.std_gyr_sldwin = zeros(imu_length, 1);
 tic;
 count_sec = 1;
 for i=1:imu_length
-    fb_flag = 0; %反馈标志
+    FB_BIT = 0; %反馈标志
     current_time = toc;
     if current_time>count_sec
         percent = (i)/(imu_length);
@@ -273,7 +276,7 @@ for i=1:imu_length
     %% GNSS量测更新
     if (evt_gnss(i) && ~isnan(gnss_enu(i,1)))
         if( (~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop))
-            if(norm(vel_std_data(i,:) - vel_std_data(i-1,:)) < 0.2 && norm(gnss_enu(i,:) - gnss_enu(i-1,:)) < 10000 && norm(vel_std_data(i,:))<1 ) % 踢掉GNSS输出的可能的不可靠结果
+            if(norm(vel_std_data(i,:) - vel_std_data(i-1,:)) < 0.02 && norm(gnss_enu(i,:) - gnss_enu(i-1,:)) < 10000 && norm(vel_std_data(i,:))<1 ) % 踢掉GNSS输出的可能的不可靠结果
                 H = zeros(6,15);
                 H(1:3,4:6) = eye(3);
                 H(4:6,7:9) = eye(3);
@@ -289,16 +292,42 @@ for i=1:imu_length
                 K = P * H' / (H * P * H' + R);
                 X = X + K * (Z - H * X);
                 P = (eye(N) - K * H) * P;
-                
-                fb_flag = 1;
-                
+
+                FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
+                FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
+                FB_BIT = bitor(FB_BIT, ESKF156_FB_P);
+                FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
+                FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
             end
         end
     end
     
-    if opt.nhc_enable && norm(gyro_data(i, :)) < 2000*D2R
-        tR = opt.nhc_R  +  0*norm(gyro_data(i, :))*R2D / 5 ;
+
+    
+
+    %% 静止状态下重力量测更新姿态
+    if opt.gravity_update_enable && abs(((norm(acc_data(i,:))/GRAVITY)  - 1)) < 0.04
+        H = zeros(2,15);
+        H(1, 2) = 1;
+        H(2, 1) = -1;
+        g_n = -f_n/norm(f_n);
         
+        Z = g_n - [0;0;-1];
+        Z = Z(1:2);
+        
+        R = diag([opt.gravity_R  opt.gravity_R])^2;
+        
+        % 卡尔曼量测更新
+        K = P * H' / (H * P * H' + R);
+        X = X + K * (Z - H * X);
+        P = (eye(N) - K * H) * P;
+        FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
+        FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
+        FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
+    end
+    
+    if opt.nhc_enable 
+        % && norm(gyro_data(i,:)) < 5*D2R
         
         % 算法: Z定义在N系, 王博的
         %            H = zeros(3,15);
@@ -316,36 +345,17 @@ for i=1:imu_length
         A = [1 0 0; 0 0 1];
         H(1:2,4:6) = A*nCb;
         Z = 0 + (A*nCb)*vel;
-        R = diag(ones(1, size(H, 1))*tR)^2;
+        R = diag(ones(1, size(H, 1))*opt.nhc_R)^2;
         
         % 卡尔曼量测更新
         K = P * H' / (H * P * H' + R);
         X = X + K * (Z - H * X);
         P = (eye(N) - K * H) * P;
-        
-        
-        fb_flag = 1;
+        FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
+        FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
+        FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
+      %  FB_BIT = bitor(FB_BIT, ESKF156_FB_P);
     end
-    
-    %% 静止状态下重力量测更新姿态
-    if opt.gravity_update_enable
-        H = zeros(2,15);
-        H(1, 2) = 1;
-        H(2, 1) = -1;
-        g_n = -f_n/norm(f_n);
-        
-        Z = g_n - [0;0;-1];
-        Z = Z(1:2);
-        
-        R = diag([opt.gravity_R  opt.gravity_R])^2;
-        
-        % 卡尔曼量测更新
-        K = P * H' / (H * P * H' + R);
-        X = X + K * (Z - H * X);
-        P = (eye(N) - K * H) * P;
-        fb_flag = 1;
-    end
-    
     
     if opt.zupt_enable
         if zupt_cntr > 100
@@ -361,15 +371,17 @@ for i=1:imu_length
             K = P * H' / (H * P * H' + R);
             X = X + K * (Z - H * X);
             P = (eye(N) - K * H) * P;
+            FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
         else
             log.zupt_state(i,1) = 0;
         end
     end
     
-    if fb_flag
-        % 姿态修正
-        X_temp = X;
-        
+    
+    % 姿态修正
+    X_temp = X;
+    
+    if bitand(FB_BIT, ESKF156_FB_A)
         rv = X(1:3);
         rv_norm = norm(rv);
         qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
@@ -379,21 +391,29 @@ for i=1:imu_length
         bCn = ch_q2m(nQb); %更新bCn阵
         nCb = bCn'; %更新nCb阵
         X(1:3) = 0;
-        
+    end
+    
+    if bitand(FB_BIT, ESKF156_FB_V)
         vel = vel - X(4:6);
         X(4:6) = 0;
-        
+    end
+    
+    if bitand(FB_BIT, ESKF156_FB_P)
         pos = pos - X(7:9);
         X(7:9) = 0;
-        
-        % 零偏反馈
-        if opt.bias_feedback_enable
-            gyro_bias = gyro_bias + X(10:12);
-            acc_bias = acc_bias + X(13:15);
-            X(10:12) = 0;
-            X(13:15) = 0;
-        end
     end
+    
+    % 零偏反馈
+    if bitand(FB_BIT, ESKF156_FB_W)
+        gyro_bias = gyro_bias + X(10:12);
+        X(10:12) = 0;
+    end 
+     
+    if bitand(FB_BIT, ESKF156_FB_G)
+        acc_bias = acc_bias + X(13:15);
+        X(13:15) = 0;
+    end
+
     
     %% 信息存储
     [pitch, roll, yaw] = q2att(nQb);
@@ -429,13 +449,33 @@ subplot(2,1,2);
 plot(imu_time, gyro_data*R2D, 'linewidth', 1.5); hold on; grid on;
 ylabel('deg');
 if  opt.zupt_enable
-plot(imu_time, log.zupt_state*10, 'linewidth', 1.0); hold on; grid on;
-legend('X', 'Y','Z','ZUPT_STATE');
+    plot(imu_time, log.zupt_state*10, 'linewidth', 1.0); hold on; grid on;
+    legend('X', 'Y','Z','ZUPT_STATE');
 end
 
+%% MCU ESKF
+if size(data,2) == 59
+    mcu_acc_bias = data(:, 57:59) / GRAVITY * 1000;
+    mcu_gyr_bias = data(:, 54:56)*R2D;
+    figure;
+    subplot(2,1,1);
+    plot(mcu_acc_bias, 'linewidth', 1.0);
+    title("MCU ACC  零篇");  legend("X", "Y", "Z");  ylabel("零篇(mG)"); grid on;
+    
+    subplot(2,1,2, 'linewidth', 1.0);
+    plot(mcu_gyr_bias);
+    title("MCU GYR  零篇"); legend("X", "Y", "Z"); ylabel("零篇(dps)"); grid on;
+end 
 
 %% 姿态与航向估计曲线
 plot_att(imu_time,log.att, mcu_time,mcu.att, imu_time,log.sins_att, imu_time,[bl_pitch bl_yaw]);
+
+figure('name', "MGNSS组合导航航向与双天线航向");
+subplot(2,1,1);
+plot(imu_time, mcu.att(:,3),  imu_time, bl_yaw, '.-');
+legend("MCU YAW", "GNSS DUAL YAW");
+subplot(2,1,2);
+plot(imu_time, mcu.att(:,3) - bl_yaw);
 
 %% 速度估计曲线
 plot_vel(imu_time,vel_data, imu_time,log.vel, mcu_time,mcu.vel);
@@ -461,7 +501,7 @@ xlim([imu_time(1) imu_time(end)]);
 title('陀螺仪零偏估计曲线'); xlabel('时间(s)'); ylabel('零偏(dps)'); legend('X', 'Y', 'Z');
 
 subplot(2,2,2);
-plot(imu_time, log.acc_bias(:, 1:3) / 9.8 * 1000, 'linewidth', 1.5); grid on;
+plot(imu_time, log.acc_bias(:, 1:3) / GRAVITY * 1000, 'linewidth', 1.5); grid on;
 xlim([imu_time(1) imu_time(end)]);
 title('加速度计零偏估计曲线'); xlabel('时间(s)'); ylabel('零偏(mg)'); legend('X', 'Y', 'Z');
 

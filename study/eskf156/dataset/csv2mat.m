@@ -2,7 +2,7 @@ close all;
 clear;
 clc;
 
-file_name = '2022年12月06日11时24分00秒';
+file_name = '2023年02月20日15时48分37秒_RAW';
 
 
 data = csvread(strcat(file_name, '.csv'), 1);
@@ -20,7 +20,7 @@ acc= imu_data(:, 4:6);
 % acc(:,3) = filloutliers(acc(:,3), 'linear');
 % data(:,24:26) = acc;
 
-plot(diff_time);
+plot(diff_time, '.-');
 
 
 fprintf("保存数据...\r\n");

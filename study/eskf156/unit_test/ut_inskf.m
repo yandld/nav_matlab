@@ -19,10 +19,14 @@ P = diag([(2*D2R)*ones(1,2), (180*D2R), 0.5*ones(1,3), 5*ones(1,2), 10, (50/3600
 Q = diag([(1/60*D2R)*ones(1,3),  (2/60)*ones(1,3),  zeros(1,9)])^2;
 
 
-
+gyro_bias = 0;
+acc_bias = 0;
 for i=0:99
     w_nb_b = [0.814724,0.905792,0.126987]';
     f_b = [0.546882,0.957507,9.964889]';
+    
+    w_nb_b = w_nb_b - gyro_bias;
+    f_b = f_b - acc_bias;
     
     % 纯惯性姿态更新
     [nQb, pos, vel, q] = ins(w_nb_b, f_b, nQb, pos, vel, g, dT);
@@ -35,7 +39,7 @@ for i=0:99
     
     g_n = [0 0 -9.8];
     %% 卡尔曼滤波
-    if(mod(i, 10) == 0)
+   % if(mod(i, 10) == 0)
 
         F = zeros(15);
         F(4,2) = -f_n(3); %f_u天向比力
@@ -49,12 +53,12 @@ for i=0:99
         F(4:6,13:15) = bCn;
         
         % 状态转移矩阵F离散化
-        F = eye(15) + F*0.1;
+        F = eye(15) + F*0.01;
         
         % 卡尔曼时间更新
         X = F*X;
-        P = F*P*F' + Q*0.1;
-    end
+        P = F*P*F' + Q*0.01;
+ %   end
     
     
     %% gnss
@@ -80,24 +84,24 @@ for i=0:99
     Z = g_n - [0;0;-1];
     Z = Z(1:2);
     
-    R = diag([100 100]);
+    R = diag([0.8 0.8])^(2);
     
     % 卡尔曼量测更新
     K = P * H' / (H * P * H' + R);
     X = X + K * (Z - H * X);
     P = (eye(length(X)) - K * H) * P;
     
-    %% zupt
-    H = zeros(3, 15);
-    H(1:3,4:6) = eye(3);
-    
-    Z = vel;
-    
-    R = diag(0.1*ones(1,3))^2;
-    
-    K = P * H' / (H * P * H' + R);
-    X = X + K * (Z - H * X);
-    P = (eye(length(X)) - K * H) * P;
+%     %% zupt
+%     H = zeros(3, 15);
+%     H(1:3,4:6) = eye(3);
+%     
+%     Z = vel;
+%     
+%     R = diag(0.1*ones(1,3))^2;
+%     
+%     K = P * H' / (H * P * H' + R);
+%     X = X + K * (Z - H * X);
+%     P = (eye(length(X)) - K * H) * P;
     
     
     %nhc
@@ -105,22 +109,22 @@ for i=0:99
     A = [1 0 0; 0 0 1];
     H(1:2,4:6) = A*nCb;
     Z = 0 + (A*nCb)*vel;
-    R = diag(ones(1, size(H, 1))*0.1)^2;
+    R = diag(ones(1, size(H, 1))*2)^2;
     
     K = P * H' / (H * P * H' + R);
     X = X + K * (Z - H * X);
     P = (eye(N) - K * H) * P;
     
-    %od
-    H = zeros(1,15);
-    A = [0 1 0;];
-    H(1,4:6) = A*nCb;
-    Z = 0 + (A*nCb)*vel - od_speed;
-    R = diag(ones(1, size(H, 1))*0.1)^2;
+%     %od
+%     H = zeros(1,15);
+%     A = [0 1 0;];
+%     H(1,4:6) = A*nCb;
+%     Z = 0 + (A*nCb)*vel - od_speed;
+%     R = diag(ones(1, size(H, 1))*0.1)^2;
     
-    K = P * H' / (H * P * H' + R);
-    X = X + K * (Z - H * X);
-    P = (eye(N) - K * H) * P;
+%     K = P * H' / (H * P * H' + R);
+%     X = X + K * (Z - H * X);
+%     P = (eye(N) - K * H) * P;
     
     % 姿态修正
     rv = X(1:3);
@@ -140,6 +144,13 @@ for i=0:99
     % 位置修正
     pos = pos - X(7:9);
     
+   % 零偏反馈
+%         gyro_bias = gyro_bias + X(10:12);
+%         X(10:12) = 0;
+%      
+%         acc_bias = acc_bias + X(13:15);
+%         X(13:15) = 0;
+
     % 暂存状态X
     X_temp = X;
     

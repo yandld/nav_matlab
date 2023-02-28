@@ -1,5 +1,5 @@
 
-function [R_meridian, R_transverse, C_ECEF2ENU, C_ECEF2NED]= ch_earth(lat, lon, h)
+function [Rns, Rew, C_ECEF2ENU, C_ECEF2NED]= ch_earth(lat, lon, h)
 
 %% 根据经纬度计算地球常用参数
 % INPUT
@@ -7,8 +7,8 @@ function [R_meridian, R_transverse, C_ECEF2ENU, C_ECEF2NED]= ch_earth(lat, lon, 
 % lon: 经度(rad)
 
 % OUTPUT
-% R_meridian(RM)： 南北向地球曲率半径, 子午圈曲率半径(竖着的)
-% R_transverse(RN)：东西向地球曲率半径, 卯酉圈曲率半径(横着的)
+% Rns, R_meridian(RM, ns)： 南北向地球曲率半径, 子午圈曲率半径(竖着的)
+% Rew_transverse(RN, ew)：东西向地球曲率半径, 卯酉圈曲率半径(横着的)
 % C_ECEF2ENU: ECEF到ENU转换矩阵
 % C_ECEF2NED: ECEF到NED转换矩阵
 
@@ -17,10 +17,10 @@ R0 = 6378137;               %WGS84 赤道半径
 e = 0.0818191908425;    %WGS84 eccentricity
 % Calculate meridian radius of curvature using (2.105)
 temp = 1 - (e * sin(lat))^2;
-R_meridian = R0 * (1 - e^2) / temp^1.5;
+Rns = R0 * (1 - e^2) / temp^1.5;
 
 % Calculate transverse radius of curvature using (2.105)
-R_transverse = R0 / sqrt(temp);
+Rew = R0 / sqrt(temp);
 
 clat = cos(lat);
 slat = sin(lat);
