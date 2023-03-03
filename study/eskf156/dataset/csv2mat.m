@@ -2,7 +2,7 @@ close all;
 clear;
 clc;
 
-file_name = '2023年02月20日15时48分37秒_RAW';
+file_name = '2023年03月03日14时33分42秒_RAW';
 
 
 data = csvread(strcat(file_name, '.csv'), 1);

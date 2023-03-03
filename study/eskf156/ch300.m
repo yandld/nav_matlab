@@ -32,7 +32,6 @@ opt.gnss_outage = 0;            % 模拟GNSS丢失
 opt.outage_start = 900;         % 丢失开始时间(s)·
 opt.outage_stop = 1280;          % 丢失结束时间(s)
 
-
 opt.gnss_delay = 0;          % GNSS量测延迟 sec
 opt.gravity_R = 0.8;          % 重力更新 噪声
 opt.nhc_R = 2.0;               % 车载非完整性约束噪声
@@ -46,7 +45,9 @@ opt.Q = diag([(5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), [2.0 2.0 2.0]
 
 
 %% 数据载入
-load('dataset/2022年11月04日17时00分49秒.mat');
+% load('dataset/2023年03月03日13时57分56秒_RAW.mat');
+% load('dataset/2023年03月03日14时18分58秒_RAW.mat');
+load('dataset/2023年03月03日14时33分42秒_RAW.mat');
 
 pos_type = data(:, 46);
 evt_bit = data(:, 47);
@@ -139,8 +140,8 @@ lat0 = lla_data(1, 1);
 lon0 = lla_data(1, 2);
 h0 = lla_data(1, 3);
 
-
 time_sum = 0;
+distance_sum = 0;
 gnss_enu = zeros(gnss_length, 3);
 log.vel_norm = zeros(gnss_length, 1);
 
@@ -163,14 +164,18 @@ end
 for i=1:gnss_length
     [gnss_enu(i,1), gnss_enu(i,2), gnss_enu(i,3)] =  ch_LLA2ENU(lla_data(i,1), lla_data(i,2), lla_data(i,3), lat0, lon0, h0);
     log.vel_norm(i) = norm(vel_data(i, :));
+    distance_sum = distance_sum + norm(vel_data(i, :))*gnss_dt;
+    time_sum = time_sum + gnss_dt;
 end
+
+% gnss_enu = gnss_enu + normrnd(0,10, size(gnss_enu));
+% vel_data = vel_data + normrnd(0,1, size(vel_data));
 
 %% MCU结果转换为当地东北天坐标系
 mcu_enu = zeros(mcu_length, 3);
 for i=1:mcu_length
     [mcu_enu(i,1), mcu_enu(i,2), mcu_enu(i,3)] =  ch_LLA2ENU(mcu.lla(i,1)*D2R, mcu.lla(i,2)*D2R, mcu.lla(i,3), lat0, lon0, h0);
 end
-
 
 %% 初始参数设置
 % 粗对准
@@ -208,6 +213,9 @@ log.vb = zeros(imu_length, 3);
 log.zupt_time = zeros(imu_length, 1);
 log.std_acc_sldwin = zeros(imu_length, 1);
 log.std_gyr_sldwin = zeros(imu_length, 1);
+log.lambda = zeros(imu_length, 2); lambda = 1; pos_lambda = 1; vel_lambda = 1;
+% log.lambda = zeros(imu_length, 6); lambda_save = [1,1,1,1,1,1];
+log.gnss_r_ad = zeros(imu_length, 6); GNSS_R = zeros(6,6);
 
 tic;
 count_sec = 1;
@@ -277,6 +285,34 @@ for i=1:imu_length
     if (evt_gnss(i) && ~isnan(gnss_enu(i,1)))
         if( (~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop))
             if(norm(vel_std_data(i,:) - vel_std_data(i-1,:)) < 0.02 && norm(gnss_enu(i,:) - gnss_enu(i-1,:)) < 10000 && norm(vel_std_data(i,:))<1 ) % 踢掉GNSS输出的可能的不可靠结果
+                
+                nu = 10;
+                h_m = 3;
+                
+                vel_H = zeros(3,15);
+                vel_H(1:3,4:6) = eye(3);
+                vel_Z = vel - vel_data(i,:)';
+                vel_R = diag(vel_std_data(i,:))^2;
+                Z = vel_Z; H = vel_H; Rk = vel_R;
+                Py0 = H * P * H';
+                rk = Z - H * X;
+                vel_lambda = (nu + h_m)/(nu + rk'/(Py0 + Rk)*rk);
+%                 vel_lambda = 1;
+                vel_R = vel_R/vel_lambda;
+                
+                pos_H = zeros(3,15);
+                pos_H(1:3,7:9) = eye(3);
+                pos_Z = pos - gnss_enu(i,:)';
+                pos_R = diag(pos_std_data(i,:))^2;
+                Z = pos_Z; H = pos_H; Rk = pos_R;
+                Py0 = H * P * H';
+                rk = Z - H * X;
+                pos_lambda = (nu + h_m)/(nu + rk'/(Py0 + Rk)*rk);
+%                 pos_lambda = 1;
+                pos_R = pos_R/pos_lambda;
+                
+                GNSS_R = diag([diag(vel_R); diag(pos_R)]);
+                
                 H = zeros(6,15);
                 H(1:3,4:6) = eye(3);
                 H(4:6,7:9) = eye(3);
@@ -286,13 +322,22 @@ for i=1:imu_length
                 % GNSS量测延迟补偿
                 Z = Z - [a_n; vel]*opt.gnss_delay;
                 
-                R = diag([vel_std_data(i,:)  pos_std_data(i,:)])^2;
+                % 量测6维集中自适应
+%                 nu = 18;
+%                 h_m = size(H,1);
+%                 Py0 = H * P * H';
+%                 rk = Z - H * X;
+%                 Rk = GNSS_R;
+%                 lambda = (nu + h_m)/(nu + rk'/(Py0 + Rk)*rk);
+%                 GNSS_R = GNSS_R/lambda;
+                
+                R = GNSS_R;
                 
                 % 卡尔曼量测更新
                 K = P * H' / (H * P * H' + R);
                 X = X + K * (Z - H * X);
                 P = (eye(N) - K * H) * P;
-
+                
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_P);
@@ -302,8 +347,9 @@ for i=1:imu_length
         end
     end
     
-
-    
+%     log.lambda(i) = lambda;
+    log.lambda(i,:) = [vel_lambda pos_lambda];
+    log.gnss_r_ad(i,:) = sqrt(diag(GNSS_R));
 
     %% 静止状态下重力量测更新姿态
     if opt.gravity_update_enable && abs(((norm(acc_data(i,:))/GRAVITY)  - 1)) < 0.04
@@ -438,8 +484,6 @@ for i=1:imu_length
     [kf_lla(i,1), kf_lla(i,2), kf_lla(i,3)] = ch_ENU2LLA( log.pos(i,1), log.pos(i,2) ,log.pos(i,3), lat0, lon0, h0);
 end
 
-
-
 %% IMU原始值
 figure('name', 'IMU数据');
 subplot(2,1,1);
@@ -472,10 +516,14 @@ plot_att(imu_time,log.att, mcu_time,mcu.att, imu_time,log.sins_att, imu_time,[bl
 
 figure('name', "MGNSS组合导航航向与双天线航向");
 subplot(2,1,1);
-plot(imu_time, mcu.att(:,3),  imu_time, bl_yaw, '.-');
+plot(imu_time, mcu.att(:,3),  imu_time, bl_yaw, '.-'); grid on;
+xlim([imu_time(1) imu_time(end)]);
+ylim([-10 370]);
 legend("MCU YAW", "GNSS DUAL YAW");
 subplot(2,1,2);
-plot(imu_time, mcu.att(:,3) - bl_yaw);
+plot(imu_time, atand(tand(mcu.att(:,3) - bl_yaw)));  grid on;
+xlim([imu_time(1) imu_time(end)]);
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %% 速度估计曲线
 plot_vel(imu_time,vel_data, imu_time,log.vel, mcu_time,mcu.vel);
@@ -559,10 +607,48 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 %% P阵收敛结果
 plot_P(imu_time, log.P);
 
+%%
+% close all;
+
+figure;
+plot(imu_time, log.lambda); grid on;
+xlim([imu_time(1) imu_time(end)]);
+xlabel('时间(s)');
+
+figure;
+subplot(3,1,1);
+plot(imu_time, log.gnss_r_ad(:,1), 'LineWidth',1.5); grid on; hold on;
+plot(imu_time, vel_std_data(:,1), 'LineWidth',1.5);
+ylim([0 0.1]);
+subplot(3,1,2);
+plot(imu_time, log.gnss_r_ad(:,2), 'LineWidth',1.5); grid on; hold on;
+plot(imu_time, vel_std_data(:,2), 'LineWidth',1.5);
+ylim([0 0.1]);
+subplot(3,1,3);
+plot(imu_time, log.gnss_r_ad(:,3), 'LineWidth',1.5); grid on; hold on;
+plot(imu_time, vel_std_data(:,3), 'LineWidth',1.5);
+ylim([0 0.1]);
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+
+figure;
+subplot(3,1,1);
+plot(imu_time, log.gnss_r_ad(:,4), 'LineWidth',1.5); grid on; hold on;
+plot(imu_time, pos_std_data(:,1), 'LineWidth',1.5);
+ylim([0 5]);
+subplot(3,1,2);
+plot(imu_time, log.gnss_r_ad(:,5), 'LineWidth',1.5); grid on; hold on;
+plot(imu_time, pos_std_data(:,2), 'LineWidth',1.5);
+ylim([0 5]);
+subplot(3,1,3);
+plot(imu_time, log.gnss_r_ad(:,6), 'LineWidth',1.5); grid on; hold on;
+plot(imu_time, pos_std_data(:,3), 'LineWidth',1.5);
+ylim([0 5]);
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+
 %% 数据统计
 fprintf('行驶时间: %d小时%d分%.3f秒\n', degrees2dms(time_sum/3600));
+fprintf('行驶距离: %.3fkm\n', distance_sum/1000);
 fprintf('最高时速: %.3fkm/h\n', max(log.vel_norm)*3.6);
-
 
 if opt.webmap_enable
     plot_google_map(lla_data*R2D, kf_lla*R2D, mcu.lla);
@@ -575,4 +661,3 @@ if opt.save_kml_enable
     kmlwriteline(kmlname,lla_data(:,1)*R2D,lla_data(:,2)*R2D, 'Color', 'blue');
     kmlwriteline(kmlname,kf_lla(:,1)*R2D,kf_lla(:,2)*R2D, 'Color', 'cyan');
 end
-
