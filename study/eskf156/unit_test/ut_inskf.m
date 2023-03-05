@@ -1,4 +1,5 @@
 clc; clear; close all;
+format long
 
 D2R=pi/180;
 g=9.8;
@@ -22,6 +23,7 @@ Q = diag([(1/60*D2R)*ones(1,3),  (2/60)*ones(1,3),  zeros(1,9)])^2;
 gyro_bias = 0;
 acc_bias = 0;
 for i=0:99
+
     w_nb_b = [0.814724,0.905792,0.126987]';
     f_b = [0.546882,0.957507,9.964889]';
     
@@ -74,22 +76,22 @@ for i=0:99
     K = P * H' / (H * P * H' + R);
     X = X + K * (Z - H * X);
     P = (eye(length(X)) - K * H) * P;
-    
-    %% gra
-    H = zeros(2,15);
-    H(1, 2) = 1;
-    H(2, 1) = -1;
-    g_n = -f_n/norm(f_n);
-    
-    Z = g_n - [0;0;-1];
-    Z = Z(1:2);
-    
-    R = diag([0.8 0.8])^(2);
-    
-    % 卡尔曼量测更新
-    K = P * H' / (H * P * H' + R);
-    X = X + K * (Z - H * X);
-    P = (eye(length(X)) - K * H) * P;
+
+%     %% gravity
+%     H = zeros(2,15);
+%     H(1, 2) = 1;
+%     H(2, 1) = -1;
+%     g_n = -f_n/norm(f_n);
+%     
+%     Z = g_n - [0;0;-1];
+%     Z = Z(1:2);
+%     
+%     R = diag([0.8 0.8])^(2);
+%     
+%     % 卡尔曼量测更新
+%     K = P * H' / (H * P * H' + R);
+%     X = X + K * (Z - H * X);
+%     P = (eye(length(X)) - K * H) * P;
     
 %     %% zupt
 %     H = zeros(3, 15);
@@ -104,16 +106,16 @@ for i=0:99
 %     P = (eye(length(X)) - K * H) * P;
     
     
-    %nhc
-    H = zeros(2,15);
-    A = [1 0 0; 0 0 1];
-    H(1:2,4:6) = A*nCb;
-    Z = 0 + (A*nCb)*vel;
-    R = diag(ones(1, size(H, 1))*2)^2;
-    
-    K = P * H' / (H * P * H' + R);
-    X = X + K * (Z - H * X);
-    P = (eye(N) - K * H) * P;
+%     %nhc
+%     H = zeros(2,15);
+%     A = [1 0 0; 0 0 1];
+%     H(1:2,4:6) = A*nCb;
+%     Z = 0 + (A*nCb)*vel;
+%     R = diag(ones(1, size(H, 1))*2)^2;
+%     
+%     K = P * H' / (H * P * H' + R);
+%     X = X + K * (Z - H * X);
+%     P = (eye(N) - K * H) * P;
     
 %     %od
 %     H = zeros(1,15);
@@ -156,7 +158,8 @@ for i=0:99
     
     % 误差清零
     X(1:9) = zeros(9,1);
-    
+
+
 end
 
 nQb

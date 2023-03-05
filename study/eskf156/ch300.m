@@ -393,7 +393,7 @@ for i=1:imu_length
         %算法2: Z定义在b系， 书上标准的
         H = zeros(2,15);
         A = [1 0 0; 0 0 1];
-        H(1:2,4:6) = A*nCb;
+        H(:,4:6) = A*nCb;
         Z = 0 + (A*nCb)*vel;
         R = diag(ones(1, size(H, 1))*opt.nhc_R)^2;
         
@@ -488,18 +488,18 @@ for i=1:imu_length
     [kf_lla(i,1), kf_lla(i,2), kf_lla(i,3)] = ch_ENU2LLA(log.pos(i,1), log.pos(i,2) ,log.pos(i,3), lat0, lon0, h0);
 end
 
-%% IMU原始值
-figure('name', 'IMU数据');
-subplot(2,1,1);
-plot(imu_time, acc_data, 'linewidth', 1.5); hold on; grid on;
-ylabel('m/^(2)'); legend('X', 'Y','Z');
-subplot(2,1,2);
-plot(imu_time, gyro_data*R2D, 'linewidth', 1.5); hold on; grid on;
-ylabel('deg');
-if  opt.zupt_enable
-    plot(imu_time, log.zupt_state*10, 'linewidth', 1.0); hold on; grid on;
-    legend('X', 'Y','Z','ZUPT_STATE');
-end
+% %% IMU原始值
+% figure('name', 'IMU数据');
+% subplot(2,1,1);
+% plot(imu_time, acc_data, 'linewidth', 1.5); hold on; grid on;
+% ylabel('m/^(2)'); legend('X', 'Y','Z');
+% subplot(2,1,2);
+% plot(imu_time, gyro_data*R2D, 'linewidth', 1.5); hold on; grid on;
+% ylabel('deg');
+% if  opt.zupt_enable
+%     plot(imu_time, log.zupt_state*10, 'linewidth', 1.0); hold on; grid on;
+%     legend('X', 'Y','Z','ZUPT_STATE');
+% end
 
 %% MCU ESKF
 if size(data,2) == 59
@@ -615,25 +615,25 @@ plot_P(imu_time, log.P);
 %%
 % close all;
 
-figure;
+figure('name', 'CERKF lambda');
 plot(imu_time, log.lambda); grid on;
 xlim([imu_time(1) imu_time(end)]);
 xlabel('时间(s)');
 
-figure;
-subplot(3,1,1);
+figure('name', 'GNSS给出STD 和 自适应算得R对比');
+subplot(3,1,1); title('East');
 plot(imu_time, log.gnss_r_ad(:,1), 'LineWidth',1.5); grid on; hold on;
 plot(imu_time, vel_std_data(:,1), 'LineWidth',1.5);
-ylim([0 0.1]);
-subplot(3,1,2);
+legend('自适应', 'GNSS');
+subplot(3,1,2);title('North');
 plot(imu_time, log.gnss_r_ad(:,2), 'LineWidth',1.5); grid on; hold on;
 plot(imu_time, vel_std_data(:,2), 'LineWidth',1.5);
-ylim([0 0.1]);
-subplot(3,1,3);
+legend('自适应', 'GNSS');
+subplot(3,1,3);title('Up');
 plot(imu_time, log.gnss_r_ad(:,3), 'LineWidth',1.5); grid on; hold on;
 plot(imu_time, vel_std_data(:,3), 'LineWidth',1.5);
-ylim([0 0.1]);
-set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+legend('自适应', 'GNSS');
+
 
 figure;
 subplot(3,1,1);
