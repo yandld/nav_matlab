@@ -26,13 +26,14 @@ opt.alignment_time = 10e2;      % 初始对准时间
 opt.save_kml_enable = 0;                   %生成KML文件
 opt.webmap_enable = 0;                     %生成卫星地图
 opt.gravity_update_enable = 1;  % 使能重力静止量更新
-opt.nhc_enable = 1;             % 车辆运动学约束
+opt.nhc_enable = 0;             % 车辆运动学约束
 opt.zupt_enable = 0;              % ZUPT
 opt.gnss_outage = 0;            % 模拟GNSS丢失
 opt.outage_start = 900;         % 丢失开始时间(s)·
 opt.outage_stop = 1280;          % 丢失结束时间(s)
 
 opt.gnss_delay = 0;          % GNSS量测延迟 sec
+opt.gnss_lever_arm = [-0.52; -1.30; 0.93]; %GNSS杆臂长度 b系下（右-前-上）
 opt.gravity_R = 0.8;          % 重力更新 噪声
 opt.nhc_R = 2.0;               % 车载非完整性约束噪声
 opt.zuptR = 0.01;
@@ -45,9 +46,9 @@ opt.Q = diag([(5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), [2.0 2.0 2.0]
 
 
 %% 数据载入
-% load('dataset/2023年03月03日13时57分56秒_RAW.mat');
+load('dataset/2023年03月03日13时57分56秒_RAW.mat');
 % load('dataset/2023年03月03日14时18分58秒_RAW.mat');
-load('dataset/2023年03月03日14时33分42秒_RAW.mat');
+% load('dataset/2023年03月03日14时33分42秒_RAW.mat');
 
 pos_type = data(:, 46);
 evt_bit = data(:, 47);
@@ -321,6 +322,9 @@ for i=1:imu_length
                 
                 % GNSS量测延迟补偿
                 Z = Z - [a_n; vel]*opt.gnss_delay;
+
+                % GNSS天线杆壁效应补偿
+                Z = Z + [-bCn*v3_skew(w_b); -bCn]*opt.gnss_lever_arm;
                 
                 % 量测6维集中自适应
 %                 nu = 18;
@@ -481,7 +485,7 @@ fprintf('数据处理完毕，用时%.3f秒\n', toc);
 %% 当地东北天坐标系转换成经纬度
 kf_lla = zeros(imu_length, 3);
 for i=1:imu_length
-    [kf_lla(i,1), kf_lla(i,2), kf_lla(i,3)] = ch_ENU2LLA( log.pos(i,1), log.pos(i,2) ,log.pos(i,3), lat0, lon0, h0);
+    [kf_lla(i,1), kf_lla(i,2), kf_lla(i,3)] = ch_ENU2LLA(log.pos(i,1), log.pos(i,2) ,log.pos(i,3), lat0, lon0, h0);
 end
 
 %% IMU原始值
@@ -519,6 +523,7 @@ subplot(2,1,1);
 plot(imu_time, mcu.att(:,3),  imu_time, bl_yaw, '.-'); grid on;
 xlim([imu_time(1) imu_time(end)]);
 ylim([-10 370]);
+yticks(0:45:360);
 legend("MCU YAW", "GNSS DUAL YAW");
 subplot(2,1,2);
 plot(imu_time, atand(tand(mcu.att(:,3) - bl_yaw)));  grid on;

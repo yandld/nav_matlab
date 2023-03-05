@@ -19,6 +19,7 @@ function plot_att(matlab_time,matlab_att, mcu_time,mcu_att, sins_time,sins_att, 
             legend('MATLAB', 'Orientation','horizontal');
             xlim([matlab_time(1) matlab_time(end)]);
             ylim([-30 420]);
+            yticks(0:45:360);
             xlabel('时间(s)'); ylabel('Yaw(°)');
         elseif i==4
 %             mcu_time = mcu_time/60;
