@@ -39,7 +39,7 @@ dlogadev = diff(logadev) ./ diff(logtau);
 b = logadev(i) - slope*logtau(i);
 
 % Determine the angle random walk coefficient from the line.
-logN = slope*log(1) + b;
+logN = slope*log10(1) + b;
 N = 10^logN;
 
 % Plot the results.
