@@ -23,31 +23,33 @@ ESKF156_FB_G = bitshift(1,4); %反馈加计零篇
 
 %% 相关选项及参数设置
 opt.alignment_time = 10e2;      % 初始对准时间
-opt.webmap_enable = 0;                     %生成卫星地图
-opt.gravity_update_enable = 1;  % 使能重力静止量更新
-opt.nhc_enable = 0;             % 车辆运动学约束
+opt.gravity_update_enable = 0;  % 使能重力静止量更新
+opt.nhc_enable = 1;             % 车辆运动学约束
 opt.zupt_enable = 0;              % ZUPT
 opt.gnss_outage = 0;            % 模拟GNSS丢失
-opt.outage_start = 900;         % 丢失开始时间(s)·
-opt.outage_stop = 1280;          % 丢失结束时间(s)
+opt.outage_start = 200;         % 丢失开始时间(s)·
+opt.outage_stop = 220;          % 丢失结束时间(s)
 
 opt.gnss_delay = 0;          % GNSS量测延迟 sec
-opt.gnss_lever_arm = [-0.52; -1.30; 0.93]; %GNSS杆臂长度 b系下（右-前-上）
+opt.gnss_lever_arm = 0*[-0.52; -1.30; 0.73]; %GNSS杆臂长度 b系下（右-前-上）
 opt.gravity_R = 0.8;          % 重力更新 噪声
 opt.nhc_R = 2.0;               % 车载非完整性约束噪声
 opt.zuptR = 0.01;
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 % 初始状态方差:    姿态           东北天速度  水平位置      陀螺零偏                              加速度计零偏
-opt.P0 = diag([ [2 2 10]*D2R, [1 1 1], [5 5 5],  [50 50 50]* D2R/3600, [1e-2 1e-2 1e-3]*GRAVITY])^2;
+opt.P0 = diag([ [2 2 40]*D2R, [1 1 1], [5 5 5],  [50 50 50]* D2R/3600, [1e-2 1e-2 1e-3]*GRAVITY])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
 opt.Q = diag([(5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), [2.0 2.0 2.0]/3600*D2R, 30*1e-6*GRAVITY*ones(1,3)])^2;
 
 
 %% 数据载入
-load('dataset/2023年03月03日13时57分56秒_RAW.mat');
+load('dataset/2023年03月29日14时59分21秒_RAW_3#_MODIFY.mat');
 % load('dataset/2023年03月03日14时18分58秒_RAW.mat');
 % load('dataset/2023年03月03日14时33分42秒_RAW.mat');
+
+att = [0 0 0]*D2R; %初始安装角
+Cbrv = att2Cnb(att);
 
 pos_type = data(:, 46);
 evt_bit = data(:, 47);
@@ -145,6 +147,7 @@ distance_sum = 0;
 gnss_enu = zeros(gnss_length, 3);
 log.vel_norm = zeros(gnss_length, 1);
 
+inital_idx = 1;
 % 根据速度 获得初始航向角
 for i=1:gnss_length
     if norm(vel_data(i,:)) >5
@@ -152,7 +155,9 @@ for i=1:gnss_length
         if(opt.inital_yaw < 0)
             opt.inital_yaw =  opt.inital_yaw + 360*D2R;
         end
-        fprintf("初始航向角:%.2f°\r\n",  opt.inital_yaw*R2D);
+        
+        inital_idx = i;
+        fprintf("初始航向角:%.2f°, 从数据:%d开始\r\n",  opt.inital_yaw*R2D, inital_idx);
         break;
     end
 end
@@ -161,7 +166,7 @@ if i == gnss_length
     fprintf("无法通过速度矢量找到初始航向角，设置为:%.2f°\r\n",  opt.inital_yaw*R2D);
 end
 
-for i=1:gnss_length
+for i=inital_idx : gnss_length
     [gnss_enu(i,1), gnss_enu(i,2), gnss_enu(i,3)] =  ch_LLA2ENU(lla_data(i,1), lla_data(i,2), lla_data(i,3), lat0, lon0, h0);
     log.vel_norm(i) = norm(vel_data(i, :));
     distance_sum = distance_sum + norm(vel_data(i, :))*gnss_dt;
@@ -231,8 +236,18 @@ for i=1:imu_length
     
     %% 捷联更新
     % 单子样等效旋转矢量法
-    w_b = gyro_data(i,:)' - gyro_bias;
-    f_b = acc_data(i,:)' - acc_bias;
+    w_b = gyro_data(i,:)';
+   % w_b(3) = w_b(3) - 0.2*D2R;
+    w_b = Cbrv*w_b;
+    w_b = w_b - gyro_bias;
+    
+    
+    f_b = acc_data(i,:)';
+    %f_b(1) = f_b(1) + 0.1*GRAVITY;
+    f_b = Cbrv*f_b;
+    f_b = f_b - acc_bias;
+    
+    
     % 捷联更新
     [nQb, pos, vel, ~] = ins(w_b, f_b, nQb, pos, vel, GRAVITY, imu_dt);
     
@@ -284,7 +299,7 @@ for i=1:imu_length
     %% GNSS量测更新
     if (evt_gnss(i) && ~isnan(gnss_enu(i,1)))
         if( (~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop))
-            if(norm(vel_std_data(i,:) - vel_std_data(i-1,:)) < 0.02 && norm(gnss_enu(i,:) - gnss_enu(i-1,:)) < 10000 && norm(vel_std_data(i,:))<1 ) % 踢掉GNSS输出的可能的不可靠结果
+            if( norm(gnss_enu(i,:) - gnss_enu(i-1,:)) < 10000 && norm(vel_std_data(i,:))<1 ) % 踢掉GNSS输出的可能的不可靠结果
                 
                 nu = 10;
                 h_m = 3;
@@ -487,18 +502,18 @@ for i=1:imu_length
     [kf_lla(i,1), kf_lla(i,2), kf_lla(i,3)] = ch_ENU2LLA(log.pos(i,1), log.pos(i,2) ,log.pos(i,3), lat0, lon0, h0);
 end
 
-% %% IMU原始值
-% figure('name', 'IMU数据');
-% subplot(2,1,1);
-% plot(imu_time, acc_data, 'linewidth', 1.5); hold on; grid on;
-% ylabel('m/^(2)'); legend('X', 'Y','Z');
-% subplot(2,1,2);
-% plot(imu_time, gyro_data*R2D, 'linewidth', 1.5); hold on; grid on;
-% ylabel('deg');
-% if  opt.zupt_enable
-%     plot(imu_time, log.zupt_state*10, 'linewidth', 1.0); hold on; grid on;
-%     legend('X', 'Y','Z','ZUPT_STATE');
-% end
+%% IMU原始值
+figure('name', 'IMU数据');
+subplot(2,1,1);
+plot(imu_time, acc_data, 'linewidth', 1.5); hold on; grid on;
+ylabel('m/^(2)'); legend('X', 'Y','Z');
+subplot(2,1,2);
+plot(imu_time, gyro_data*R2D, 'linewidth', 1.5); hold on; grid on;
+ylabel('deg');
+if  opt.zupt_enable
+    plot(imu_time, log.zupt_state*10, 'linewidth', 1.0); hold on; grid on;
+    legend('X', 'Y','Z','ZUPT_STATE');
+end
 
 %% MCU ESKF
 if size(data,2) == 59
@@ -653,9 +668,4 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 fprintf('行驶时间: %d小时%d分%.3f秒\n', degrees2dms(time_sum/3600));
 fprintf('行驶距离: %.3fkm\n', distance_sum/1000);
 fprintf('最高时速: %.3fkm/h\n', max(log.vel_norm)*3.6);
-
-if opt.webmap_enable
-    plot_google_map(lla_data*R2D, kf_lla*R2D, mcu.lla);
-    plot_google_map(lla_data*R2D, kf_lla*R2D);
-end
 
