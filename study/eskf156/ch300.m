@@ -23,7 +23,6 @@ ESKF156_FB_G = bitshift(1,4); %反馈加计零篇
 
 %% 相关选项及参数设置
 opt.alignment_time = 10e2;      % 初始对准时间
-opt.save_kml_enable = 0;                   %生成KML文件
 opt.webmap_enable = 0;                     %生成卫星地图
 opt.gravity_update_enable = 1;  % 使能重力静止量更新
 opt.nhc_enable = 0;             % 车辆运动学约束
@@ -660,9 +659,3 @@ if opt.webmap_enable
     plot_google_map(lla_data*R2D, kf_lla*R2D);
 end
 
-if opt.save_kml_enable
-    kmlname = fullfile('gnss.kml');
-    fprintf("写入GNSS数据到: %s\r\n", kmlname);
-    kmlwriteline(kmlname,lla_data(:,1)*R2D,lla_data(:,2)*R2D, 'Color', 'blue');
-    kmlwriteline(kmlname,kf_lla(:,1)*R2D,kf_lla(:,2)*R2D, 'Color', 'cyan');
-end
