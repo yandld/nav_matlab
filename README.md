@@ -10,7 +10,7 @@
 
 运行环境：
 
-* MATLAB R2020a必须安装sensor fusion toolbox和navigation tool box
+* 最低版本: MATLAB R2022a,  必须安装sensor fusion toolbox和navigation tool box
 
 * 需要将`\lib`及其子目录加入MATLAB预设目录， 或者运行一下根目录下的`init.m`
 
