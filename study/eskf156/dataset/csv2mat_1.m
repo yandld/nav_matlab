@@ -85,5 +85,7 @@ function data =csv2mat_1(fullfilename)
     fprintf("保存数据...\r\n");
     save(fullfile(file_name + ".mat"), 'data');
     fprintf("保存完成\r\n");
+    
+    movefile(fullfile(file_name + ".mat"), './study/eskf156/dataset');
 end
 
