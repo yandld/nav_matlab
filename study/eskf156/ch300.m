@@ -33,20 +33,19 @@ opt.outage_stop = 220;          % 丢失结束时间(s)
 opt.gnss_delay = 0;          % GNSS量测延迟 sec
 opt.gnss_lever_arm = 0*[-0.52; -1.30; 0.73]; %GNSS杆臂长度 b系下（右-前-上）
 opt.gravity_R = 0.8;          % 重力更新 噪声
-opt.nhc_R = 2.0;               % 车载非完整性约束噪声
+opt.nhc_R = 5.0;               % 车载非完整性约束噪声
 opt.zuptR = 0.01;
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 % 初始状态方差:    姿态           东北天速度  水平位置      陀螺零偏                              加速度计零偏
-opt.P0 = diag([ [2 2 40]*D2R, [1 1 1], [5 5 5],  [50 50 50]* D2R/3600, [1e-2 1e-2 1e-3]*GRAVITY])^2;
+opt.P0 = diag([ [2 2 10]*D2R, [1 1 1], [5 5 5],  [50 50 50]* D2R/3600, [1e-3 1e-3 1e-3]*GRAVITY])^2;
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
-opt.Q = diag([(5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), [2.0 2.0 2.0]/3600*D2R, 30*1e-6*GRAVITY*ones(1,3)])^2;
+opt.Q = diag([(5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), [2.0 2.0 2.0]/3600*D2R, 0*GRAVITY*ones(1,3)])^2;
 
 
 %% 数据载入
-load('dataset/2023年03月29日14时59分21秒_RAW_3#_MODIFY.mat');
-% load('dataset/2023年03月03日14时18分58秒_RAW.mat');
-% load('dataset/2023年03月03日14时33分42秒_RAW.mat');
+load('dataset/example.mat');
+
 
 att = [0 0 0]*D2R; %初始安装角
 Cbrv = att2Cnb(att);
@@ -299,7 +298,7 @@ for i=1:imu_length
     %% GNSS量测更新
     if (evt_gnss(i) && ~isnan(gnss_enu(i,1)))
         if( (~opt.gnss_outage || imu_time(i) < opt.outage_start || imu_time(i) > opt.outage_stop))
-            if( norm(gnss_enu(i,:) - gnss_enu(i-1,:)) < 10000 && norm(vel_std_data(i,:))<1 ) % 踢掉GNSS输出的可能的不可靠结果
+      %      if( norm(gnss_enu(i,:) - gnss_enu(i-1,:)) < 10000 && norm(vel_std_data(i,:))<1 ) % 踢掉GNSS输出的可能的不可靠结果
                 
                 nu = 10;
                 h_m = 3;
@@ -361,7 +360,7 @@ for i=1:imu_length
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_P);
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
-            end
+       %     end
         end
     end
     
@@ -521,11 +520,11 @@ if size(data,2) == 59
     mcu_gyr_bias = data(:, 54:56)*R2D;
     figure;
     subplot(2,1,1);
-    plot(mcu_acc_bias, 'linewidth', 1.0);
+    plot(imu_time, mcu_acc_bias, 'linewidth', 1.0);
     title("MCU ACC  零篇");  legend("X", "Y", "Z");  ylabel("零篇(mG)"); grid on;
     
     subplot(2,1,2, 'linewidth', 1.0);
-    plot(mcu_gyr_bias);
+    plot(imu_time, mcu_gyr_bias);
     title("MCU GYR  零篇"); legend("X", "Y", "Z"); ylabel("零篇(dps)"); grid on;
 end 
 
