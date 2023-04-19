@@ -44,23 +44,28 @@ opt.Q = diag([(5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), [2.0 2.0 2.0]
 
 
 %% 数据载入
-load('dataset/example.mat');
+load('dataset/example_new.mat');
 
 
 att = [0 0 0]*D2R; %初始安装角
 Cbrv = att2Cnb(att);
 
-pos_type = data(:, 46);
-evt_bit = data(:, 47);
+% pos_type = data(:, 46);
+pos_type =data.ins.posType;
+% evt_bit = data(:, 47);
+evt_bit =data.ins.evtBit;
 
-imu_data = data(:, 21:26);
-gnss_data = data(:, 27:44);
-mcu_data = data(:, 3:20);
+% imu_data = data(:, 21:26);
+imu_data =[data.imu.gyr data.imu.acc];
+% gnss_data = data(:, 27:44);
+gnss_data =[data.gnss.lla data.gnss.vel data.gnss.att data.gnss.lla_std data.gnss.vel_std data.gnss.att_std];
+% mcu_data = data(:, 3:20);
+mcu_data =[data.ins.att data.ins.vel data.ins.lla data.ins.att_std data.ins.vel_std data.ins.lla_std];
 imu_length = length(imu_data);
 gnss_length = length(gnss_data);
 mcu_length = length(mcu_data);
 
-imu_time = (data(:, 2) - data(1, 2));
+imu_time = (data.ins.time(:, 2) - data.ins.time(1, 2));
 mcu_time = imu_time;
 
 gyro_data = imu_data(:, 1:3);

@@ -2,7 +2,7 @@ close all;
 clear;
 clc;
 
-file_name = 'example';
+file_name = 'example_old';
 
 
 data = csvread(strcat(file_name, '.csv'), 1);
