@@ -1,4 +1,15 @@
-function data =csv2mat_1(fullfilename)
+function data = csv2mat_1(fullfilename)
+
+    close all;
+    % 获取脚本所在的完整路径
+    scriptPath = mfilename('fullpath');
+    
+    % 获取脚本所在的目录路径
+    scriptFolder = fileparts(scriptPath);
+    
+    % 切换当前工作目录到脚本所在的目录
+    cd(scriptFolder);
+
     [pathstr,file_name,ext]=fileparts(fullfilename)
     rawData = csvread(fullfilename, 3, 2);
     
@@ -83,9 +94,10 @@ function data =csv2mat_1(fullfilename)
     data.gnss.gb =gnssrcvData(: ,30:32);
     %保存数据
     fprintf("保存数据...\r\n");
+    fprintf("保存位置%s/%s\r\n", scriptFolder, fullfile(file_name + ".mat"));
     save(fullfile(file_name + ".mat"), 'data');
     fprintf("保存完成\r\n");
     
-    movefile(fullfile(file_name + ".mat"), './study/eskf156/dataset');
+
 end
 

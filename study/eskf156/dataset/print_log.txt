@@ -1,0 +1,18 @@
+
+pathstr =
+
+    'E:\OneDrive\gitResp\nav_matlab\study\eskf156\dataset'
+
+
+file_name =
+
+    '2023年05月16日16时33分57秒_RAW'
+
+
+ext =
+
+    '.csv'
+
+保存数据...
+保存位置E:\OneDrive\gitResp\nav_matlab\study\eskf156\dataset/2023年05月16日16时33分57秒_RAW.mat
+保存完成
