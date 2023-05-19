@@ -44,7 +44,7 @@ opt.Q = diag([(5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), [2.0 2.0 2.0]
 
 
 %% 数据载入
-load('dataset/example_new.mat');
+load('dataset/2023年05月17日14时49分06秒_RAW.mat');
 
 
 att = [0 0 0]*D2R; %初始安装角
@@ -513,7 +513,7 @@ plot(imu_time, acc_data, 'linewidth', 1.5); hold on; grid on;
 ylabel('m/^(2)'); legend('X', 'Y','Z');
 subplot(2,1,2);
 plot(imu_time, gyro_data*R2D, 'linewidth', 1.5); hold on; grid on;
-ylabel('deg');
+ylabel('dps');
 if  opt.zupt_enable
     plot(imu_time, log.zupt_state*10, 'linewidth', 1.0); hold on; grid on;
     legend('X', 'Y','Z','ZUPT_STATE');
