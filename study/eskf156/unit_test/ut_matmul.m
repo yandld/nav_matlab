@@ -48,8 +48,7 @@ beta = 0.5;
 
 
 for i=1:10
-C  = alpha*A'*B' + beta*C';
-C = C';
+C  = alpha*A*B + beta*C;
 alpha = alpha + 0.1;
  beta = beta - 0.1;
 end
