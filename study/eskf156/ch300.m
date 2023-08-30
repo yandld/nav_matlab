@@ -2,7 +2,10 @@ close all;
 clear;
 clc;
 
-addpath ./
+% 切换到当前工作目录
+scriptPath = mfilename('fullpath');
+scriptFolder = fileparts(scriptPath);
+cd(scriptFolder);
 
 format long g;
 format compact;
@@ -44,7 +47,7 @@ opt.Q = diag([(5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), [2.0 2.0 2.0]
 
 
 %% 数据载入
-load('dataset/2023年05月17日14时49分06秒_RAW.mat');
+load('dataset/2023年08月30日18时20分13秒_RAW.mat');
 
 
 att = [0 0 0]*D2R; %初始安装角

@@ -3,7 +3,7 @@ close all;
 clear;
 clc;
 
-fullfilename  = "2023年05月17日14时49分06秒_RAW.csv";
+fullfilename  = "2023年08月30日18时20分13秒_RAW.csv";
 
 
 % 切换到当前工作目录
@@ -28,12 +28,13 @@ GNSSRCV = table2array(GNSSRCV(:, 3:34));
 INSPVAXB = T(strcmp(frame_name, 'INSPVAXB'), :);
 INSPVAXB = table2array(INSPVAXB(:, 3:25));
 
+
 fprintf("%-20s: %d帧\n", "INSPVAXB", length(INSPVAXB));
 fprintf("%-20s: %d帧\n", "RAWIMUXB",length(RAWIMUXB));
 fprintf("%-20s: %d帧\n", "GNSSRCV",length(GNSSRCV));
 
 
-% 架构化
+% 结构化
 data.imu.time = RAWIMUXB(: ,1:2);
 data.imu.gyr = RAWIMUXB(: ,3:5);
 data.imu.acc = RAWIMUXB(: ,6:8);
