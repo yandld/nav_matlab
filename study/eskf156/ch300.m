@@ -2,6 +2,9 @@ close all;
 clear;
 clc;
 
+%%
+% bCn: b系到n系的旋转矩阵 Vn = bCn * Vb
+
 % 切换到当前工作目录
 scriptPath = mfilename('fullpath');
 scriptFolder = fileparts(scriptPath);
