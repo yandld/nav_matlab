@@ -145,7 +145,6 @@ fprintf("%-20s: %.3f s\n", "GNSS帧平均发送周期", mean(diff(data.gnss.tow)
 set(groot, 'defaultAxesXGrid', 'on');
 set(groot, 'defaultAxesYGrid', 'on');
 set(groot, 'defaultAxesZGrid', 'on');
-set(groot, 'defaultAxesZGrid', 'on');
 
 
 figure('name', '传感器原始数据');  grid on;
