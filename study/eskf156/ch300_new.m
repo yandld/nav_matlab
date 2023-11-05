@@ -43,16 +43,16 @@ ESKF156_FB_G = bitshift(1,4); %反馈加计零篇
 %% 相关选项及参数设置
 opt.alignment_time = 1;         % 初始对准时间(s)
 opt.gnss_outage = 0;            % 模拟GNSS丢失
-opt.outage_start = 200;         % 丢失开始时间(s)·
-opt.outage_stop = 220;          % 丢失结束时间(s)
+opt.outage_start = 70;         % 丢失开始时间(s)·
+opt.outage_stop = 90;          % 丢失结束时间(s)
 opt.nhc_enable = 1;             % 车辆运动学约束
-opt.nhc_R = 5.0;                % 车载非完整性约束噪声
+opt.nhc_R = 10.0;                % 车载非完整性约束噪声
 opt.gnss_delay = 0;             % GNSS量测延迟 sec
-opt.gnss_lever_arm = 0*[-0.52; -1.30; 0.73]; %GNSS杆臂长度 b系下（右-前-上）
+opt.gnss_lever_arm = 0*[-0.9; -2; 0.6]; %GNSS杆臂长度 b系下（右-前-上）
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 % 初始状态方差:    姿态           东北天速度  水平位置      陀螺零偏                              加速度计零偏
-opt.P0 = diag([ [2 2 10]*D2R, [1 1 1], [5 5 5],  [50 50 50]* D2R/3600, [1e-3 1e-3 1e-3]*GRAVITY])^2;
+opt.P0 = diag([ [2 2 10]*D2R, [1 1 1], [5 5 5],  [50 50 50]* D2R/3600, [1e-2 1e-2 1e-2]*GRAVITY])^2;
 N = length(opt.P0);
 % 系统方差:       角度随机游走           速度随机游走                      角速度随机游走        加速度随机游走
 opt.Q = diag([(5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), [2.0 2.0 2.0]/3600*D2R, 0*GRAVITY*ones(1,3)])^2;
@@ -83,7 +83,8 @@ gyr_bias_end = mean(data.imu.gyr(indices, :));
 
 fprintf("gyro起始时刻bias估计:%7.3f,%7.3f,%7.3f deg/s\n", gyr_bias0(1)*R2D, gyr_bias0(2)*R2D, gyr_bias0(3)*R2D);
 fprintf("gyro结束时刻bias估计:%7.3f,%7.3f,%7.3f deg/s\n", gyr_bias_end(1)*R2D, gyr_bias_end(2)*R2D, gyr_bias_end(3)*R2D);
-
+fprintf("IMU帧平均间隔:%.3fs\n", imu_dt);
+fprintf("GNSS帧平均间隔:%.3fs\n", gnss_dt);
 
 %% 经纬度转换为当地东北天坐标系
 lat0 = data.gnss.lat(1);
@@ -95,17 +96,20 @@ distance_sum = 0;
 gnss_enu = zeros(length(data.gnss.tow), 3);
 log.vel_norm = zeros(length(data.gnss.tow), 1);
 
-inital_idx = 1;
+inital_gnss_idx = 1;
 % 根据速度 获得初始航向角
 for i=1:length(data.gnss.tow)
-    if norm(data.gnss.vel_enu(i,:)) >5
+    if norm(data.gnss.vel_enu(i,:)) > 1
         opt.inital_yaw = atan2(data.gnss.vel_enu(i,1),data.gnss.vel_enu(i,2));
         if(opt.inital_yaw < 0)
             opt.inital_yaw =  opt.inital_yaw + 360*D2R;
         end
 
-        inital_idx = i;
-        fprintf("初始航向角:%.2f°, 从数据:%d开始\r\n",  opt.inital_yaw*R2D, inital_idx);
+        inital_gnss_idx = i;
+        diff_values = abs(data.imu.tow - data.gnss.tow(inital_gnss_idx));
+        [~, inital_imu_idx] = min(diff_values);
+
+        fprintf("初始航向角:%.2f°, 从GNSS数据:%d开始, IMU数据:%d\r\n",  opt.inital_yaw*R2D, inital_gnss_idx, inital_imu_idx);
         break;
     end
 end
@@ -114,7 +118,7 @@ if i == length(data.gnss.tow)
     fprintf("无法通过速度矢量找到初始航向角，设置为:%.2f°\r\n",  opt.inital_yaw*R2D);
 end
 
-for i=inital_idx : length(data.gnss.tow)
+for i=inital_gnss_idx : length(data.gnss.tow)
     [gnss_enu(i,1), gnss_enu(i,2), gnss_enu(i,3)] =  ch_LLA2ENU(data.gnss.lat(i), data.gnss.lon(i), data.gnss.msl(i), lat0, lon0, h0);
     log.vel_norm(i) = norm(data.gnss.vel_enu(i, :));
     distance_sum = distance_sum + norm(data.gnss.vel_enu(i, :))*gnss_dt;
@@ -164,8 +168,8 @@ log.vb = zeros(imu_len, 3);
 
 tic;
 last_time = toc;
-gnss_idx = 1;
-for i=1:imu_len
+gnss_idx = inital_gnss_idx;
+for i=inital_imu_idx:imu_len
     FB_BIT = 0; %反馈标志
     curr_time = toc;
     if curr_time - last_time >= 1 % 如果自上次更新已经过去了至少1秒
@@ -217,27 +221,28 @@ for i=1:imu_len
     P = F*P*F' + opt.Q*imu_dt;
 
     %% GNSS量测更新
-    if( (~opt.gnss_outage || data.imu.tow(i) < opt.outage_start || data.imu.tow(i) > opt.outage_stop))
-        if gnss_idx <= length(data.gnss.tow) &&  abs(data.imu.tow(i) - data.gnss.tow(gnss_idx)) < 0.02 % threshold 是允许的最大差异
-            if data.gnss.solq_pos(gnss_idx) > 0
-                vel_R = diag(data.gnss.vel_enu_std(gnss_idx,:))^2;
-                pos_R = diag(data.gnss.pos_enu_std(gnss_idx,:))^2;
-                GNSS_R = diag([diag(vel_R); diag(pos_R)]);
+    if gnss_idx <= length(data.gnss.tow) &&  abs(data.imu.tow(i) - data.gnss.tow(gnss_idx)) < 0.02 % threshold 是允许的最大差异
+        if data.gnss.solq_pos(gnss_idx) > 0
+            vel_R = diag(data.gnss.vel_enu_std(gnss_idx,:))^2;
+            pos_R = diag(data.gnss.pos_enu_std(gnss_idx,:))^2;
+            GNSS_R = diag([diag(vel_R); diag(pos_R)]);
+            GNSS_R = GNSS_R*10;
 
-                H = zeros(6,15);
-                H(1:3,4:6) = eye(3);
-                H(4:6,7:9) = eye(3);
+            H = zeros(6,15);
+            H(1:3,4:6) = eye(3);
+            H(4:6,7:9) = eye(3);
 
-                Z = [vel - data.gnss.vel_enu(gnss_idx,:)'; pos - gnss_enu(gnss_idx,:)'];
+            Z = [vel - data.gnss.vel_enu(gnss_idx,:)'; pos - gnss_enu(gnss_idx,:)'];
 
-                % GNSS量测延迟补偿
-                Z = Z - [a_n; vel]*opt.gnss_delay;
+            % GNSS量测延迟补偿
+            Z = Z - [a_n; vel]*opt.gnss_delay;
 
-                % GNSS天线杆壁效应补偿
-                Z = Z + [-bCn*v3_skew(w_b); -bCn]*opt.gnss_lever_arm;
+            % GNSS天线杆壁效应补偿
+            Z = Z + [-bCn*v3_skew(w_b); -bCn]*opt.gnss_lever_arm;
 
-                R = GNSS_R;
+            R = GNSS_R;
 
+            if(opt.gnss_outage == 0 || (opt.gnss_outage == 1 && (data.imu.tow(i) < opt.outage_start || data.imu.tow(i) > opt.outage_stop) ))
                 % 卡尔曼量测更新
                 K = P * H' / (H * P * H' + R);
                 X = X + K * (Z - H * X);
@@ -248,10 +253,9 @@ for i=1:imu_len
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_P);
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
-
             end
-            gnss_idx = gnss_idx + 1;
         end
+        gnss_idx = gnss_idx + 1;
     end
 
     % NHC
@@ -487,7 +491,7 @@ figure('name', '2D轨迹');
 plot_enu(gnss_enu);
 plot_enu(log.pos);
 plot_enu(dev_pos_enu);
-legend("GNSS", "MATLAB", "DEV");
+legend("GNSS轨迹", "MATLAB", "DEV嵌入式设备轨迹");
 
 %% 数据统计
 fprintf('行驶时间: %d小时%d分%.3f秒\n', degrees2dms(time_sum/3600));
