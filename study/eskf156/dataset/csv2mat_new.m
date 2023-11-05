@@ -148,74 +148,74 @@ set(groot, 'defaultAxesZGrid', 'on');
 
 
 figure('name', '传感器原始数据');  grid on;
-subplot(3,3,1); plot(diff(data.imu.tow), '.-'); title("RAWIMUX 帧时间差分"); xlabel("帧数"); ylabel("s");
-subplot(3,3,4); plot(diff(data.ins_dev.tow), '.-'); title("INSPVAXB 帧时间差分"); xlabel("帧数"); ylabel("s");
-subplot(3,3,7); plot(diff(data.gnss.tow), '.-'); title("GNSSRCV 帧时间间隔"); xlabel("帧数"); ylabel("s");
-subplot(3,3,2); plot(data.imu.tow, data.imu.acc, '.-');title("加速度计"); xlabel("tow"); ylabel("G"); legend("X", "Y", "Z");
-subplot(3,3,5); plot(data.imu.tow, data.imu.gyr, '.-'); title("陀螺仪"); xlabel("tow"); ylabel("dps"); legend("X", "Y", "Z");
-subplot(3,3,8); plot(data.od.tow, data.od.speed, '.-');  title("里程计"); xlabel("tow"); ylabel("km/h");
-
+subplot(3,3,1); plot(diff(data.imu.tow), '.-'); title("RAWIMUX 帧时间差分"); xlabel("帧数"); ylabel("s"); xlim tight;
+subplot(3,3,4); plot(diff(data.ins_dev.tow), '.-'); title("INSPVAXB 帧时间差分"); xlabel("帧数"); ylabel("s"); xlim tight;
+subplot(3,3,7); plot(diff(data.gnss.tow), '.-'); title("GNSSRCV 帧时间间隔"); xlabel("帧数"); ylabel("s"); xlim tight;
+subplot(3,3,2); plot(data.imu.tow, data.imu.acc, '.-');title("加速度计"); xlabel("tow"); ylabel("G"); legend("X", "Y", "Z"); xlim tight;
+subplot(3,3,5); plot(data.imu.tow, data.imu.gyr, '.-'); title("陀螺仪"); xlabel("tow"); ylabel("dps"); legend("X", "Y", "Z"); xlim tight;
+subplot(3,3,8); plot(data.od.tow, data.od.speed, '.-');  title("里程计"); xlabel("tow"); ylabel("km/h"); xlim tight;
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 figure('name', '位置信息');
-subplot(3,2,1); plot(data.imu.tow, data.post.gnss_pos_enu(:,1), '.-'); hold on; plot(data.imu.tow, data.post.ins_dev_pos_enu(:,1), '.-'); hold on; title("POS EAST");
-subplot(3,2,3); plot(data.imu.tow, data.post.gnss_pos_enu(:,2), '.-'); hold on; plot(data.imu.tow, data.post.ins_dev_pos_enu(:,2), '.-'); hold on; title("POS NORTH");
-subplot(3,2,5); plot(data.imu.tow, data.post.gnss_pos_enu(:,3), '.-'); hold on; plot(data.imu.tow, data.post.ins_dev_pos_enu(:,3), '.-'); hold on; title("POS UP");
-subplot(3,2,2); plot(data.imu.tow, data.post.gnss_pos_enu_std(:,1) , '.-'); hold on; plot(data.imu.tow, data.ins_dev.pos_enu_std(:,1), '.-'); hold on; title("POS EAST STD");
-subplot(3,2,4); plot(data.imu.tow, data.post.gnss_pos_enu_std(:,2) , '.-'); hold on; plot(data.imu.tow, data.ins_dev.pos_enu_std(:,2), '.-'); hold on; title("POS NORTH STD");
-subplot(3,2,6); plot(data.imu.tow, data.post.gnss_pos_enu_std(:,3) , '.-'); hold on; plot(data.imu.tow, data.ins_dev.pos_enu_std(:,3), '.-'); hold on; title("POS UP STD");
+subplot(3,2,1); plot(data.imu.tow, data.post.gnss_pos_enu(:,1), '.-'); hold on; plot(data.imu.tow, data.post.ins_dev_pos_enu(:,1), '.-'); hold on; title("POS EAST"); xlim tight;
+subplot(3,2,3); plot(data.imu.tow, data.post.gnss_pos_enu(:,2), '.-'); hold on; plot(data.imu.tow, data.post.ins_dev_pos_enu(:,2), '.-'); hold on; title("POS NORTH"); xlim tight;
+subplot(3,2,5); plot(data.imu.tow, data.post.gnss_pos_enu(:,3), '.-'); hold on; plot(data.imu.tow, data.post.ins_dev_pos_enu(:,3), '.-'); hold on; title("POS UP"); xlim tight;
+subplot(3,2,2); plot(data.imu.tow, data.post.gnss_pos_enu_std(:,1) , '.-'); hold on; plot(data.imu.tow, data.ins_dev.pos_enu_std(:,1), '.-'); hold on; title("POS EAST STD"); xlim tight;
+subplot(3,2,4); plot(data.imu.tow, data.post.gnss_pos_enu_std(:,2) , '.-'); hold on; plot(data.imu.tow, data.ins_dev.pos_enu_std(:,2), '.-'); hold on; title("POS NORTH STD"); xlim tight;
+subplot(3,2,6); plot(data.imu.tow, data.post.gnss_pos_enu_std(:,3) , '.-'); hold on; plot(data.imu.tow, data.ins_dev.pos_enu_std(:,3), '.-'); hold on; title("POS UP STD"); xlim tight;
 axes = findall(gcf, 'Type', 'axes');
 for i = 1:length(axes)
     legend(axes(i), "GNSS", "组合导航"); xlabel(axes(i), "tow"); ylabel(axes(i), "m");
 end
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 figure('name', '速度信息');
-subplot(3,2,1); plot(data.imu.tow, data.post.gnss_vel_enu(:,1), '.-'); hold on; plot(data.imu.tow, data.post.ins_dev_vel_enu(:,1), '.-'); hold on; title("VEL EAST");
-subplot(3,2,3); plot(data.imu.tow, data.post.gnss_vel_enu(:,2), '.-'); hold on; plot(data.imu.tow, data.post.ins_dev_vel_enu(:,2), '.-'); hold on; title("VEL NORTH");
-subplot(3,2,5); plot(data.imu.tow, data.post.gnss_vel_enu(:,3), '.-'); hold on; plot(data.imu.tow, data.post.ins_dev_vel_enu(:,3), '.-'); hold on; title("VEL UP");
-subplot(3,2,2); plot(data.imu.tow, data.post.gnss_vel_enu_std(:,1) , '.-'); hold on; plot(data.imu.tow, data.ins_dev.vel_enu_std(:,1), '.-'); hold on; title("VEL EAST STD");
-subplot(3,2,4); plot(data.imu.tow, data.post.gnss_vel_enu_std(:,2) , '.-'); hold on; plot(data.imu.tow, data.ins_dev.vel_enu_std(:,2), '.-'); hold on; title("VEL NORTH STD");
-subplot(3,2,6); plot(data.imu.tow, data.post.gnss_vel_enu_std(:,3) , '.-'); hold on; plot(data.imu.tow, data.ins_dev.vel_enu_std(:,3), '.-'); hold on; title("VEL UP STD");
+subplot(3,2,1); plot(data.imu.tow, data.post.gnss_vel_enu(:,1), '.-'); hold on; plot(data.imu.tow, data.post.ins_dev_vel_enu(:,1), '.-'); hold on; title("VEL EAST"); xlim tight;
+subplot(3,2,3); plot(data.imu.tow, data.post.gnss_vel_enu(:,2), '.-'); hold on; plot(data.imu.tow, data.post.ins_dev_vel_enu(:,2), '.-'); hold on; title("VEL NORTH"); xlim tight;
+subplot(3,2,5); plot(data.imu.tow, data.post.gnss_vel_enu(:,3), '.-'); hold on; plot(data.imu.tow, data.post.ins_dev_vel_enu(:,3), '.-'); hold on; title("VEL UP"); xlim tight;
+subplot(3,2,2); plot(data.imu.tow, data.post.gnss_vel_enu_std(:,1) , '.-'); hold on; plot(data.imu.tow, data.ins_dev.vel_enu_std(:,1), '.-'); hold on; title("VEL EAST STD"); xlim tight;
+subplot(3,2,4); plot(data.imu.tow, data.post.gnss_vel_enu_std(:,2) , '.-'); hold on; plot(data.imu.tow, data.ins_dev.vel_enu_std(:,2), '.-'); hold on; title("VEL NORTH STD"); xlim tight;
+subplot(3,2,6); plot(data.imu.tow, data.post.gnss_vel_enu_std(:,3) , '.-'); hold on; plot(data.imu.tow, data.ins_dev.vel_enu_std(:,3), '.-'); hold on; title("VEL UP STD"); xlim tight;
 axes = findall(gcf, 'Type', 'axes');
 for i = 1:length(axes)
     legend(axes(i), "GNSS", "组合导航"); xlabel(axes(i), "tow"); ylabel(axes(i), "m/s");
 end
-
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 figure('name', '姿态信息');
-subplot(3,2,1); plot(data.ins_dev.tow, data.ins_dev.roll, '.-'); hold on; title("Roll");
-subplot(3,2,3); plot(data.ins_dev.tow, data.ins_dev.pitch, '.-'); hold on; title("Pitch");
-subplot(3,2,5); plot(data.ins_dev.tow, data.ins_dev.yaw, '.-'); hold on; title("Yaw");
-subplot(3,2,2); plot(data.ins_dev.tow, data.ins_dev.roll_std, '.-'); hold on; title("Roll STD");
-subplot(3,2,4); plot(data.ins_dev.tow, data.ins_dev.pitch_std, '.-'); hold on; title("Pitch STD)");
-subplot(3,2,6); plot(data.ins_dev.tow, data.ins_dev.yaw_std, '.-'); hold on; title("Yaw STD");
-
+subplot(3,2,1); plot(data.ins_dev.tow, data.ins_dev.roll, '.-'); hold on; title("Roll"); xlim tight;
+subplot(3,2,3); plot(data.ins_dev.tow, data.ins_dev.pitch, '.-'); hold on; title("Pitch"); xlim tight;
+subplot(3,2,5); plot(data.ins_dev.tow, data.ins_dev.yaw, '.-'); hold on; title("Yaw"); xlim tight;
+subplot(3,2,2); plot(data.ins_dev.tow, data.ins_dev.roll_std, '.-'); hold on; title("Roll STD"); xlim tight;
+subplot(3,2,4); plot(data.ins_dev.tow, data.ins_dev.pitch_std, '.-'); hold on; title("Pitch STD)"); xlim tight;
+subplot(3,2,6); plot(data.ins_dev.tow, data.ins_dev.yaw_std, '.-'); hold on; title("Yaw STD"); xlim tight;
 axes = findall(gcf, 'Type', 'axes');
 for i = 1:length(axes)
     legend(axes(i), "组合导航");
     xlabel(axes(i), "tow"); 
     ylabel(axes(i), "deg");
 end
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 figure('name', '零偏信息');
-subplot(2,1,1); plot(data.ins_dev.tow, data.ins_dev.ins_wb*R2D, '.-');  title("GYR BIAS"); xlabel("tow"); ylabel("deg"); legend("X", "Y", "Z");
-subplot(2,1,2); plot(data.ins_dev.tow, data.ins_dev.ins_gb*1000/GRAVITY, '.-');  title("ACC BIAS"); xlabel("tow"); ylabel("mg"); legend("X", "Y", "Z");
+subplot(2,1,1); plot(data.ins_dev.tow, data.ins_dev.ins_wb*R2D, '.-');  title("GYR BIAS"); xlabel("tow"); ylabel("deg"); legend("X", "Y", "Z"); xlim tight;
+subplot(2,1,2); plot(data.ins_dev.tow, data.ins_dev.ins_gb*1000/GRAVITY, '.-');  title("ACC BIAS"); xlabel("tow"); ylabel("mg"); legend("X", "Y", "Z"); xlim tight;
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 figure('name', '2D轨迹');
-subplot(1,1,1);
+% subplot(1,1,1);
 plot(data.gnss.lon, data.gnss.lat, '.-');
 hold on;
 plot(data.ins_dev.lon, data.ins_dev.lat, '.-');
-
-title("GNSS位置");
+title("GNSS平面轨迹");
 legend("纯GNSS", "设备组合导航");
 xlabel("lon(deg)"); ylabel("lat(deg)");
+axis equal;
+
+set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %% 保存数据
 fprintf("保存数据...\r\n");
 fprintf("保存位置%s/%s\r\n", scriptFolder, fullfile(file_name + ".mat"));
 save(fullfile(file_name + ".mat"), 'data');
 fprintf("保存完成\r\n");
-
-
-
-
