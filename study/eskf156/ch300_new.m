@@ -51,14 +51,14 @@ opt.outage_stop = 90;          % 丢失结束时间(s)
 opt.nhc_enable = 1;             % 车辆运动学约束
 opt.nhc_R = 10.0;                % 车载非完整性约束噪声
 opt.gnss_delay = 0;             % GNSS量测延迟 sec
-opt.gnss_lever_arm = 1*[-0.52; -1.30; 0.73]; %GNSS杆臂长度 b系下（右-前-上）
+opt.gnss_lever_arm = 0*[-0.52; -1.30; 0.73]; %GNSS杆臂长度 b系下（右-前-上）
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 % 初始状态方差:    姿态       东北天速度  水平位置      陀螺零偏                加速度计零偏
 opt.P0 = diag([ [2 2 10]*D2R, [1 1 1], [5 5 5], 50*D2R/3600*ones(1,3), 10e-3*GRAVITY*ones(1,3), 10*D2R*ones(1,2) ])^2;
 N = length(opt.P0);
 % 系统方差:         角度随机游走          速度随机游走                     角速度随机游走            加速度随机游走
-opt.Q = diag([ (5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), 2.0/3600*D2R*ones(1,3), 1e-3*GRAVITY*ones(1,3), 0*D2R*ones(1,2) ])^2;
+opt.Q = diag([ (5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), 2.0/3600*D2R*ones(1,3), 0e-3*GRAVITY*ones(1,3), 0*D2R*ones(1,2) ])^2;
 
 imu_len = length(data.imu.tow);
 Dev_len = length(data.ins_dev.tow);
@@ -118,13 +118,14 @@ if i == length(data.gnss.tow)
     fprintf("无法通过速度矢量找到初始航向角，设置为:%.2f°\r\n",  opt.inital_yaw*R2D);
 end
 
+opt.inital_yaw = 0;
+
 for i=inital_gnss_idx : length(data.gnss.tow)
     [gnss_enu(i,1), gnss_enu(i,2), gnss_enu(i,3)] =  ch_LLA2ENU(data.gnss.lat(i), data.gnss.lon(i), data.gnss.msl(i), lat0, lon0, h0);
     log.vel_norm(i) = norm(data.gnss.vel_enu(i, :));
     distance_sum = distance_sum + norm(data.gnss.vel_enu(i, :))*gnss_dt;
     time_sum = time_sum + gnss_dt;
 end
-
 
 %% MCU结果转换为当地东北天坐标系
 Dev_pos_enu = zeros(Dev_len, 3);
@@ -151,6 +152,8 @@ X = zeros(N,1);
 X_temp = X;
 gyro_bias = X(10:12);
 acc_bias = X(13:15);
+
+X(16:17) = [0*D2R; 0*D2R];
 
 P = opt.P0;
 
@@ -209,9 +212,9 @@ for i=inital_imu_idx:imu_len
     F(5,3) = -f_n(1); %f_e东向比力
     F(6,1) = -f_n(2); %f_n北向比力
     F(6,2) = f_n(1); %f_e东向比力
-    F(7:9,4:6) = eye(3);
-    F(1:3,10:12) = -bCn;
-    F(4:6,13:15) = bCn;
+    F(7:9, 4:6) = eye(3);
+    F(1:3, 10:12) = -bCn;
+    F(4:6, 13:15) =  bCn;
 
     % 状态转移矩阵F离散化
     F = eye(N) + F*imu_dt;
@@ -229,8 +232,8 @@ for i=inital_imu_idx:imu_len
             GNSS_R = GNSS_R*10;
 
             H = zeros(6,N);
-            H(1:3,4:6) = eye(3);
-            H(4:6,7:9) = eye(3);
+            H(1:3, 4:6) = eye(3);
+            H(4:6, 7:9) = eye(3);
 
             Z = [vel - data.gnss.vel_enu(gnss_idx,:)'; pos - gnss_enu(gnss_idx,:)'];
 
@@ -255,21 +258,21 @@ for i=inital_imu_idx:imu_len
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
             end
 
-            if norm(data.gnss.vel_enu(gnss_idx,:))>0.5
-                % M = nCb * v3_skew(vel);
-                M = nCb * v3_skew(data.gnss.vel_enu(gnss_idx,:));
-                H = zeros(2,N);
+            if norm(data.gnss.vel_enu(gnss_idx,:))>0
+                M = nCb * v3_skew(vel);
+                % M = nCb * v3_skew(data.gnss.vel_enu(gnss_idx,:));
+                H = zeros(2, N);
                 
                 H(1, 1:3) = - M(1,:);
                 H(1, 4:6) = nCb(1,:);
-                H(1, 17)  = -log.vb(i,2);
+                H(1, 17)  = -norm(log.vb(i,:));
                 H(2, 1:3) = - M(3,:);
                 H(2, 4:6) = nCb(3,:);
-                H(2, 16)  = log.vb(i,2);
+                H(2, 16)  = norm(log.vb(i,:));
 
-                Z = log.vb(i, [1,3])';
+                Z = log.vb(i, [1, 3])';
 
-                R = diag([1 1])^2;
+                R = blkdiag(1, 1)^2;
 
                 % 卡尔曼量测更新
                 K = P * H' / (H * P * H' + R);
@@ -366,7 +369,7 @@ for i=inital_imu_idx:imu_len
     [pitch_sins, roll_sins, yaw_sins] = q2att(nQb_sins);
     log.sins_att(i,:) = [pitch_sins roll_sins yaw_sins];
 end
-clc;
+
 fprintf('数据处理完毕，用时%.3f秒\n', toc);
 
 set(groot, 'defaultAxesXGrid', 'on');
