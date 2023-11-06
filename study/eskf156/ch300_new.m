@@ -19,7 +19,7 @@ scriptFolder = fileparts(scriptPath);
 cd(scriptFolder);
 
 %% 数据载入
-load('dataset/230925165244.mat');
+load('dataset/231106182548.mat');
 
 %单位国际化
 data.imu.acc =  data.imu.acc*GRAVITY;
@@ -221,7 +221,7 @@ for i=inital_imu_idx:imu_len
     P = F*P*F' + opt.Q*imu_dt;
 
     %% GNSS量测更新
-    if gnss_idx <= length(data.gnss.tow) &&  abs(data.imu.tow(i) - data.gnss.tow(gnss_idx)) < 0.02 % threshold 是允许的最大差异
+    if gnss_idx <= length(data.gnss.tow) && abs(data.imu.tow(i) - data.gnss.tow(gnss_idx)) < 0.02 % threshold 是允许的最大差异
         if data.gnss.solq_pos(gnss_idx) > 0
             vel_R = diag(data.gnss.vel_enu_std(gnss_idx,:))^2;
             pos_R = diag(data.gnss.pos_enu_std(gnss_idx,:))^2;
@@ -282,9 +282,13 @@ for i=inital_imu_idx:imu_len
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
             end
-
-            gnss_idx = gnss_idx + 1;
         end
+      gnss_idx = gnss_idx + 1;
+    end
+
+    % 如果GNSS时间戳已经落后，则向前追赶
+    if(gnss_idx < length(data.gnss.tow) && data.gnss.tow(gnss_idx) < data.imu.tow(i))
+        gnss_idx = gnss_idx + 1;
     end
 
     % NHC
