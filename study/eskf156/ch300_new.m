@@ -45,13 +45,13 @@ ESKF156_FB_G = bitshift(1,4); %反馈加计零篇
 
 %% 相关选项及参数设置
 opt.alignment_time = 1;         % 初始对准时间(s)
-opt.gnss_outage = 0;            % 模拟GNSS丢失
-opt.outage_start = 70;         % 丢失开始时间(s)
-opt.outage_stop = 90;          % 丢失结束时间(s)
-opt.nhc_enable = 1;             % 车辆运动学约束
+opt.gnss_outage = 1;            % 模拟GNSS丢失
+opt.outage_start = 1070;         % 丢失开始时间(s)
+opt.outage_stop = 1160;          % 丢失结束时间(s)
+opt.nhc_enable = 0;             % 车辆运动学约束
 opt.nhc_R = 10.0;                % 车载非完整性约束噪声
 opt.gnss_delay = 0;             % GNSS量测延迟 sec
-opt.gnss_lever_arm = 0*[-0.52; -1.30; 0.73]; %GNSS杆臂长度 b系下（右-前-上）
+opt.gnss_lever_arm = 1*[-0.4; -1.30; 0.73]; %GNSS杆臂长度 b系下（右-前-上）
 opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
 % 初始状态方差:    姿态       东北天速度  水平位置      陀螺零偏                加速度计零偏
@@ -250,35 +250,28 @@ for i=inital_imu_idx:imu_len
                 K = P * H' / (H * P * H' + R);
                 X = X + K * (Z - H * X);
                 P = (eye(N) - K * H) * P;
-
-                FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
-                FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
-                FB_BIT = bitor(FB_BIT, ESKF156_FB_P);
-                FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
-                FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
-            end
-
-            if norm(data.gnss.vel_enu(gnss_idx,:))>0
-                M = nCb * v3_skew(vel);
-                % M = nCb * v3_skew(data.gnss.vel_enu(gnss_idx,:));
-                H = zeros(2, N);
-                
-                H(1, 1:3) = - M(1,:);
-                H(1, 4:6) = nCb(1,:);
-                H(1, 17)  = -norm(log.vb(i,:));
-                H(2, 1:3) = - M(3,:);
-                H(2, 4:6) = nCb(3,:);
-                H(2, 16)  = norm(log.vb(i,:));
-
-                Z = log.vb(i, [1, 3])';
-
-                R = blkdiag(1, 1)^2;
-
-                % 卡尔曼量测更新
-                K = P * H' / (H * P * H' + R);
-                X = X + K * (Z - H * X);
-                P = (eye(N) - K * H) * P;
-
+% 
+%                 if norm(data.gnss.vel_enu(gnss_idx,:))> 0.5
+%                     M = nCb * v3_skew(vel);
+%                     % M = nCb * v3_skew(data.gnss.vel_enu(gnss_idx,:));
+%                     H = zeros(2, N);
+% 
+%                     H(1, 1:3) = - M(1,:);
+%                     H(1, 4:6) = nCb(1,:);
+%                     H(1, 17)  = -norm(log.vb(i,:));
+%                     H(2, 1:3) = - M(3,:);
+%                     H(2, 4:6) = nCb(3,:);
+%                     H(2, 16)  = norm(log.vb(i,:));
+% 
+%                     Z = log.vb(i, [1, 3])';
+% 
+%                     R = blkdiag(1, 1)^2;
+% 
+%                     % 卡尔曼量测更新
+%                     K = P * H' / (H * P * H' + R);
+%                     X = X + K * (Z - H * X);
+%                     P = (eye(N) - K * H) * P;
+%                 end
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_P);
@@ -286,7 +279,7 @@ for i=inital_imu_idx:imu_len
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
             end
         end
-      gnss_idx = gnss_idx + 1;
+        gnss_idx = gnss_idx + 1;
     end
 
     % 如果GNSS时间戳已经落后，则向前追赶
