@@ -8,7 +8,7 @@ R2D = 180/pi;       % Rad to Deg
 D2R = pi/180;       % Deg to Rad
 GRAVITY = 9.8;     % 重力加速度
 
-fullfilename  = "230925165244.csv";
+fullfilename  = "240114122430.csv";
 
 % 切换到当前工作目录
 scriptPath = mfilename('fullpath');
@@ -23,26 +23,39 @@ fprintf("读取完成,开始处理帧数据\n");
 frame_name = table2cell(T(:,1));
 
 RAWIMUXB = T(strcmp(frame_name, 'RAWIMUX'), 4:10);
-RAWIMUXB = cellfun(@str2double, table2cell(RAWIMUXB));
+RAWIMUXB = cellfun(@str2double, table2cell(RAWIMUXB(2:end,:)));
+
 
 GNSSRCV  = T(strcmp(frame_name, 'GNSSRCV'), 4:34);
-GNSSRCV = cellfun(@str2double, table2cell(GNSSRCV));
+GNSSRCV = cellfun(@str2double, table2cell(GNSSRCV(2:end,:)));
+%GNSSRCV = table2array(GNSSRCV(2,:));
 
 %清除帧中重复数据，上位机采集失误?
 [~, idx] = unique(GNSSRCV(:,1), 'first');  % 获取矩阵A的唯一元素及其索引
 GNSSRCV = GNSSRCV(sort(idx), :);
 
 INSPVAXB = T(strcmp(frame_name, 'INSPVAX'), 4:25);
-INSPVAXB = cellfun(@str2double, table2cell(INSPVAXB));
+INSPVAXB = cellfun(@str2double, table2cell(INSPVAXB(2:end,:)));
+%INSPVAXB = table2array(INSPVAXB(2,:));
+fprintf("转化为double完成\r\n");
 
-fprintf("读取完成\r\n");
+% load matlab.mat
 
 fprintf("%-20s: %d帧\n", "INSPVAXB", length(INSPVAXB));
 fprintf("%-20s: %d帧\n", "RAWIMUXB",length(RAWIMUXB));
 fprintf("%-20s: %d帧\n", "GNSSRCV",length(GNSSRCV));
 
 
-% IMU数据
+%% 使 RAWIMXB和 INSPVAXB的行数相同
+numRows_RAWIMUXB = size(RAWIMUXB, 1);
+numRows_INSPVAXB = size(INSPVAXB, 1);
+
+minRows = min(numRows_RAWIMUXB, numRows_INSPVAXB);
+
+RAWIMUXB = RAWIMUXB(1:minRows, :);
+INSPVAXB = INSPVAXB(1:minRows, :);
+
+%% IMU数据
 data.imu.tow = RAWIMUXB(:, 1);
 data.imu.tow = data.imu.tow - data.imu.tow(1);
 data.imu.acc = RAWIMUXB(:, 2:4);
@@ -92,6 +105,8 @@ data.gnss.vel_enu_std = GNSSRCV(:, 22:24);
 data.od.tow = data.gnss.tow;
 data.od.speed = GNSSRCV(:, 31);
 
+
+  
 %% 外插
 % GNSS数据对齐到 IMU 时间戳，并移除nan
 data.post.interp_gnss_to_imu = interp1(data.gnss.tow, GNSSRCV, data.ins_dev.tow, 'previous', 'extrap');
@@ -101,8 +116,6 @@ data.post.interp_gnss_to_imu(nan_rows, :) = 0;
 % 使用外插据将 调试信息对齐到对应时间戳中
 data.ins_dev.ins_wb = data.post.interp_gnss_to_imu(:, 25:27);
 data.ins_dev.ins_gb = data.post.interp_gnss_to_imu(:, 28:30);
-
-%  load data.mat
 
 
 %% 将经纬度转换为ENU, 并外插到与INS_DEV时间戳对齐
@@ -140,6 +153,12 @@ fprintf("%-20s: %.3f s\n", "总计运行时间", max(data.imu.tow) - min(data.im
 fprintf("%-20s: %.3f s\n", "INS帧平均发送周期", mean(diff(data.ins_dev.tow)));
 fprintf("%-20s: %.3f s\n", "IMU帧平均发送周期", mean(diff(data.imu.tow)));
 fprintf("%-20s: %.3f s\n", "GNSS帧平均发送周期", mean(diff(data.gnss.tow)));
+
+%% 保存数据
+fprintf("保存数据...\r\n");
+fprintf("保存位置%s/%s\r\n", scriptFolder, fullfile(file_name + ".mat"));
+save(fullfile(file_name + ".mat"), 'data');
+fprintf("保存完成\r\n");
 
 %% 绘图
 set(groot, 'defaultAxesXGrid', 'on');
@@ -214,8 +233,4 @@ axis equal;
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
-%% 保存数据
-fprintf("保存数据...\r\n");
-fprintf("保存位置%s/%s\r\n", scriptFolder, fullfile(file_name + ".mat"));
-save(fullfile(file_name + ".mat"), 'data');
-fprintf("保存完成\r\n");
+
