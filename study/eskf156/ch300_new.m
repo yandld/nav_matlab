@@ -44,21 +44,20 @@ ESKF156_FB_G = bitshift(1,4); %反馈加计零篇
 % KF 状态量: 失准角(3) 速度误差(3) 位置误差(3) 陀螺零偏(3) 加计零偏(3)
 
 %% 相关选项及参数设置
-opt.alignment_time = 1;         % 初始对准时间(s)
-opt.gnss_outage = 1;            % 模拟GNSS丢失
+opt.alignment_time = 1;          % 初始对准时间(s)
+opt.gnss_outage = 1;             % 模拟GNSS丢失
 opt.outage_start = 1270;         % 丢失开始时间(s)
 opt.outage_stop = 1400;          % 丢失结束时间(s)
-opt.nhc_enable = 0;             % 车辆运动学约束
+opt.nhc_enable = 1;              % 车辆运动学约束
 opt.nhc_R = 10.0;                % 车载非完整性约束噪声
-opt.gnss_delay = 0;             % GNSS量测延迟 sec
+opt.gnss_delay = 0;              % GNSS量测延迟 sec
 opt.gnss_lever_arm = 0*[-0.4; -1.31; 0.53]; %GNSS杆臂长度 b系下（右-前-上）
-opt.gnss_intervel = 1;          % GNSS间隔时间，如原始数据为10Hz，那么 gnss_intervel=10 则降频为1Hz
 
-% 初始状态方差:    姿态       东北天速度  水平位置      陀螺零偏                加速度计零偏
-opt.P0 = diag([ [2 2 10]*D2R, [1 1 1], [5 5 5], 50*D2R/3600*ones(1,3), 5e-3*GRAVITY*ones(1,3), 10*D2R*ones(1,2) ])^2;
+% 初始状态方差:    姿态       ENU速度  水平位置      陀螺零偏                加速度计零偏        安装俯仰角 安装航向角
+opt.P0 = diag([ [2 2 10]*D2R, [1 1 1], [5 5 5], 50*D2R/3600*ones(1,3), 5e-3*GRAVITY*ones(1,3), 2*D2R*ones(1,2) ])^2;
 N = length(opt.P0);
 % 系统方差:         角度随机游走          速度随机游走                     角速度随机游走            加速度随机游走
-opt.Q = diag([ (5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), 2.0/3600*D2R*ones(1,3), 1e-4*GRAVITY*ones(1,3), 0*D2R*ones(1,2) ])^2;
+opt.Q = diag([ (5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), 2.0/3600*D2R*ones(1,3), 0*GRAVITY*ones(1,3), 0*D2R*ones(1,2) ])^2;
 
 imu_len = length(data.imu.tow);
 Dev_len = length(data.ins_dev.tow);
@@ -116,6 +115,7 @@ end
 if i == length(data.gnss.tow)
     opt.inital_yaw = 0;
     fprintf("无法通过速度矢量找到初始航向角，设置为:%.2f°\r\n",  opt.inital_yaw*R2D);
+    inital_imu_idx = 1;
 end
 
 opt.inital_yaw = 0;
@@ -225,7 +225,7 @@ for i=inital_imu_idx:imu_len
 
     %% GNSS量测更新
     if gnss_idx <= length(data.gnss.tow) && abs(data.imu.tow(i) - data.gnss.tow(gnss_idx)) < 0.02 % threshold 是允许的最大差异
-        if data.gnss.solq_pos(gnss_idx) > 0
+        if data.gnss.solq_pos(gnss_idx) > 0 && (data.gnss.nv(gnss_idx) > 5)
             GNSS_vel_R = diag([0.3 0.3 0.3])^2;
             GNSS_pos_R = diag([1.5 1.5 1.5])^2;
 
@@ -242,7 +242,7 @@ for i=inital_imu_idx:imu_len
             Zpos = Zpos - (-bCn)*opt.gnss_lever_arm; % GNSS天线杆壁效应补偿
 
             if(opt.gnss_outage == 0 || (opt.gnss_outage == 1 && (data.imu.tow(i) < opt.outage_start || data.imu.tow(i) > opt.outage_stop) ))
-                % 速度更新
+                % 速度更新 可以尝试下速度不更新
                 K = P * Hvel' / (Hvel * P * Hvel' + GNSS_vel_R);
                 X = X + K * (Zvel - Hvel * X);
                 P = (eye(N) - K * Hvel) * P;
@@ -267,80 +267,47 @@ for i=inital_imu_idx:imu_len
         gnss_idx = gnss_idx + 1;
     end
 
-    if norm(vel) > 0.01
-        if opt.gnss_outage == 1 && (data.imu.tow(i) > opt.outage_start && data.imu.tow(i) < opt.outage_stop) %GNSS 失锁
-            %             M = nCb * v3_skew(vel);
-            %             % M = nCb * v3_skew(data.gnss.vel_enu(gnss_idx,:));
-            %             H = zeros(2, N);
-            %
-            %             H(1, 1:3) = - M(1,:);
-            %             H(1, 4:6) = nCb(1,:);
-            %             H(1, 17)  = -norm(log.vb(i,:));
-            %             H(2, 1:3) = - M(3,:);
-            %             H(2, 4:6) = nCb(3,:);
-            %             H(2, 16)  = norm(log.vb(i,:));
-            %
-            %             Z = log.vb(i, [1, 3])';
-            %
-            %             R = blkdiag(6, 6)^2;
-            %
-            %             % 卡尔曼量测更新
-            %             K = P * H' / (H * P * H' + R);
-            %             X = X + K * (Z - H * X);
-            %             P = (eye(N) - K * H) * P;
-            %
-            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
-            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
-            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
-            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
-        else % GNSS 有效
-            %             M = nCb * v3_skew(vel);
-            %             % M = nCb * v3_skew(data.gnss.vel_enu(gnss_idx,:));
-            %             H = zeros(2, N);
-            %
-            %             H(1, 1:3) = - M(1,:);
-            %             H(1, 4:6) = nCb(1,:);
-            %             H(1, 17)  = -norm(log.vb(i,:));
-            %             H(2, 1:3) = - M(3,:);
-            %             H(2, 4:6) = nCb(3,:);
-            %             H(2, 16)  = norm(log.vb(i,:));
-            %
-            %             Z = log.vb(i, [1, 3])';
-            %
-            %             R = blkdiag(1, 1)^2;
-            %
-            %             % 卡尔曼量测更新
-            %             K = P * H' / (H * P * H' + R);
-            %             X = X + K * (Z - H * X);
-            %             P = (eye(N) - K * H) * P;
-            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
-            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
-            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
-            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
-        end
+    if norm(vel) > 1
+%         if opt.gnss_outage == 1 && (data.imu.tow(i) > opt.outage_start && data.imu.tow(i) < opt.outage_stop)
+%             % %GNSS 失锁, NHC
+%             if opt.nhc_enable
+%                 H = zeros(2,N);
+%                 A = [1 0 0; 0 0 1];
+%                 H(:,4:6) = A*nCb;
+%                 bCm = ch_eul2m([-X(16), 0, -X(17)]);
+%                 Z = 0 + (A*bCm*nCb)*vel;
+%                 R = diag(ones(1, size(H, 1))*opt.nhc_R)^2;
+% 
+%                 % 卡尔曼量测更新
+%                 K = P * H' / (H * P * H' + R);
+%                 X = X + K * (Z - H * X);
+%                 P = (eye(N) - K * H) * P;
+%                 FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
+%             end
+%         else % GNSS 有效
+            M = nCb * v3_skew(vel);
+            % M = nCb * v3_skew(data.gnss.vel_enu(gnss_idx,:));
+            H = zeros(2, N);
+
+            H(1, 1:3) = - M(1,:);
+            H(1, 4:6) = nCb(1,:);
+            H(1, 17)  = -norm(log.vb(i,:));
+            H(2, 1:3) = - M(3,:);
+            H(2, 4:6) = nCb(3,:);
+            H(2, 16)  = norm(log.vb(i,:));
+
+            Z = log.vb(i, [1, 3])';
+
+            R = blkdiag(15, 15)^2;
+
+            % 卡尔曼量测更新
+            K = P * H' / (H * P * H' + R);
+            X = X + K * (Z - H * X);
+            P = (eye(N) - K * H) * P;
+            FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
+%          end
     end
 
-
-    %     % NHC
-    %     if opt.nhc_enable
-    %         if norm(vel) > 0.5
-    %             H = zeros(2,N);
-    %             A = [1 0 0; 0 0 1];
-    %             H(:,4:6) = A*nCb;
-    %             bCm = eye(3) + blkdiag(X(16), 0, X(17));
-    %             Z = 0 + (A*bCm*nCb)*vel;
-    %             R = diag(ones(1, size(H, 1))*opt.nhc_R)^2;
-    %
-    %             % 卡尔曼量测更新
-    %             K = P * H' / (H * P * H' + R);
-    %             X = X + K * (Z - H * X);
-    %             P = (eye(N) - K * H) * P;
-    %             FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
-    %             FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
-    %             FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
-    %             %  FB_BIT = bitor(FB_BIT, ESKF156_FB_P);
-    %         end
-    %     end
 
     % 状态暂存
     X_temp = X;
@@ -592,15 +559,20 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %% 安装误差角在线估计结果
 figure('name', '安装误差角在线估计结果');
-for i=1:2
-    subplot(2,2,i);
-    plot(data.imu.tow, log.X(:, 15+i)*R2D, 'LineWidth', 1.5); grid on;
-    xlabel('时间(s)'); ylabel('安装角(°)'); xlim tight;
+subplot(2,2,1);
+plot(data.imu.tow, log.X(:, 16)*R2D, 'LineWidth', 1.5); grid on;
+xlabel('时间(s)'); ylabel('俯仰安装角(°)'); xlim tight;
+subplot(2,2,3);
+plot(data.imu.tow, log.P(:, 16)*R2D, 'LineWidth', 1.5); grid on;
+xlabel('时间(s)'); ylabel('俯仰安装角方差(°)'); xlim tight;
 
-    subplot(2,2,i+2);
-    plot(data.imu.tow, log.P(:, 15+i)*R2D, 'LineWidth', 1.5); grid on;
-    xlabel('时间(s)'); ylabel('安装角方差(°)'); xlim tight;
-end
+subplot(2,2,2);
+plot(data.imu.tow, log.X(:, 17)*R2D, 'LineWidth', 1.5); grid on;
+xlabel('时间(s)'); ylabel('航向安装角(°)'); xlim tight;
+subplot(2,2,4);
+plot(data.imu.tow, log.P(:, 17)*R2D, 'LineWidth', 1.5); grid on;
+xlabel('时间(s)'); ylabel('航向安装角方差(°)'); xlim tight;
+
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 %% 二维轨迹
