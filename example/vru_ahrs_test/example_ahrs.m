@@ -2,6 +2,9 @@ close all;
 clear;
 clc;
 
+
+%%
+
 %% Import and plot sensor data
 load('imu_dataset.mat');
 
@@ -19,12 +22,7 @@ imu.gyr(3,:) =  imu.gyr(3,:) + deg2rad(2);
 
 [P, Q] = init_filter(dt);
 
-
-
-
 for i = 1:N
-    
-    
     
     % 陀螺仪零偏反馈
     imu.gyr(:,i)  = imu.gyr(:,i) -  err_state(4:6);
@@ -66,9 +64,6 @@ for i = 1:N
     
     %磁量测更新
     %  [P, q, err_state]=  measurement_update_mag(q, err_state,  imu.mag(:,i), P);
-    
-    %P阵强制正定
-    P = (P + P')/2;
     
     %记录历史数据
     outdata.eul(:,i) = ch_q2eul(quat);
@@ -124,11 +119,11 @@ end
 
 figure('NumberTitle', 'off', 'Name', '方差');
 subplot(2, 1, 1);
-plot(P_phi');
+plot(P_phi', ".-");
 legend("X", "Y", "Z");
 title("失准角方差");
 subplot(2, 1, 2);
-plot(P_wb');
+plot(P_wb', ".-");
 legend("X", "Y", "Z");
 title("陀螺零偏方差");
 
@@ -150,10 +145,10 @@ end
 
 function [P, Q] = init_filter(dt)
 
-Q_att = 1;   %
-Q_wb = 0.0;
+Q_att = 0.1;
+Q_wb = 0;
 
-P = eye(6)*1;
+P = diag([0.1*[1 1 1], 0.01*[1 1 1]]);
 
 Q = zeros(6);
 Q(1:3,1:3) = Q_att*eye(3);
@@ -188,54 +183,53 @@ K=(P*H')/(H*P*H'+R);
 err_state = err_state +  K*(z(1:2) - H*err_state);
 
 %更新P 使用Joseph 形式，取代 (I-KH)*P, 这么数值运算更稳定
-I_KH = (eye(size(P,1))-K*H);
-P= I_KH*P*I_KH' + K*R*K';
-
+N = 6;
+P = (eye(N) - K * H) * P;
 
 %误差状态反馈及误差清零
 q = ch_qmul(ch_rv2q(err_state(1:3)), q);
 end
 
 
-
-function [P, q,  err_state]= measurement_update_mag(q, err_state, mag, P)
-%地磁量测噪声
-R = eye(3)*2;
-
-% 磁场单位化
-mag = mag / norm(mag);   % normalise magnitude
-
-%计算新息
-h = ch_qmulv(q, mag);
-b = [norm([h(1) h(2)]) 0 h(3)]';
-h = h - b;
-
-% 建立量测矩阵 严龚敏书 7.5.14
-H = ch_askew(b);
-H = [H zeros(3)];
-
-%计算增益
-K=(P*H')/(H*P*H'+R);
-
-%更新状态
-err_state = err_state +  K*(h - H*err_state);
-
-%
-% %更新P 使用Joseph 形式，取代 (I-KH)*P, 这么数值运算更稳定
-% I_KH = (eye(size(P,1)) - K*H);
-% P= I_KH*P*I_KH' + K*R*K';
-
-P = (eye(6) - K*H)*P;
-
-%误差状态反馈及误差清零
-
-%对于地磁，只纠正航向角9
-% err_state(1) = 0;
-% err_state(2) = 0;
-
-%误差反馈及清0
-q(1:4) = ch_qmul(ch_rv2q(err_state(1:3)), q);
-
-end
+% 
+% function [P, q,  err_state]= measurement_update_mag(q, err_state, mag, P)
+% %地磁量测噪声
+% R = eye(3)*2;
+% 
+% % 磁场单位化
+% mag = mag / norm(mag);   % normalise magnitude
+% 
+% %计算新息
+% h = ch_qmulv(q, mag);
+% b = [norm([h(1) h(2)]) 0 h(3)]';
+% h = h - b;
+% 
+% % 建立量测矩阵 严龚敏书 7.5.14
+% H = ch_askew(b);
+% H = [H zeros(3)];
+% 
+% %计算增益
+% K=(P*H')/(H*P*H'+R);
+% 
+% %更新状态
+% err_state = err_state +  K*(h - H*err_state);
+% 
+% %
+% % %更新P 使用Joseph 形式，取代 (I-KH)*P, 这么数值运算更稳定
+% % I_KH = (eye(size(P,1)) - K*H);
+% % P= I_KH*P*I_KH' + K*R*K';
+% 
+% P = (eye(6) - K*H)*P;
+% 
+% %误差状态反馈及误差清零
+% 
+% %对于地磁，只纠正航向角9
+%  err_state(1) = 0;
+%  err_state(2) = 0;
+% 
+% %误差反馈及清0
+% q(1:4) = ch_qmul(ch_rv2q(err_state(1:3)), q);
+% 
+% end
 
 

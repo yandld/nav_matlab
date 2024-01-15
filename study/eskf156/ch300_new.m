@@ -226,30 +226,31 @@ for i=inital_imu_idx:imu_len
     %% GNSS量测更新
     if gnss_idx <= length(data.gnss.tow) && abs(data.imu.tow(i) - data.gnss.tow(gnss_idx)) < 0.02 % threshold 是允许的最大差异
         if data.gnss.solq_pos(gnss_idx) > 0
-            vel_R = diag(data.gnss.vel_enu_std(gnss_idx,:))^2;
-            pos_R = diag(data.gnss.pos_enu_std(gnss_idx,:))^2;
-            GNSS_R = diag([diag(vel_R); diag(pos_R)]);
-            GNSS_R = GNSS_R*10;
+            GNSS_vel_R = diag([0.3 0.3 0.3])^2;
+            GNSS_pos_R = diag([1.5 1.5 1.5])^2;
 
-            H = zeros(6,N);
-            H(1:3, 4:6) = eye(3);
-            H(4:6, 7:9) = eye(3);
+            Hvel = zeros(3,N);
+            Hvel(1:3, 4:6) = eye(3);
+            Zvel = vel - data.gnss.vel_enu(gnss_idx,:)';
+            Zvel = Zvel - a_n*opt.gnss_delay; % GNSS量测延迟补偿
+            Zvel = Zvel - (-bCn*v3_skew(w_b))*opt.gnss_lever_arm; % GNSS天线杆壁效应补偿
 
-            Z = [vel - data.gnss.vel_enu(gnss_idx,:)'; pos - gnss_enu(gnss_idx,:)'];
-
-            % GNSS量测延迟补偿
-            Z = Z - [a_n; vel]*opt.gnss_delay;
-
-            % GNSS天线杆壁效应补偿
-            Z = Z - [-bCn*v3_skew(w_b); -bCn]*opt.gnss_lever_arm;
-
-            R = GNSS_R;
+            Hpos = zeros(3,N);
+            Hpos(1:3, 7:9) = eye(3);
+            Zpos = pos - gnss_enu(gnss_idx,:)';
+            Zpos = Zpos - vel*opt.gnss_delay; % GNSS量测延迟补偿
+            Zpos = Zpos - (-bCn)*opt.gnss_lever_arm; % GNSS天线杆壁效应补偿
 
             if(opt.gnss_outage == 0 || (opt.gnss_outage == 1 && (data.imu.tow(i) < opt.outage_start || data.imu.tow(i) > opt.outage_stop) ))
-                % 卡尔曼量测更新
-                K = P * H' / (H * P * H' + R);
-                X = X + K * (Z - H * X);
-                P = (eye(N) - K * H) * P;
+                % 速度更新
+                K = P * Hvel' / (Hvel * P * Hvel' + GNSS_vel_R);
+                X = X + K * (Zvel - Hvel * X);
+                P = (eye(N) - K * Hvel) * P;
+
+                % 位置更新
+                K = P * Hpos' / (Hpos * P * Hpos' + GNSS_pos_R);
+                X = X + K * (Zpos - Hpos * X);
+                P = (eye(N) - K * Hpos) * P;
 
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
@@ -268,54 +269,54 @@ for i=inital_imu_idx:imu_len
 
     if norm(vel) > 0.01
         if opt.gnss_outage == 1 && (data.imu.tow(i) > opt.outage_start && data.imu.tow(i) < opt.outage_stop) %GNSS 失锁
-            M = nCb * v3_skew(vel);
-            % M = nCb * v3_skew(data.gnss.vel_enu(gnss_idx,:));
-            H = zeros(2, N);
-    
-            H(1, 1:3) = - M(1,:);
-            H(1, 4:6) = nCb(1,:);
-            H(1, 17)  = -norm(log.vb(i,:));
-            H(2, 1:3) = - M(3,:);
-            H(2, 4:6) = nCb(3,:);
-            H(2, 16)  = norm(log.vb(i,:));
-    
-            Z = log.vb(i, [1, 3])';
-    
-            R = blkdiag(6, 6)^2;
-    
-            % 卡尔曼量测更新
-            K = P * H' / (H * P * H' + R);
-            X = X + K * (Z - H * X);
-            P = (eye(N) - K * H) * P;
-
-            FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
-            FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
-            FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
-            FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
+            %             M = nCb * v3_skew(vel);
+            %             % M = nCb * v3_skew(data.gnss.vel_enu(gnss_idx,:));
+            %             H = zeros(2, N);
+            %
+            %             H(1, 1:3) = - M(1,:);
+            %             H(1, 4:6) = nCb(1,:);
+            %             H(1, 17)  = -norm(log.vb(i,:));
+            %             H(2, 1:3) = - M(3,:);
+            %             H(2, 4:6) = nCb(3,:);
+            %             H(2, 16)  = norm(log.vb(i,:));
+            %
+            %             Z = log.vb(i, [1, 3])';
+            %
+            %             R = blkdiag(6, 6)^2;
+            %
+            %             % 卡尔曼量测更新
+            %             K = P * H' / (H * P * H' + R);
+            %             X = X + K * (Z - H * X);
+            %             P = (eye(N) - K * H) * P;
+            %
+            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
+            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
+            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
+            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
         else % GNSS 有效
-            M = nCb * v3_skew(vel);
-            % M = nCb * v3_skew(data.gnss.vel_enu(gnss_idx,:));
-            H = zeros(2, N);
-    
-            H(1, 1:3) = - M(1,:);
-            H(1, 4:6) = nCb(1,:);
-            H(1, 17)  = -norm(log.vb(i,:));
-            H(2, 1:3) = - M(3,:);
-            H(2, 4:6) = nCb(3,:);
-            H(2, 16)  = norm(log.vb(i,:));
-    
-            Z = log.vb(i, [1, 3])';
-    
-            R = blkdiag(1, 1)^2;
-    
-            % 卡尔曼量测更新
-            K = P * H' / (H * P * H' + R);
-            X = X + K * (Z - H * X);
-            P = (eye(N) - K * H) * P;
-            FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
-            FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
-            FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
-            FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
+            %             M = nCb * v3_skew(vel);
+            %             % M = nCb * v3_skew(data.gnss.vel_enu(gnss_idx,:));
+            %             H = zeros(2, N);
+            %
+            %             H(1, 1:3) = - M(1,:);
+            %             H(1, 4:6) = nCb(1,:);
+            %             H(1, 17)  = -norm(log.vb(i,:));
+            %             H(2, 1:3) = - M(3,:);
+            %             H(2, 4:6) = nCb(3,:);
+            %             H(2, 16)  = norm(log.vb(i,:));
+            %
+            %             Z = log.vb(i, [1, 3])';
+            %
+            %             R = blkdiag(1, 1)^2;
+            %
+            %             % 卡尔曼量测更新
+            %             K = P * H' / (H * P * H' + R);
+            %             X = X + K * (Z - H * X);
+            %             P = (eye(N) - K * H) * P;
+            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
+            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
+            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
+            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
         end
     end
 
@@ -347,13 +348,16 @@ for i=inital_imu_idx:imu_len
     if bitand(FB_BIT, ESKF156_FB_A)
         rv = X(1:3);
         rv_norm = norm(rv);
-        qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
-        nQb = ch_qmul(qe, nQb);
-        nQb = ch_qnormlz(nQb); %单位化四元数
-        bQn = ch_qconj(nQb); %更新bQn
-        bCn = ch_q2m(nQb); %更新bCn阵
-        nCb = bCn'; %更新nCb阵
-        X(1:3) = 0;
+        if rv_norm > 0
+            qe = [cos(rv_norm/2); sin(rv_norm/2)*rv/rv_norm]';
+            nQb = ch_qmul(qe, nQb);
+            nQb = ch_qnormlz(nQb); %单位化四元数
+            bQn = ch_qconj(nQb); %更新bQn
+            bCn = ch_q2m(nQb); %更新bCn阵
+            nCb = bCn'; %更新nCb阵
+            X(1:3) = 0;
+        end
+
     end
 
     if bitand(FB_BIT, ESKF156_FB_V)
@@ -447,7 +451,7 @@ title('Pos Up Std'); xlabel('时间(s)'); ylabel('m'); legend('MATLAB','DEV'); x
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
-%% 
+%% 速度
 figure('name', '速度');
 subplot(2,3,1);
 plot(data.imu.tow, log.vel(:,1), '.-'); hold on;

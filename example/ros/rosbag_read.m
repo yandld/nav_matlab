@@ -5,12 +5,12 @@ format short;
 
 %%
 
-rosbag info 'imu_error.bag'
+rosbag info '2024-1-10-11-12-49_0.bag'
 
 
-bagselect  = rosbag('imu_error.bag');
+bagselect  = rosbag('2024-1-10-11-12-49_0.bag');
 
- bagselect2 = select(bagselect,'Time',   [bagselect.StartTime bagselect.EndTime],'Topic', '/IMU_data_USB0');
+ bagselect2 = select(bagselect,'Time',   [bagselect.StartTime bagselect.EndTime],'Topic', '/imu/data');
  msgs = readMessages(bagselect2, "DataFormat", "struct");
 
 N = length(msgs);
@@ -48,6 +48,15 @@ ch_plot_imu('time', (1:N)/Fs, 'acc', accelReading,  'gyr', gyroReading);
 
 
 figure;
+subplot(3,1,1);
 plot(eul(:,3))
 title("yaw(deg)")
+
+subplot(3,1,2);
+plot(eul(:,1))
+title("pitch")
+
+subplot(3,1,3);
+plot(eul(:,2))
+title("roll")
 
