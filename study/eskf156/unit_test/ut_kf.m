@@ -17,7 +17,13 @@
                     x = F*x;
                     P = F*P*F' + Q*0.1;
                     K = P * H' / (H * P * H' + R);
+                    
                     z = [i-1, (i-1)*2]';
+
+                    % chi squre , see 一种基于软卡方检测的自适应Ｋａｌｍａｎ滤波方法
+                    chi = (z - H * x)' * (H * P * H' + R)^(-1)*(z - H * x);
+
                     x = x + K * (z - H * x)
                     P = (eye(length(x)) - K * H) * P
+                    chi
                 end

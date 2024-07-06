@@ -64,18 +64,29 @@ for i=0:99
     
     
     %% gnss
-    H = zeros(6,15);
-    H(1:3,4:6) = eye(3);
-    H(4:6,7:9) = eye(3);
+    Hvel = zeros(3,15);
+    Hpos = zeros(3,15);
+
+    Hvel(1:3,4:6) = eye(3);
+    Hpos(1:3,7:9) = eye(3);
+
+    Zvel = vel - [0.1 0.2 0.3]';
+    Zpos = pos - [1 2 3]';
     
-    Z = [vel - [0.1 0.2 0.3]'; pos - [1 2 3]'];
+    Rvel = diag([0.1; 0.1; 0.2])^2;
+    Rpos = diag([1; 1; 2])^2;
     
-    R = diag([0.1*ones(2,1); 0.2; 1*ones(2,1); 2])^2;
-    
-    % 卡尔曼量测更新
-    K = P * H' / (H * P * H' + R);
-    X = X + K * (Z - H * X);
-    P = (eye(length(X)) - K * H) * P;
+    chi_vel = (Zvel - Hvel * X)' * (Hvel * P * Hvel' + Rvel)^(-1)*(Zvel - Hvel * X);
+
+    K = P * Hvel' / (Hvel * P * Hvel' + Rvel);
+    X = X + K * (Zvel - Hvel * X);
+    P = (eye(length(X)) - K * Hvel) * P;
+
+    chi_pos = (Zpos - Hpos * X)' * (Hpos * P * Hpos' + Rpos)^(-1)*(Zpos - Hpos * X);
+
+    K = P * Hpos' / (Hpos * P * Hpos' + Rpos);
+    X = X + K * (Zpos - Hpos * X);
+    P = (eye(length(X)) - K * Hpos) * P;
 
 %     %% gravity
 %     H = zeros(2,15);
@@ -165,3 +176,6 @@ end
 nQb
 vel
 pos
+chi_vel
+chi_pos
+
