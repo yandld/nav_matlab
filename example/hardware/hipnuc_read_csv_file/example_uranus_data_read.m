@@ -3,17 +3,40 @@ clc;
 close all;
 
 %% 读取数据
-data = csvread("UranusData.csv", 1, 1);
-gyroReading = data(:,5:7);
-accReading = data(:,2:4);
+data = csvread("20240206_IMU2.csv", 1, 1);
+gyroReading = data(:,6:8);
+accReading = data(:,3:5);
 
-figure;
-plot(accReading);
-legend("X", "Y", "Z"); title("ACC");
+% 假设的采样率
+sampleRate = 500;  % 例如，100 Hz
 
+% 确保数据长度是sampleRate的整数倍
+len = floor(size(accReading, 1) / sampleRate) * sampleRate;
+
+% 重塑和计算均值
+% 对于加速度计数据
+accReshaped = reshape(accReading(1:len, :), sampleRate, [], 3);
+accMean = squeeze(mean(accReshaped, 1));
+accMean(:,3) = accMean(:,3) -1;
+
+% 对于陀螺仪数据
+gyroReshaped = reshape(gyroReading(1:len, :), sampleRate, [], 3);
+gyroMean = squeeze(mean(gyroReshaped, 1));
+
+% 绘制加速度计数据
 figure;
-plot(gyroReading);
-legend("X", "Y", "Z"); title("GYR");
+plot(accMean);
+legend("X", "Y", "Z");
+title("ACC Mean Per Second");
+
+% 绘制陀螺仪数据
+figure;
+plot(gyroMean);
+legend("X", "Y", "Z");
+title("GYR Mean Per Second");
+
+
+
 
 
 % X = accReading(:,3);

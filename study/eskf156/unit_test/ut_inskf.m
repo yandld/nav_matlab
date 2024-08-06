@@ -73,8 +73,8 @@ for i=0:99
     Zvel = vel - [0.1 0.2 0.3]';
     Zpos = pos - [1 2 3]';
     
-    Rvel = diag([0.1; 0.1; 0.2])^2;
-    Rpos = diag([1; 1; 2])^2;
+    Rvel = diag([0.1; 0.1; 0.1])^2;
+    Rpos = diag([1; 1; 1])^2;
     
     chi_vel = (Zvel - Hvel * X)' * (Hvel * P * Hvel' + Rvel)^(-1)*(Zvel - Hvel * X);
 

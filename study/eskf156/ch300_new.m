@@ -19,13 +19,29 @@ scriptFolder = fileparts(scriptPath);
 cd(scriptFolder);
 
 %% 数据载入
-% load('dataset/982-11826-路测数据5/982-11826-路测数据5.mat');
 % load('dataset/感图单天线2.2.9-7.4-路测数据1/感图单天线2.2.9-7.4-路测数据1.mat');
-% load('dataset/单天线-2.2.9-jul-4-地库1/单天线-2.2.9-jul-4-地库1.mat');
- %load('dataset/双天线rtk-2.2.9-jul-4-地库1/双天线rtk-2.2.9-jul-4-地库1.mat');
- load('dataset/240706_B/240706_B.mat');
+ % load('dataset/感图单天线9984-2.2.9-路测数据1/感图单天线9984-2.2.9-路测数据1.mat');
+ %load('dataset/单天线-2.2.9-jul-4-地库1/单天线-2.2.9-jul-4-地库1.mat');
+ % load('dataset/双天线rtk-2.2.9-jul-4-地库1/双天线rtk-2.2.9-jul-4-地库1.mat');
+% load('dataset/240706_B/240706_B.mat');
+% load('dataset/240710_A1/240710_A1.mat');
+ % load('dataset/240710_A2/240710_A2.mat');
+ % load('dataset/240710_B1/240710_B1.mat');
+ %  load('dataset/240711A1/240711A1.mat');
+  % load('dataset/240711A3/240711A3.mat');
+ %  load('dataset/240712A1/240712A1.mat');
+ %  load('dataset/240712D2/240712D2.mat');
+%  load('dataset/240718A1/240718A1.mat');
+  load('dataset/240718A2/240718A2.mat');
+ % load('dataset/240718A3/240718A3.mat');
+% load('dataset/240718B1/240718B1.mat');
+% load('dataset/240718B2/240718B2.mat');
+%load('dataset/240726B2里程计/240726B2里程计.mat');
+%
+% load('dataset/240727B1CAN/240727B1CAN.mat');
+% load('dataset/240727B2/240727B2.mat');
 
-
+   
 
 %单位国际化
 data.imu.acc =  data.imu.acc*GRAVITY;
@@ -51,25 +67,27 @@ gnss_vel_R = 0;
 gnss_pos_R = 0;
 gnss_lost_elapsed = 0;
 gnss_last_valid_time = 0;
+chi_lambda_vel = 999;
+chi_lambda_pos = 999;
 %% 说明
 % KF 状态量: 失准角(3) 速度误差(3) 位置误差(3) 陀螺零偏(3) 加计零偏(3)
 
 %% 相关选项及参数设置
 opt.alignment_time = 1;          % 初始对准时间(s)
-opt.gnss_outage = 1;             % 模拟GNSS丢失
-opt.outage_start = 314;         % 丢失开始时间(s)
-opt.outage_stop = 340;          % 丢失结束时间(s)
+opt.gnss_outage = 0;             % 模拟GNSS丢失
+opt.outage_start = 2360;         % 丢失开始时间(s)
+opt.outage_stop = 2380;          % 丢失结束时间(s)
 opt.nhc_enable = 1;              % 车辆运动学约束
-opt.nhc_R = 3.0;                % 车载非完整性约束噪声
+opt.nhc_R = 4.0;                % 车载非完整性约束噪声
 opt.gnss_min_interval = 0;    % 设定时间间隔，例如0.5秒
 opt.gnss_delay = 0;              % GNSS量测延迟 sec
 opt.gnss_lever_arm = 0*[-0.4; -1.31; 0.53]; %GNSS杆臂长度 b系下（右-前-上）
 
 % 初始状态方差:    姿态       ENU速度  水平位置      陀螺零偏                加速度计零偏        安装俯仰角 安装航向角
-opt.P0 = diag([ [2 2 10]*D2R, [1 1 1], [5 5 5], 0.1*D2R*ones(1,3), 1e-2*GRAVITY*ones(1,3)])^2;
+opt.P0 = diag([[2 2 10]*D2R, [1 1 1], [5 5 5], 0.1*D2R*ones(1,3), 1e-2*GRAVITY*ones(1,3)])^2;
 N = length(opt.P0);
 % 系统方差:         角度随机游走          速度随机游走                     角速度随机游走            加速度随机游走
-opt.Q = diag([ (0.1*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), 1/3600*D2R*ones(1,3), 0*GRAVITY*ones(1,3)])^2;
+opt.Q = diag([(0.1*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), 1/3600*D2R*ones(1,3), 0*GRAVITY*ones(1,3)])^2;
 
 imu_len = length(data.imu.tow);
 dev_len = length(data.dev.tow);
@@ -244,7 +262,7 @@ for i=inital_imu_idx:imu_len
             %gnss_vel_R = diag([0.1 0.1 0.1])^2;
            % gnss_pos_R = diag([1.2 1.2 1.2])^2;
 
-            gnss_last_valid_time = data.gnss.tow(gnss_idx);
+            
             gnss_vel_R = diag(ones(3,1) * data.gnss.gnss_vel_std_n(gnss_idx))^2;
             gnss_pos_R = diag(ones(3,1) * data.gnss.gnss_pos_std_n(gnss_idx))^2;
 
@@ -265,32 +283,32 @@ for i=inital_imu_idx:imu_len
                     && (current_time - last_gnss_fusion_time >= opt.gnss_min_interval)
                 
                 % Reference:  一种基于软卡方检测的自适应Ｋａｌｍａｎ滤波方法
-                % 速度更新 可以尝试下速度不更新
-                Avel = Hvel * P * Hvel' + gnss_vel_R;
-                K = P * Hvel' / (Avel);
-                Rvel = Zvel - Hvel * X;
+                A = Hvel * P * Hvel' + gnss_vel_R;
+                K = P * Hvel' / (A);
+                innov = Zvel - Hvel * X;
 
-                chi_lambda_vel = Rvel'*Avel^(-1)*Rvel;
+                chi_lambda_vel = innov'*A^(-1)*innov;
                 log.lambda_vel(gnss_idx, :) = chi_lambda_vel;
 
-             %   if(chi_lambda_vel < 0.2)
-                    X = X + K * Rvel;
-                    P = (eye(N) - K * Hvel) * P;
-             %   end
-
+                if(chi_lambda_vel < 1.5 || chi_lambda_pos < 0.15 || data.gnss.gnss_vel_std_n(gnss_idx) < 0.5 || data.gnss.gnss_pos_std_n(gnss_idx) < 5 || gnss_lost_elapsed > 3)
+                     X = X + K * innov;
+                     P = (eye(N) - K * Hvel) * P;
+                     gnss_last_valid_time = data.gnss.tow(gnss_idx);
+                end
 
                 % 位置更新
-                Apos = Hpos * P * Hpos' + gnss_pos_R;
-                K = P * Hpos' / (Apos);
-                Rpos = Zpos - Hpos * X;
+                A = Hpos * P * Hpos' + gnss_pos_R;
+                K = P * Hpos' / (A);
+                innov = Zpos - Hpos * X;
 
-                chi_lambda_pos = Rpos'*Apos^(-1)*Rpos;
+                chi_lambda_pos = innov'*A^(-1)*innov;
                 log.lambda_pos(gnss_idx, :) = chi_lambda_pos;
 
-               % if(chi_lambda_pos < 200)
-                    X = X + K * Rpos;
+                if(chi_lambda_vel < 1.5 || chi_lambda_pos < 0.15 || data.gnss.gnss_vel_std_n(gnss_idx) < 0.5 || data.gnss.gnss_pos_std_n(gnss_idx) < 5 || gnss_lost_elapsed > 3)
+                    X = X + K * innov;
                     P = (eye(N) - K * Hpos) * P;
-              %  end
+                    gnss_last_valid_time = data.gnss.tow(gnss_idx);
+                end
 
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
                 FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
@@ -306,7 +324,7 @@ for i=inital_imu_idx:imu_len
     end
 
     %% NHC 约束
-    if norm(vel) > 0.5 && gnss_lost_elapsed > 1 && norm(w_b) < 20*D2R
+    if norm(vel) > 0.1 && gnss_lost_elapsed > 1 && norm(w_b) < 20*D2R
         if opt.nhc_enable
             H = zeros(2,N);
             A = [1 0 0; 0 0 1];
@@ -598,17 +616,24 @@ xlabel('时间(s)'); ylabel('位置误差(m)'); legend('E', 'N', 'U', 'Orientati
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
-figure('name', 'lambda与GNSS接收机给出的std');
-subplot(2,1,1);
+figure('name', 'GNSS接收机给出的信息');
+subplot(2,2,1);
 plot(data.gnss.tow, data.gnss.gnss_vel_std_n); hold on; grid on;
 plot(data.gnss.tow, log.lambda_vel);
 xlabel('时间(s)'); legend('gnss_vel_std_n', 'log.lambda_vel', 'Orientation','horizontal');
 
-subplot(2,1,2);
+subplot(2,2,2);
 plot(data.gnss.tow, data.gnss.gnss_pos_std_n); hold on; grid on;
 plot(data.gnss.tow, log.lambda_pos);
 xlabel('时间(s)'); legend('gnss_pos_std_n', 'log.lambda_pos', 'Orientation','horizontal');
 
+subplot(2,2,3);
+plot(data.gnss.tow, data.gnss.hdop); grid on;
+xlabel('时间(s)'); legend('hdop', 'Orientation','horizontal');
+
+subplot(2,2,4);
+plot(data.gnss.tow, data.gnss.nv); grid on;
+xlabel('时间(s)'); legend('卫星数', 'Orientation','horizontal');
 
 % %% 安装误差角在线估计结果
 % figure('name', '安装误差角在线估计结果');
