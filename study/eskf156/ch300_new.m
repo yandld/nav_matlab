@@ -19,15 +19,15 @@ scriptFolder = fileparts(scriptPath);
 cd(scriptFolder);
 
 %% 数据载入
-load('dataset/231106182548.mat');
+load('dataset/240805A/240805A1.mat');
 
 %单位国际化
 data.imu.acc =  data.imu.acc*GRAVITY;
 data.imu.gyr =  data.imu.gyr*D2R;
 data.gnss.lat = data.gnss.lat*D2R;
 data.gnss.lon = data.gnss.lon*D2R;
-data.ins_dev.lat = data.ins_dev.lat*D2R;
-data.ins_dev.lon = data.ins_dev.lon*D2R;
+data.dev.ins_lat = data.dev.ins_lat*D2R;
+data.dev.ins_lon = data.dev.ins_lon*D2R;
 
 %加入仿真噪声
 % data.imu.acc(:,2) = data.imu.acc(:,2) + 100e-3*GRAVITY;
@@ -60,7 +60,7 @@ N = length(opt.P0);
 opt.Q = diag([ (5/60*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), 2.0/3600*D2R*ones(1,3), 0*GRAVITY*ones(1,3), 0*D2R*ones(1,2) ])^2;
 
 imu_len = length(data.imu.tow);
-Dev_len = length(data.ins_dev.tow);
+Dev_len = length(data.dev.tow);
 
 % bl_yaw = data.gnss.bl_yaw;
 % bl_pitch = data.gnss.bl_yaw;
@@ -130,7 +130,7 @@ end
 %% MCU结果转换为当地东北天坐标系
 Dev_pos_enu = zeros(Dev_len, 3);
 for i=1:Dev_len
-    [Dev_pos_enu(i,1), Dev_pos_enu(i,2), Dev_pos_enu(i,3)] =  ch_LLA2ENU(data.ins_dev.lat(i), data.ins_dev.lon(i),  data.ins_dev.msl(i), lat0, lon0, h0);
+    [Dev_pos_enu(i,1), Dev_pos_enu(i,2), Dev_pos_enu(i,3)] =  ch_LLA2ENU(data.dev.ins_lat(i), data.dev.ins_lon(i),  data.dev.ins_msl(i), lat0, lon0, h0);
 end
 
 %% 初始参数设置
@@ -391,29 +391,29 @@ set(groot, 'defaultAxesZGrid', 'on');
 figure('name', '位置');
 subplot(2,3,1);
 plot(data.imu.tow, log.pos(:,1), '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.pos_enu(:,1), '.-');
+plot(data.imu.tow, data.dev.pos_enu(:,1), '.-');
 title('Pos East'); xlabel('时间(s)'); ylabel('m'); legend('MATLAB','DEV'); xlim tight;
 subplot(2,3,4);
 plot(data.imu.tow, log.P(:,7), '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.pos_enu_std(:,1), '.-');
+plot(data.imu.tow, data.dev.kf_p_pos(:,1), '.-');
 title('Pos East Std'); xlabel('时间(s)'); ylabel('m'); legend('MATLAB','DEV'); xlim tight;
 
 subplot(2,3,2);
 plot(data.imu.tow, log.pos(:,2), '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.pos_enu(:,2), '.-');
+plot(data.imu.tow, data.dev.pos_enu(:,2), '.-');
 title('Pos North'); xlabel('时间(s)'); ylabel('m'); legend('MATLAB','DEV'); xlim tight;
 subplot(2,3,5);
 plot(data.imu.tow, log.P(:,8), '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.pos_enu_std(:,2), '.-');
+plot(data.imu.tow, data.dev.kf_p_pos(:,2), '.-');
 title('Pos North Std'); xlabel('时间(s)'); ylabel('m'); legend('MATLAB','DEV'); xlim tight;
 
 subplot(2,3,3);
 plot(data.imu.tow, log.pos(:,3), '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.pos_enu(:,3), '.-');
+plot(data.imu.tow, data.dev.pos_enu(:,3), '.-');
 title('Pos Up'); xlabel('时间(s)'); ylabel('m'); legend('MATLAB','DEV'); xlim tight;
 subplot(2,3,6);
 plot(data.imu.tow, log.P(:,9), '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.pos_enu_std(:,3), '.-');
+plot(data.imu.tow, data.dev.kf_p_pos(:,3), '.-');
 title('Pos Up Std'); xlabel('时间(s)'); ylabel('m'); legend('MATLAB','DEV'); xlim tight;
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
@@ -422,29 +422,29 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 figure('name', '速度');
 subplot(2,3,1);
 plot(data.imu.tow, log.vel(:,1), '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.vel_enu(:,1), '.-');
+plot(data.imu.tow, data.dev.vel_enu(:,1), '.-');
 title('Vel East'); xlabel('时间(s)'); ylabel('m'); legend('MATLAB','DEV'); xlim tight;
 subplot(2,3,4);
 plot(data.imu.tow, log.P(:,4), '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.vel_enu_std(:,1), '.-');
+plot(data.imu.tow, data.dev.kf_p_vel(:,1), '.-');
 title('Vel East Std'); xlabel('时间(s)'); ylabel('m'); legend('MATLAB','DEV'); xlim tight;
 
 subplot(2,3,2);
 plot(data.imu.tow, log.vel(:,2), '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.vel_enu(:,2), '.-');
+plot(data.imu.tow, data.dev.vel_enu(:,2), '.-');
 title('Vel North'); xlabel('时间(s)'); ylabel('m'); legend('MATLAB','DEV'); xlim tight;
 subplot(2,3,5);
 plot(data.imu.tow, log.P(:,5), '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.vel_enu_std(:,2), '.-');
+plot(data.imu.tow, data.dev.kf_p_vel(:,2), '.-');
 title('Vel North Std'); xlabel('时间(s)'); ylabel('m'); legend('MATLAB','DEV'); xlim tight;
 
 subplot(2,3,3);
 plot(data.imu.tow, log.vel(:,3), '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.vel_enu(:,3), '.-');
+plot(data.imu.tow, data.dev.vel_enu(:,3), '.-');
 title('Vel Up'); xlabel('时间(s)'); ylabel('m'); legend('MATLAB','DEV'); xlim tight;
 subplot(2,3,6);
 plot(data.imu.tow, log.P(:,6), '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.vel_enu_std(:,3), '.-');
+plot(data.imu.tow, data.dev.kf_p_vel(:,3), '.-');
 title('Vel Up Std'); xlabel('时间(s)'); ylabel('m'); legend('MATLAB','DEV'); xlim tight;
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
@@ -453,29 +453,29 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 figure('name', '姿态');
 subplot(2,3,1);
 plot(data.imu.tow, log.roll, '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.roll, '.-');
+plot(data.imu.tow, data.dev.roll, '.-');
 title('Roll'); xlabel('时间(s)'); ylabel('deg'); legend('MATLAB','DEV'); xlim tight;
 subplot(2,3,4);
 plot(data.imu.tow, log.P(:,1)*R2D, '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.roll_std, '.-');
+plot(data.imu.tow, data.dev.kf_p_att(:,1)*R2D, '.-');
 title('Roll Std'); xlabel('时间(s)'); ylabel('deg'); legend('MATLAB','DEV'); xlim tight;
 
 subplot(2,3,2);
 plot(data.imu.tow, log.pitch, '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.pitch, '.-');
+plot(data.imu.tow, data.dev.pitch, '.-');
 title('Pitch'); xlabel('时间(s)'); ylabel('deg'); legend('MATLAB','DEV'); xlim tight;
 subplot(2,3,5);
 plot(data.imu.tow, log.P(:,2)*R2D, '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.pitch_std, '.-');
+plot(data.imu.tow, data.dev.kf_p_att(:,2)*R2D, '.-');
 title('Pitch Std'); xlabel('时间(s)'); ylabel('deg'); legend('MATLAB','DEV'); xlim tight;
 
 subplot(2,3,3);
 plot(data.imu.tow, log.yaw(:,1), '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.yaw, '.-');
+plot(data.imu.tow, data.dev.yaw, '.-');
 title('Yaw'); xlabel('时间(s)'); ylabel('deg'); legend('MATLAB','DEV'); xlim tight;
 subplot(2,3,6);
 plot(data.imu.tow, log.P(:,3)*R2D, '.-'); hold on;
-plot(data.imu.tow, data.ins_dev.yaw_std, '.-');
+plot(data.imu.tow, data.dev.kf_p_att(:,3)*R2D, '.-');
 title('Yaw Std'); xlabel('时间(s)'); ylabel('deg'); legend('MATLAB','DEV'); xlim tight;
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
@@ -487,9 +487,9 @@ color_rgb = get(gca,'ColorOrder');
 plot(data.imu.tow, log.gyro_bias(:, 1)  * R2D, 'Color', color_rgb(1,:), 'linewidth', 1.5); hold on;
 plot(data.imu.tow, log.gyro_bias(:, 2)  * R2D, 'Color', color_rgb(2,:), 'linewidth', 1.5);
 plot(data.imu.tow, log.gyro_bias(:, 3)  * R2D, 'Color', color_rgb(3,:), 'linewidth', 1.5);
-plot(data.imu.tow, data.ins_dev.ins_wb(:, 1)  * R2D, '-', 'Color', color_rgb(1,:), 'linewidth', 0.5);
-plot(data.imu.tow, data.ins_dev.ins_wb(:, 2)  * R2D, '-', 'Color', color_rgb(2,:), 'linewidth', 0.5);
-plot(data.imu.tow, data.ins_dev.ins_wb(:, 3)  * R2D, '-', 'Color', color_rgb(3,:), 'linewidth', 0.5);
+plot(data.imu.tow, data.dev.kf_wb(:, 1)  * R2D, '-', 'Color', color_rgb(1,:), 'linewidth', 0.5);
+plot(data.imu.tow, data.dev.kf_wb(:, 2)  * R2D, '-', 'Color', color_rgb(2,:), 'linewidth', 0.5);
+plot(data.imu.tow, data.dev.kf_wb(:, 3)  * R2D, '-', 'Color', color_rgb(3,:), 'linewidth', 0.5);
 plot(data.imu.tow, gyr_bias0(1)  * R2D * ones(imu_len,1), '-.', 'Color', color_rgb(1,:), 'linewidth', 0.3);
 plot(data.imu.tow, gyr_bias0(2)  * R2D * ones(imu_len,1), '-.', 'Color', color_rgb(2,:), 'linewidth', 0.3);
 plot(data.imu.tow, gyr_bias0(3)  * R2D * ones(imu_len,1), '-.', 'Color', color_rgb(3,:), 'linewidth', 0.3);
@@ -500,9 +500,9 @@ subplot(2,2,2);
 plot(data.imu.tow, log.acc_bias(:, 1) / GRAVITY * 1000, 'Color', color_rgb(1,:), 'linewidth', 1.5); hold on;
 plot(data.imu.tow, log.acc_bias(:, 2) / GRAVITY * 1000, 'Color', color_rgb(2,:), 'linewidth', 1.5);
 plot(data.imu.tow, log.acc_bias(:, 3) / GRAVITY * 1000, 'Color', color_rgb(3,:), 'linewidth', 1.5);
-plot(data.imu.tow, data.ins_dev.ins_gb(:, 1) / GRAVITY * 1000, '-', 'Color', color_rgb(1,:), 'linewidth', 0.5);
-plot(data.imu.tow, data.ins_dev.ins_gb(:, 2) / GRAVITY * 1000, '-', 'Color', color_rgb(2,:), 'linewidth', 0.5);
-plot(data.imu.tow, data.ins_dev.ins_gb(:, 3) / GRAVITY * 1000, '-', 'Color', color_rgb(3,:), 'linewidth', 0.5);
+plot(data.imu.tow, data.dev.kf_gb(:, 1) / GRAVITY * 1000, '-', 'Color', color_rgb(1,:), 'linewidth', 0.5);
+plot(data.imu.tow, data.dev.kf_gb(:, 2) / GRAVITY * 1000, '-', 'Color', color_rgb(2,:), 'linewidth', 0.5);
+plot(data.imu.tow, data.dev.kf_gb(:, 3) / GRAVITY * 1000, '-', 'Color', color_rgb(3,:), 'linewidth', 0.5);
 xlim tight;
 title('ACC零偏估计曲线'); xlabel('时间(s)'); ylabel('零偏(mg)'); legend('MATLAB_X', 'MATLAB_Y', 'MATLAB_Z', 'Dev_X', 'Dev_Y', 'Dev_Z');
 
