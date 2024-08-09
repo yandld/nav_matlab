@@ -26,8 +26,8 @@ data.imu.acc =  data.imu.acc*GRAVITY;
 data.imu.gyr =  data.imu.gyr*D2R;
 data.gnss.lat = data.gnss.lat*D2R;
 data.gnss.lon = data.gnss.lon*D2R;
-data.dev.ins_lat = data.dev.ins_lat*D2R;
-data.dev.ins_lon = data.dev.ins_lon*D2R;
+data.dev.lat = data.dev.lat*D2R;
+data.dev.lon = data.dev.lon*D2R;
 
 %加入仿真噪声
 % data.imu.acc(:,2) = data.imu.acc(:,2) + 100e-3*GRAVITY;
@@ -130,7 +130,7 @@ end
 %% MCU结果转换为当地东北天坐标系
 Dev_pos_enu = zeros(Dev_len, 3);
 for i=1:Dev_len
-    [Dev_pos_enu(i,1), Dev_pos_enu(i,2), Dev_pos_enu(i,3)] =  ch_LLA2ENU(data.dev.ins_lat(i), data.dev.ins_lon(i),  data.dev.ins_msl(i), lat0, lon0, h0);
+    [Dev_pos_enu(i,1), Dev_pos_enu(i,2), Dev_pos_enu(i,3)] =  ch_LLA2ENU(data.dev.lat(i), data.dev.lon(i),  data.dev.msl(i), lat0, lon0, h0);
 end
 
 %% 初始参数设置
@@ -490,6 +490,7 @@ plot(data.imu.tow, log.gyro_bias(:, 3)  * R2D, 'Color', color_rgb(3,:), 'linewid
 plot(data.imu.tow, data.dev.kf_wb(:, 1)  * R2D, '-', 'Color', color_rgb(1,:), 'linewidth', 0.5);
 plot(data.imu.tow, data.dev.kf_wb(:, 2)  * R2D, '-', 'Color', color_rgb(2,:), 'linewidth', 0.5);
 plot(data.imu.tow, data.dev.kf_wb(:, 3)  * R2D, '-', 'Color', color_rgb(3,:), 'linewidth', 0.5);
+
 plot(data.imu.tow, gyr_bias0(1)  * R2D * ones(imu_len,1), '-.', 'Color', color_rgb(1,:), 'linewidth', 0.3);
 plot(data.imu.tow, gyr_bias0(2)  * R2D * ones(imu_len,1), '-.', 'Color', color_rgb(2,:), 'linewidth', 0.3);
 plot(data.imu.tow, gyr_bias0(3)  * R2D * ones(imu_len,1), '-.', 'Color', color_rgb(3,:), 'linewidth', 0.3);
