@@ -56,9 +56,9 @@ data.dev.lon = data.dev.ins_lon*D2R;
 %加入仿真噪声
 % data.imu.acc(:,2) = data.imu.acc(:,2) + 0.1*GRAVITY;
 %  data.imu.gyr(:,3) = data.imu.gyr(:,3) + 0.5*D2R;
-att = [0 0 0]*D2R; %初始安装角
+att = [2 0 10]*D2R; %初始安装角
 Cbrv = att2Cnb(att);
-
+bCv = Cbrv;%Cvb :b as subscript;v as superscript
 %定义变量
 ESKF156_FB_A = bitshift(1,0); %反馈失准角
 ESKF156_FB_V = bitshift(1,1); %反馈速度
@@ -342,18 +342,24 @@ for i=inital_imu_idx:imu_len
 %             FB_BIT = bitor(FB_BIT, ESKF156_FB_P);
 %         end
               %  else % GNSS 有效
-                    M = nCb * v3_skew(vel);
+              %% v frame 速度误差作为安装角估计的量测方程 [Vvx_ins,Vvy_ins,Vvz_ins]=dVv = Vv'-Vv = -Cb2v*Cn2b*v3_skew(Vn)*dphi + v3_skew(Cb2v*Cn2b*Vn)*dinstallangle + Cb2v*Cn2b*dVn
+              %% paper ref:车载MIMUGNSS组合高精度无缝导航关键技术研究--sunzhenqian
+                    M1 = - bCv * nCb * v3_skew(vel);% v frame vel
                     % M = nCb * v3_skew(data.gnss.vel_enu(gnss_idx,:));
+                    M2 = bCv * nCb;%M2 = Cb2v*Cn2b
+                    M3 = v3_skew(bCv * log.vb');% M3=v3_skew(Cb2v*Cn2b*Vn)
                     H = zeros(2, N);
         
-                    H(1, 1:3) = - M(1,:);
-                    H(1, 4:6) = nCb(1,:);
-                    H(1, 17)  = -norm(log.vb(i,:));
-                    H(2, 1:3) = - M(3,:);
-                    H(2, 4:6) = nCb(3,:);
-                    H(2, 16)  = norm(log.vb(i,:));
+                    H(1, 1:3) = M1(1,:);
+                    H(1, 4:6) = M2(1,:);
+                    H(1, 17)  = M3(1,3);
+                    H(2, 1:3) = M1(3,:);
+                    H(2, 4:6) = M2(3,:);
+                    H(2, 16)  = M3(3,1);
         
-                    Z = log.vb(i, [1, 3])';
+                    Vn2v_sins = bCv * log.vb(i, 1:3)';
+
+                    Z = Vn2v_sins([1,3]);
         
                     R = blkdiag(15, 15)^2;
         
