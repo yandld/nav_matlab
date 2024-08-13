@@ -7,7 +7,7 @@ D2R = pi/180;       % Deg to Rad
 GRAVITY = 9.8;     % 重力加速度
 
 
-fullfilename  = "./240727B1CAN/240727B1CAN.csv";
+fullfilename  = "./240718A2/240718A2.csv";
 
 % 切换到当前工作目录
 scriptPath = mfilename('fullpath');

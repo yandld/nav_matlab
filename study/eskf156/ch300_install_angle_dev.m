@@ -20,20 +20,20 @@ cd(scriptFolder);
 
 %% 数据载入
 % load('dataset/感图单天线2.2.9-7.4-路测数据1/感图单天线2.2.9-7.4-路测数据1.mat');
- % load('dataset/感图单天线9984-2.2.9-路测数据1/感图单天线9984-2.2.9-路测数据1.mat');
- %load('dataset/单天线-2.2.9-jul-4-地库1/单天线-2.2.9-jul-4-地库1.mat');
- % load('dataset/双天线rtk-2.2.9-jul-4-地库1/双天线rtk-2.2.9-jul-4-地库1.mat');
+% load('dataset/感图单天线9984-2.2.9-路测数据1/感图单天线9984-2.2.9-路测数据1.mat');
+%load('dataset/单天线-2.2.9-jul-4-地库1/单天线-2.2.9-jul-4-地库1.mat');
+% load('dataset/双天线rtk-2.2.9-jul-4-地库1/双天线rtk-2.2.9-jul-4-地库1.mat');
 % load('dataset/240706_B/240706_B.mat');
 % load('dataset/240710_A1/240710_A1.mat');
- % load('dataset/240710_A2/240710_A2.mat');
- % load('dataset/240710_B1/240710_B1.mat');
- %  load('dataset/240711A1/240711A1.mat');
-  % load('dataset/240711A3/240711A3.mat');
- %  load('dataset/240712A1/240712A1.mat');
- %  load('dataset/240712D2/240712D2.mat');
+% load('dataset/240710_A2/240710_A2.mat');
+% load('dataset/240710_B1/240710_B1.mat');
+%  load('dataset/240711A1/240711A1.mat');
+% load('dataset/240711A3/240711A3.mat');
+%  load('dataset/240712A1/240712A1.mat');
+%  load('dataset/240712D2/240712D2.mat');
 %  load('dataset/240718A1/240718A1.mat');
-  load('dataset/240718A2/240718A2.mat');
- % load('dataset/240718A3/240718A3.mat');
+load('dataset/240718A2/240718A2.mat');
+% load('dataset/240718A3/240718A3.mat');
 % load('dataset/240718B1/240718B1.mat');
 % load('dataset/240718B2/240718B2.mat');
 %load('dataset/240726B2里程计/240726B2里程计.mat');
@@ -43,7 +43,7 @@ cd(scriptFolder);
 
 
 % load('dataset/240805A/240805A1.mat');
-   
+
 
 %单位国际化
 data.imu.acc =  data.imu.acc*GRAVITY;
@@ -56,9 +56,9 @@ data.dev.lon = data.dev.ins_lon*D2R;
 %加入仿真噪声
 % data.imu.acc(:,2) = data.imu.acc(:,2) + 0.1*GRAVITY;
 %  data.imu.gyr(:,3) = data.imu.gyr(:,3) + 0.5*D2R;
-att = [2 0 10]*D2R; %初始安装角
+att = [0 0 0]*D2R; %初始安装角
 Cbrv = att2Cnb(att);
-bCv = Cbrv;%Cvb :b as subscript;v as superscript
+
 %定义变量
 ESKF156_FB_A = bitshift(1,0); %反馈失准角
 ESKF156_FB_V = bitshift(1,1); %反馈速度
@@ -80,23 +80,25 @@ opt.gnss_outage = 0;             % 模拟GNSS丢失
 opt.outage_start = 2360;         % 丢失开始时间(s)
 opt.outage_stop = 2380;          % 丢失结束时间(s)
 opt.nhc_enable = 1;              % 车辆运动学约束
+
 opt.nhc_R = 4.0;                % 车载非完整性约束噪声
 opt.gnss_min_interval = 0;    % 设定时间间隔，例如0.5秒
 opt.gnss_delay = 0;              % GNSS量测延迟 sec
 opt.gnss_lever_arm = 0*[-0.4; -1.31; 0.53]; %GNSS杆臂长度 b系下（右-前-上）
 
 % 初始状态方差:    姿态       ENU速度  水平位置      陀螺零偏                加速度计零偏        安装俯仰角 安装航向角
-opt.P0 = diag([[2 2 10]*D2R, [1 1 1], [5 5 5], 0.1*D2R*ones(1,3), 1e-2*GRAVITY*ones(1,3), 2*D2R*ones(1,2) ])^2;
+opt.P0 = diag([[2 2 10]*D2R, [1 1 1], [5 5 5], 0.1*D2R*ones(1,3), 1e-2*GRAVITY*ones(1,3), 10*D2R*ones(1,2) ])^2;
 N = length(opt.P0);
-% 系统方差:         角度随机游走          速度随机游走                     角速度随机游走            加速度随机游走
+% 系统误差:         角度随机游走          速度随机游走                     角速度随机游走            加速度随机游走
 opt.Q = diag([(0.1*D2R)*ones(1,3), (4/60)*ones(1,3), 0*ones(1,3), 1/3600*D2R*ones(1,3), 0*GRAVITY*ones(1,3), 0*D2R*ones(1,2)])^2;
 
 imu_len = length(data.imu.tow);
 dev_len = length(data.dev.tow);
 
-
 imu_dt = mean(diff(data.imu.tow));
 gnss_dt = mean(diff(data.gnss.tow));
+
+
 
 % 开启静止时间
 indices = find(data.imu.tow <= opt.alignment_time);  % 找到在x_seconds时间范围内的所有索引
@@ -254,15 +256,14 @@ for i=inital_imu_idx:imu_len
 
     current_time = data.imu.tow(i);
     gnss_lost_elapsed = current_time - gnss_last_valid_time;
-    
+
     %% GNSS量测更新
     if gnss_idx <= length(data.gnss.tow) && abs(data.imu.tow(i) - data.gnss.tow(gnss_idx)) < 0.01 % threshold 是允许的最大差异
 
         if data.gnss.solq_pos(gnss_idx) > 0 && data.gnss.gnss_pos_std_n(gnss_idx) < 40
             %gnss_vel_R = diag([0.1 0.1 0.1])^2;
-           % gnss_pos_R = diag([1.2 1.2 1.2])^2;
+            % gnss_pos_R = diag([1.2 1.2 1.2])^2;
 
-            
             gnss_vel_R = diag(ones(3,1) * data.gnss.gnss_vel_std_n(gnss_idx))^2;
             gnss_pos_R = diag(ones(3,1) * data.gnss.gnss_pos_std_n(gnss_idx))^2;
 
@@ -281,7 +282,7 @@ for i=inital_imu_idx:imu_len
 
             if (opt.gnss_outage == 0 || (opt.gnss_outage == 1 && (current_time < opt.outage_start || current_time > opt.outage_stop))) ...
                     && (current_time - last_gnss_fusion_time >= opt.gnss_min_interval)
-                
+
                 % Reference:  一种基于软卡方检测的自适应Ｋａｌｍａｎ滤波方法
                 A = Hvel * P * Hvel' + gnss_vel_R;
                 K = P * Hvel' / (A);
@@ -291,9 +292,9 @@ for i=inital_imu_idx:imu_len
                 log.lambda_vel(gnss_idx, :) = chi_lambda_vel;
 
                 if(chi_lambda_vel < 1.5 || chi_lambda_pos < 0.15 || data.gnss.gnss_vel_std_n(gnss_idx) < 0.5 || data.gnss.gnss_pos_std_n(gnss_idx) < 5 || gnss_lost_elapsed > 3)
-                     X = X + K * innov;
-                     P = (eye(N) - K * Hvel) * P;
-                     gnss_last_valid_time = data.gnss.tow(gnss_idx);
+                    X = X + K * innov;
+                    P = (eye(N) - K * Hvel) * P;
+                    gnss_last_valid_time = data.gnss.tow(gnss_idx);
                 end
 
                 % 位置更新
@@ -341,34 +342,46 @@ for i=inital_imu_idx:imu_len
 %             FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
 %             FB_BIT = bitor(FB_BIT, ESKF156_FB_P);
 %         end
-              %  else % GNSS 有效
-              %% v frame 速度误差作为安装角估计的量测方程 [Vvx_ins,Vvy_ins,Vvz_ins]=dVv = Vv'-Vv = -Cb2v*Cn2b*v3_skew(Vn)*dphi + v3_skew(Cb2v*Cn2b*Vn)*dinstallangle + Cb2v*Cn2b*dVn
-              %% paper ref:车载MIMUGNSS组合高精度无缝导航关键技术研究--sunzhenqian
-                    M1 = - bCv * nCb * v3_skew(vel);% v frame vel
-                    % M = nCb * v3_skew(data.gnss.vel_enu(gnss_idx,:));
-                    M2 = bCv * nCb;%M2 = Cb2v*Cn2b
-                    M3 = v3_skew(bCv * log.vb');% M3=v3_skew(Cb2v*Cn2b*Vn)
-                    H = zeros(2, N);
-        
-                    H(1, 1:3) = M1(1,:);
-                    H(1, 4:6) = M2(1,:);
-                    H(1, 17)  = M3(1,3);
-                    H(2, 1:3) = M1(3,:);
-                    H(2, 4:6) = M2(3,:);
-                    H(2, 16)  = M3(3,1);
-        
-                    Vn2v_sins = bCv * log.vb(i, 1:3)';
+ 			%  else % GNSS 有效
+            %         if opt.nhc_enable
+            %             H = zeros(2,N);
+            %             A = [1 0 0; 0 0 1];
+            %             H(:,4:6) = A*nCb;
+            %             %  bCm = ch_eul2m([-X(16), 0, -X(17)]);
+            %             Z = 0 + (A*nCb)*vel;
+            %             R = diag(ones(1, size(H, 1))*opt.nhc_R)^2;
+            %
+            %             % 卡尔曼量测更新
+            %             K = P * H' / (H * P * H' + R);
+            %             X = X + K * (Z - H * X);
+            %             P = (eye(N) - K * H) * P;
+            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
+            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
+            %             FB_BIT = bitor(FB_BIT, ESKF156_FB_P);
+            %         end
+            %  else % GNSS 有效
+            M = nCb * v3_skew(vel);
+            % M = nCb * v3_skew(data.gnss.vel_enu(gnss_idx,:));
+            H = zeros(2, N);
 
-                    Z = Vn2v_sins([1,3]);
-        
-                    R = blkdiag(15, 15)^2;
-        
-                    % 卡尔曼量测更新
-                    K = P * H' / (H * P * H' + R);
-                    X = X + K * (Z - H * X);
-                    P = (eye(N) - K * H) * P;
-                    FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
-               %  end
+            H(1, 1:3) = - M(1,:);
+            H(1, 4:6) = nCb(1,:);
+            H(1, 17)  = -norm(log.vb(i,:));
+            H(2, 1:3) = - M(3,:);
+            H(2, 4:6) = nCb(3,:);
+            H(2, 16)  = norm(log.vb(i,:));
+
+            Z = log.vb(i, [1, 3])';
+
+            R = blkdiag(15, 15)^2;
+
+            % 卡尔曼量测更新
+            K = P * H' / (H * P * H' + R);
+            X = X + K * (Z - H * X);
+            P = (eye(N) - K * H) * P;
+            FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
+            %  end
+%         end
     end
 
     % 状态暂存
