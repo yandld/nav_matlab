@@ -32,18 +32,15 @@ cd(scriptFolder);
 %  load('dataset/240712A1/240712A1.mat');
 %  load('dataset/240712D2/240712D2.mat');
 %  load('dataset/240718A1/240718A1.mat');
-load('dataset/240718A2/240718A2.mat');
+% load('dataset/240718A2/240718A2.mat');
 % load('dataset/240718A3/240718A3.mat');
 % load('dataset/240718B1/240718B1.mat');
 % load('dataset/240718B2/240718B2.mat');
 %load('dataset/240726B2里程计/240726B2里程计.mat');
-%
 % load('dataset/240727B1CAN/240727B1CAN.mat');
 % load('dataset/240727B2/240727B2.mat');
-
-
 % load('dataset/240805A/240805A1.mat');
-
+  load('dataset/240816A/240816A1.mat');
 
 %单位国际化
 data.imu.acc =  data.imu.acc*GRAVITY;

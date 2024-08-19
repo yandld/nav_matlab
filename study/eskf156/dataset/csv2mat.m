@@ -7,7 +7,7 @@ D2R = pi/180;       % Deg to Rad
 GRAVITY = 9.8;     % 重力加速度
 
 
-fullfilename  = "./240718A2/240718A2.csv";
+fullfilename  = "C:\ChaoHE\dataset\roadtest240816_BJ\240816_A/240816A1.csv";
 
 % 切换到当前工作目录
 scriptPath = mfilename('fullpath');
