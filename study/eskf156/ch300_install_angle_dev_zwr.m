@@ -84,7 +84,7 @@ opt.nhc_R = 4.0;                % 车载非完整性约束噪声
 opt.gnss_min_interval = 0;    % 设定时间间隔，例如0.5秒
 opt.gnss_delay = 0;              % GNSS量测延迟 sec
 opt.gnss_lever_arm = 0*[0.45;0.45;-1.34]; %GNSS杆臂长度 b系下（右-前-上）240816测试杆臂
-opt.has_install_esti = 1;       %% 1:esti insatllangle ; 0:no esti
+opt.has_install_esti = 1;       %% can close or open ;1:esti insatllangle ; 0:no esti
 
 % 初始状态方差:    姿态       ENU速度  水平位置      陀螺零偏                加速度计零偏        安装俯仰角 安装航向角
 % opt.P0 = diag([[2 2 10]*D2R, [1 1 1], [10 10 10], 0.1*D2R*ones(1,3), 1e-2*GRAVITY*ones(1,3), 10*D2R*ones(1,2) ])^2;
@@ -98,7 +98,7 @@ dev_len = length(data.dev.tow);
 imu_dt = mean(diff(data.imu.tow));
 gnss_dt = mean(diff(data.gnss.tow));
 
-opt.nhc_upd_TS = 1/imu_dt;       % NHC upd period
+opt.nhc_upd_TS = 1/imu_dt;       % NHC upd period maybe used inthe future, nhc upd period 
 
 % 开启静止时间
 indices = find(data.imu.tow <= opt.alignment_time);  % 找到在x_seconds时间范围内的所有索引
