@@ -7,7 +7,7 @@ D2R = pi/180;       % Deg to Rad
 GRAVITY = 9.8;     % 重力加速度
 
 
-fullfilename  = "C:\ChaoHE\dataset\roadtest240816_BJ\240816_A/240816A1.csv";
+fullfilename  = "C:\ChaoHE\dataset\roadtest240821_BJ\240821_C/240821C1.csv";
 
 % 切换到当前工作目录
 scriptPath = mfilename('fullpath');
@@ -15,6 +15,7 @@ scriptFolder = fileparts(scriptPath);
 cd(scriptFolder);
 
 [pathstr, file_name, ext] = fileparts(fullfilename);
+mkdir(file_name);
 
 fprintf("正在读取%s\r\n", fullfilename);
 T = readtable(fullfilename); % 读取 CSV 文件
@@ -140,9 +141,10 @@ fprintf("%-20s: %.3f s\n", "IMU帧平均发送周期", mean(diff(data.imu.tow)))
 fprintf("%-20s: %.3f s\n", "GNSS帧平均发送周期", mean(diff(data.gnss.tow)));
 
 %% 保存数据
+savepathstr = fullfile(scriptFolder,file_name);
 fprintf("保存数据...\r\n");
-fprintf("保存位置%s/\r\n", fullfile(pathstr, file_name + ".mat"));
-save(fullfile(pathstr, file_name + ".mat"), 'data');
+fprintf("保存位置%s/\r\n", fullfile(savepathstr, file_name + ".mat"));
+save(fullfile(savepathstr, file_name + ".mat"), 'data');
 fprintf("保存完成\r\n");
 
 
@@ -151,11 +153,12 @@ fprintf("保存完成\r\n");
 [filepath, name, ~] = fileparts(fullfilename);
 
 rgbColor = [255, 0, 0];
-kmlFileName = fullfile(filepath, name + "_GNSS.kml");
+
+kmlFileName = fullfile(savepathstr, name + "_GNSS.kml");
 generateKmlFiles(kmlFileName, data.gnss.lat, data.gnss.lon, 20, rgbColor);
 
 rgbColor = [0, 255, 0];
-kmlFileName = fullfile(filepath, name + "_DEV.kml");
+kmlFileName = fullfile(savepathstr, name + "_DEV.kml");
 generateKmlFiles(kmlFileName, data.dev.ins_lat, data.dev.ins_lon, 20, rgbColor);
 
 %% 绘图

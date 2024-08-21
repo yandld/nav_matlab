@@ -40,7 +40,8 @@ cd(scriptFolder);
 % load('dataset/240727B1CAN/240727B1CAN.mat');
 % load('dataset/240727B2/240727B2.mat');
 % load('dataset/240805A/240805A1.mat');
-  load('dataset/240816A/240816A1.mat');
+%   load('dataset/240816A/240816A1.mat');
+  load('dataset/240821C1/240821C1.mat');
 
 %单位国际化
 data.imu.acc =  data.imu.acc*GRAVITY;
@@ -76,8 +77,8 @@ chi_lambda_pos = 999;
 %% 相关选项及参数设置
 opt.alignment_time = 1;          % 初始对准时间(s)
 opt.gnss_outage = 0;             % 模拟GNSS丢失
-opt.outage_start = 1500;         % 丢失开始时间(s)
-opt.outage_stop = 1800;          % 丢失结束时间(s)
+opt.outage_start = 700;         % 丢失开始时间(s)
+opt.outage_stop = 1000;          % 丢失结束时间(s)
 opt.nhc_enable = 1;              % 车辆运动学约束
 opt.nhc_lever_arm = 0*[0.35,0.35,-1.35]; %nhc杆臂长度 b系下（右-前-上）240816测试杆臂,仅测试天向，其他两轴为目测值
 opt.nhc_R = 4.0;                % 车载非完整性约束噪声
@@ -85,13 +86,15 @@ opt.gnss_min_interval = 0;    % 设定时间间隔，例如0.5秒
 opt.gnss_delay = 0;              % GNSS量测延迟 sec
 opt.gnss_lever_arm = 0*[0.45;0.45;-1.34]; %GNSS杆臂长度 b系下（右-前-上）240816测试杆臂
 opt.has_install_esti = 1;       %% can close or open ;1:esti insatllangle ; 0:no esti
-
+q_bias_qrw = [25,50,50]*D2R/3600*2;
+q_bias_vrw = [1 1 1.5]*1e-3*GRAVITY;
 % 初始状态方差:    姿态       ENU速度  水平位置      陀螺零偏                加速度计零偏        安装俯仰角 安装航向角
 % opt.P0 = diag([[2 2 10]*D2R, [1 1 1], [10 10 10], 0.1*D2R*ones(1,3), 1e-2*GRAVITY*ones(1,3), 10*D2R*ones(1,2) ])^2;
-opt.P0 = diag([[5 5 10]*D2R, [1 1 1], [10 10 20], [400,400,400]*D2R/3600*1.5, 100/1e-6*GRAVITY*ones(1,3)*2, [10,10]*D2R])^2;
+opt.P0 = diag([[5 5 10]*D2R, [1 1 1], [10 10 20], q_bias_qrw,q_bias_vrw , [10,10]*D2R])^2;
 N = length(opt.P0);
 % 系统误差:         角度随机游走          速度随机游走                     角速度随机游走            加速度随机游走
-opt.Q = diag([(3*D2R)/60*ones(1,3), (5/60)*ones(1,3), 0*ones(1,3), [1 1 3]/3600*D2R, 50*1e-6/3600*GRAVITY*ones(1,3), [1 2]/3600*D2R])^2;
+% opt.Q = diag([[0.1 0.1 0.1]*D2R/60, [0.1 0.1 0.2]/60, 0*ones(1,3), [0.001 0.0011 0.003]/3600*D2R, 50*1e-6/3600*GRAVITY*ones(1,3), [1 2]/3600*D2R])^2;
+opt.Q = diag([[3 3 3]*D2R/60, [0.28 0.28 0.28]/60, 0*ones(1,9),[1 2]/3600*D2R])^2;
 imu_len = length(data.imu.tow);
 dev_len = length(data.dev.tow);
 
@@ -199,13 +202,13 @@ log.gyro_bias = zeros(imu_len, 3);
 log.acc_bias = zeros(imu_len, 3);
 log.sins_att = zeros(imu_len, 3);
 log.vb = zeros(imu_len, 3);
-
+log.installangle = zeros(imu_len, 3);
 tic;
 last_time = toc;
 gnss_idx = inital_gnss_idx;
 imucnt= 0;j=0;
 imu_after_cal = nan(imu_len, 7);
-opt.nhc_enable = zeros(imu_len,1);              % 车辆运动学约束
+% opt.nhc_enable = zeros(imu_len,1); %车辆运动学约束,后续需要记录用于对应发当前运动状态是否是判定准确
 for i=inital_imu_idx:imu_len
     imucnt=imucnt+1;
     FB_BIT = 0; %反馈标志
@@ -335,7 +338,8 @@ for i=inital_imu_idx:imu_len
 
     %% NHC 约束
 %     if norm(vel) > 0.1 && gnss_lost_elapsed > 1 && norm(w_b) < 20*D2R
-    if norm(vel) > 1 && norm(w_b) < 10*D2R
+if(opt.nhc_enable)
+    if norm(vel) > 1.5 && norm(w_b) < 10*D2R
 %         if opt.nhc_enable
 %             H = zeros(2,N);
 %             A = [1 0 0; 0 0 1];
@@ -388,7 +392,7 @@ for i=inital_imu_idx:imu_len
                     
                %  end
     end
-
+end
     % 状态暂存
     X_temp = X;
 
@@ -432,6 +436,7 @@ for i=inital_imu_idx:imu_len
         cvv = att2Cnb([X(16),0,X(17)]);
         bCv = cvv*bCv;
         X(16:17) = 0;
+        att = m2att(bCv);        
     end
     
 
@@ -441,7 +446,7 @@ for i=inital_imu_idx:imu_len
     log.pitch(i,:) = pitch;
     log.roll(i,:) = roll;
     log.yaw(i,:) = yaw;
-
+    log.installangle(i,:)=att'*180/pi;
     log.vel(i,:) = vel';
     log.pos(i,:) = pos';
     log.X(i, :) = X_temp';
@@ -668,18 +673,22 @@ xlabel('时间(s)'); legend('卫星数', 'Orientation','horizontal');
 %% 安装误差角在线估计结果
 figure('name', '安装误差角在线估计结果');
 subplot(2,2,1);
-plot(data.imu.tow, log.X(:, 16)*R2D, 'LineWidth', 1.5); grid on;
+plot(data.imu.tow, log.installangle(:,1), 'LineWidth', 1.5); grid on;
 xlabel('时间(s)'); ylabel('俯仰安装角(°)'); xlim tight;
 subplot(2,2,3);
 plot(data.imu.tow, log.P(:, 16)*R2D, 'LineWidth', 1.5); grid on;
 xlabel('时间(s)'); ylabel('俯仰安装角方差(°)'); xlim tight;
 
 subplot(2,2,2);
-plot(data.imu.tow, log.X(:, 17)*R2D, 'LineWidth', 1.5); grid on;
+plot(data.imu.tow, log.installangle(:,3), 'LineWidth', 1.5); grid on;
 xlabel('时间(s)'); ylabel('航向安装角(°)'); xlim tight;
 subplot(2,2,4);
 plot(data.imu.tow, log.P(:, 17)*R2D, 'LineWidth', 1.5); grid on;
 xlabel('时间(s)'); ylabel('航向安装角方差(°)'); xlim tight;
+% 
+% subplot(111);
+% plot(data.imu.tow, log.installangle(:,2), 'LineWidth', 1.5); grid on;
+% xlabel('时间(s)'); ylabel('滚动安装角(°)'); xlim tight;
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
