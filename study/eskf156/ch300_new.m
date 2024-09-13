@@ -32,7 +32,7 @@ cd(scriptFolder);
  %  load('dataset/240712A1/240712A1.mat');
  %  load('dataset/240712D2/240712D2.mat');
 %  load('dataset/240718A1/240718A1.mat');
-  load('dataset/240718A2/240718A2.mat');
+ % load('dataset/240718A2/240718A2.mat');
  % load('dataset/240718A3/240718A3.mat');
 % load('dataset/240718B1/240718B1.mat');
 % load('dataset/240718B2/240718B2.mat');
@@ -40,6 +40,8 @@ cd(scriptFolder);
 %
 % load('dataset/240727B1CAN/240727B1CAN.mat');
 % load('dataset/240727B2/240727B2.mat');
+
+load('dataset/240912B1/240912B1.mat');
 
    
 

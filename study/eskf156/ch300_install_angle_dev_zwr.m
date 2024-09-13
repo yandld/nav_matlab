@@ -19,10 +19,6 @@ scriptFolder = fileparts(scriptPath);
 cd(scriptFolder);
 
 %% 数据载入
-% load('dataset/感图单天线2.2.9-7.4-路测数据1/感图单天线2.2.9-7.4-路测数据1.mat');
- % load('dataset/感图单天线9984-2.2.9-路测数据1/感图单天线9984-2.2.9-路测数据1.mat');
- %load('dataset/单天线-2.2.9-jul-4-地库1/单天线-2.2.9-jul-4-地库1.mat');
- % load('dataset/双天线rtk-2.2.9-jul-4-地库1/双天线rtk-2.2.9-jul-4-地库1.mat');
 % load('dataset/240706_B/240706_B.mat');
 % load('dataset/240710_A1/240710_A1.mat');
  % load('dataset/240710_A2/240710_A2.mat');
@@ -32,7 +28,7 @@ cd(scriptFolder);
  %  load('dataset/240712A1/240712A1.mat');
  %  load('dataset/240712D2/240712D2.mat');
 %  load('dataset/240718A1/240718A1.mat');
-% load('dataset/240718A2/240718A2.mat');
+
  % load('dataset/240718A3/240718A3.mat');
 % load('dataset/240718B1/240718B1.mat');
 % load('dataset/240718B2/240718B2.mat');
@@ -41,7 +37,14 @@ cd(scriptFolder);
 % load('dataset/240727B2/240727B2.mat');
 % load('dataset/240805A/240805A1.mat');
 %   load('dataset/240816A/240816A1.mat');
-  load('dataset/240821C1/240821C1.mat');
+  %load('dataset/240821C1/240821C1.mat');
+
+
+ % load('dataset/240826A2/240826A2.mat');
+ %load('dataset/240718A2/240718A2.mat');
+ %load('dataset/240912B1/240912B1.mat');
+ load('dataset/240913B/240913B.mat');
+ 
 
 %单位国际化
 data.imu.acc =  data.imu.acc*GRAVITY;
@@ -53,11 +56,12 @@ data.dev.lon = data.dev.ins_lon*D2R;
 
 %加入仿真噪声
 % data.imu.acc(:,2) = data.imu.acc(:,2) + 0.1*GRAVITY;
-%  data.imu.gyr(:,3) = data.imu.gyr(:,3) + 0.5*D2R;
+% data.imu.gyr(:,3) = data.imu.gyr(:,3) + 0.5*D2R;
 
-att = [2 0 10]*D2R; %初始安装角
+att = [0 0 0]*D2R; %初始安装角
 Cbrv = att2Cnb(att);%% from v to b 
 bCv = Cbrv;% Cvb :b as subscript;v as superscript
+
 %定义变量
 ESKF156_FB_A = bitshift(1,0); %反馈失准角
 ESKF156_FB_V = bitshift(1,1); %反馈速度
@@ -81,20 +85,17 @@ opt.outage_start = 700;         % 丢失开始时间(s)
 opt.outage_stop = 1000;          % 丢失结束时间(s)
 opt.nhc_enable = 1;              % 车辆运动学约束
 opt.nhc_lever_arm = 0*[0.35,0.35,-1.35]; %nhc杆臂长度 b系下（右-前-上）240816测试杆臂,仅测试天向，其他两轴为目测值
-opt.nhc_R = 4.0;                % 车载非完整性约束噪声
+opt.nhc_R = 1.0;                % 车载非完整性约束噪声
 opt.gnss_min_interval = 0;    % 设定时间间隔，例如0.5秒
 opt.gnss_delay = 0;              % GNSS量测延迟 sec
 opt.gnss_lever_arm = 0*[0.45;0.45;-1.34]; %GNSS杆臂长度 b系下（右-前-上）240816测试杆臂
 opt.has_install_esti = 1;       %% can close or open ;1:esti insatllangle ; 0:no esti
-q_bias_qrw = [25,50,50]*D2R/3600*2;
-q_bias_vrw = [1 1 1.5]*1e-3*GRAVITY;
 % 初始状态方差:    姿态       ENU速度  水平位置      陀螺零偏                加速度计零偏        安装俯仰角 安装航向角
-% opt.P0 = diag([[2 2 10]*D2R, [1 1 1], [10 10 10], 0.1*D2R*ones(1,3), 1e-2*GRAVITY*ones(1,3), 10*D2R*ones(1,2) ])^2;
-opt.P0 = diag([[5 5 10]*D2R, [1 1 1], [10 10 20], q_bias_qrw,q_bias_vrw , [10,10]*D2R])^2;
+opt.P0 = diag([[2 2 10]*D2R, [1 1 1], [5 5 5], 0.1*D2R*ones(1,3), 1e-2*GRAVITY*ones(1,3), 2*D2R*ones(1,2) ])^2;
 N = length(opt.P0);
 % 系统误差:         角度随机游走          速度随机游走                     角速度随机游走            加速度随机游走
-% opt.Q = diag([[0.1 0.1 0.1]*D2R/60, [0.1 0.1 0.2]/60, 0*ones(1,3), [0.001 0.0011 0.003]/3600*D2R, 50*1e-6/3600*GRAVITY*ones(1,3), [1 2]/3600*D2R])^2;
-opt.Q = diag([[3 3 3]*D2R/60, [0.28 0.28 0.28]/60, 0*ones(1,9),[1 2]/3600*D2R])^2;
+opt.Q = diag([(0.1*D2R)*ones(1,3), (0.01)*ones(1,3), 0*ones(1,3), 1/3600*D2R*ones(1,3), 0*GRAVITY*ones(1,3), [0 0] ])^2;
+
 imu_len = length(data.imu.tow);
 dev_len = length(data.dev.tow);
 
@@ -339,7 +340,7 @@ for i=inital_imu_idx:imu_len
     %% NHC 约束
 %     if norm(vel) > 0.1 && gnss_lost_elapsed > 1 && norm(w_b) < 20*D2R
 if(opt.nhc_enable)
-    if norm(vel) > 1.5 && norm(w_b) < 10*D2R
+    if norm(vel) > 0.2 && norm(w_b) < 10*D2R
 %         if opt.nhc_enable
 %             H = zeros(2,N);
 %             A = [1 0 0; 0 0 1];
@@ -379,12 +380,13 @@ if(opt.nhc_enable)
 
                     Z = Vn2v_sins([1,3]);
         
-                    R = blkdiag(0.1, 0.1)^2;
+                    R = diag(ones(1, size(H, 1))*opt.nhc_R)^2;
         
                     % 卡尔曼量测更新
                     K = P * H' / (H * P * H' + R);
                     X = X + K * (Z - H * X);
                     P = (eye(N) - K * H) * P;
+                    FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
                     FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
                     if (opt.has_install_esti)
                        FB_BIT = bitor(FB_BIT, ESKF156_FB_CBV);
@@ -711,10 +713,10 @@ fprintf('行驶距离: %.3fkm\n', distance_sum/1000);
 fprintf('最高时速: %.3fkm/h\n', max(log.vel_norm)*3.6);
 
 
-%% 转换为kml
-[filepath, name, ~] = fileparts(scriptPath);
-[lat, lon, h] = ch_ENU2LLA(log.pos(:,1),log.pos(:,2),log.pos(:,3),lat0, lon0, h0);
-rgbColor = [255, 0, 0];
-kmlFileName = fullfile(filepath, name + "_MATLAB.kml");
-generateKmlFiles(kmlFileName, lat*R2D, lon*R2D, 20, rgbColor);
+% %% 转换为kml
+% [filepath, name, ~] = fileparts(scriptPath);
+% [lat, lon, h] = ch_ENU2LLA(log.pos(:,1),log.pos(:,2),log.pos(:,3),lat0, lon0, h0);
+% rgbColor = [255, 0, 0];
+% kmlFileName = fullfile(filepath, name + "_MATLAB.kml");
+% generateKmlFiles(kmlFileName, lat*R2D, lon*R2D, 20, rgbColor);
 
