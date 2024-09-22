@@ -1,4 +1,8 @@
 *.mat
 *.csv
+*.raw
+*.tag
 *.zip
 *.kml
+*.doc
+*.docx

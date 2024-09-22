@@ -7,7 +7,7 @@ D2R = pi/180;       % Deg to Rad
 GRAVITY = 9.8;     % 重力加速度
 
 
-fullfilename  = "C:\ChaoHE\dataset\roadtest240821_BJ\240821_C/240821C1.csv";
+fullfilename  = ".\240919\240919B1.csv";
 
 % 切换到当前工作目录
 scriptPath = mfilename('fullpath');
@@ -24,7 +24,9 @@ frame_name = table2cell(T(:,1));
 
 T = T(strcmp(frame_name, 'HI43'), 2:end);
 
-% 剔除所有经纬度不合法的地方 
+
+
+% 剔除所有经纬度不合法的地方
 valid_indices = T.ins_lat < 1;
 T(valid_indices, :) = [];
 
@@ -39,14 +41,14 @@ while i <= height(T)
     current_lat = T.gnss_lat(i);
     current_lon = T.gnss_lon(i);
     current_alt = T.gnss_msl(i);
-    
+
     % 找到连续相同经纬高的行
     j = i + 1;
     while j <= height(T) && T.gnss_lat(j) == current_lat && T.gnss_lon(j) == current_lon && T.gnss_msl(j) == current_alt
         rows_to_keep(j) = false;
         j = j + 1;
     end
-    
+
     % 移动到下一组
     i = j;
 end
@@ -67,10 +69,10 @@ fprintf("共: %d帧 GNSS 数据\n", N);
 % data.evt = frame.evt_bit;
 
 % IMU数据
- data.imu.tow = T.gps_tow;
- data.imu.tow = data.imu.tow;
- data.imu.acc = [T.acc_x, T.acc_y, T.acc_z];
- data.imu.gyr = [T.gyr_x, T.gyr_y, T.gyr_z];
+data.imu.tow = T.gps_tow;
+data.imu.tow = data.imu.tow;
+data.imu.acc = [T.acc_x, T.acc_y, T.acc_z];
+data.imu.gyr = [T.gyr_x, T.gyr_y, T.gyr_z];
 
 % 设备上的组合导航数据
 data.dev.tow = data.imu.tow;
@@ -130,7 +132,7 @@ end
 data.dev.pos_enu = zeros(length(data.dev.tow), 3);
 
 for i=1:length(data.dev.tow)
-[data.dev.pos_enu(i,1), data.dev.pos_enu(i,2), data.dev.pos_enu(i,3)] =  ch_LLA2ENU(data.dev.ins_lat(i)*D2R, data.dev.ins_lon(i)*D2R, data.dev.ins_msl(i), lat0*D2R, lon0*D2R, msl0);
+    [data.dev.pos_enu(i,1), data.dev.pos_enu(i,2), data.dev.pos_enu(i,3)] =  ch_LLA2ENU(data.dev.ins_lat(i)*D2R, data.dev.ins_lon(i)*D2R, data.dev.ins_msl(i), lat0*D2R, lon0*D2R, msl0);
 end
 
 %% 打印关键信息
@@ -177,7 +179,7 @@ set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
 
 figure('name', '纯GNSS标准差');
-subplot(2,2,1); plot(data.gnss.tow, data.gnss.gnss_pos_std_n , '.-');  title("GNSS接收机给出的 pos_std(ENU模)"); hold on; 
+subplot(2,2,1); plot(data.gnss.tow, data.gnss.gnss_pos_std_n , '.-');  title("GNSS接收机给出的 pos_std(ENU模)"); hold on;
 subplot(2,2,2);plot(data.gnss.tow, data.gnss.gnss_vel_std_n, '.-'); title("GNSS接收机给出的 vel_std(ENU模)"); hold on;
 subplot(2,2,3);plot(data.gnss.tow, data.gnss.solq_pos, '.-'); title("solq_pos"); hold on;
 
