@@ -6,16 +6,19 @@ R2D = 180/pi;       % Rad to Deg
 D2R = pi/180;       % Deg to Rad
 GRAVITY = 9.8;     % 重力加速度
 
-
-fullfilename  = ".\240919\240919B1.csv";
-
 % 切换到当前工作目录
 scriptPath = mfilename('fullpath');
 scriptFolder = fileparts(scriptPath);
 cd(scriptFolder);
 
-[pathstr, file_name, ext] = fileparts(fullfilename);
-mkdir(file_name);
+
+fullfilename  = ".\240927\240927B2.csv";
+
+% 获取输入文件的路径和文件名
+[inputFolder, file_name, ext] = fileparts(fullfilename);
+
+% 使用输入文件的文件夹作为输出文件夹
+outputFolder = inputFolder;
 
 fprintf("正在读取%s\r\n", fullfilename);
 T = readtable(fullfilename); % 读取 CSV 文件
@@ -142,25 +145,22 @@ fprintf("%-20s: %.3f s\n", "INS帧平均发送周期", mean(diff(data.imu.tow)))
 fprintf("%-20s: %.3f s\n", "IMU帧平均发送周期", mean(diff(data.imu.tow)));
 fprintf("%-20s: %.3f s\n", "GNSS帧平均发送周期", mean(diff(data.gnss.tow)));
 
-%% 保存数据
-savepathstr = fullfile(scriptFolder,file_name);
+% 修改保存数据的路径
 fprintf("保存数据...\r\n");
-fprintf("保存位置%s/\r\n", fullfile(savepathstr, file_name + ".mat"));
-save(fullfile(savepathstr, file_name + ".mat"), 'data');
+fprintf("保存位置%s\r\n", fullfile(outputFolder, file_name + ".mat"));
+save(fullfile(outputFolder, file_name + ".mat"), 'data');
 fprintf("保存完成\r\n");
-
 
 
 %% 转换为kml
 [filepath, name, ~] = fileparts(fullfilename);
 
 rgbColor = [255, 0, 0];
-
-kmlFileName = fullfile(savepathstr, name + "_GNSS.kml");
+kmlFileName = fullfile(outputFolder, file_name + "_GNSS.kml");
 generateKmlFiles(kmlFileName, data.gnss.lat, data.gnss.lon, 20, rgbColor);
 
 rgbColor = [0, 255, 0];
-kmlFileName = fullfile(savepathstr, name + "_DEV.kml");
+kmlFileName = fullfile(outputFolder, file_name + "_DEV.kml");
 generateKmlFiles(kmlFileName, data.dev.ins_lat, data.dev.ins_lon, 20, rgbColor);
 
 %% 绘图
@@ -237,4 +237,8 @@ axis equal;
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
 
+
+% 打印保存位置信息
+fprintf('所有文件已保存在: %s\n', outputFolder);
+winopen(outputFolder);
 
