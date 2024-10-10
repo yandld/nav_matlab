@@ -13,8 +13,8 @@ GRAVITY = 9.8;      % 重力加速度
 %% 相关选项及参数设置
 opt.alignment_time = 1;          % 初始对准时间(s)
 opt.gnss_outage = 0;             % 模拟GNSS丢失
-opt.outage_start = 450;         % 丢失开始时间(s)
-opt.outage_stop = 480;          % 丢失结束时间(s)
+opt.outage_start = 970;         % 丢失开始时间(s)
+opt.outage_stop = 990;          % 丢失结束时间(s)
 opt.nhc_enable = 1;              % 车辆运动学约束
 opt.nhc_lever_arm = 0*[0.35,0.35,-1.35]; %nhc杆臂长度 b系下（右-前-上）240816测试杆臂,仅测试天向，其他两轴为目测值
 opt.nhc_R = 3;                % 车载非完整性约束噪声
@@ -39,7 +39,7 @@ scriptFolder = fileparts(scriptPath);
 cd(scriptFolder);
 
 %% 数据载入
-load('dataset\240718A2\240718A2.mat');
+load('dataset\241008\241008B5.mat');
 
 %单位国际化
 data.imu.acc =  data.imu.acc*GRAVITY;
@@ -279,14 +279,14 @@ for i=inital_imu_idx:imu_len
                 % 判断是否进行GNSS更新
                 update_gnss = false;
 
-                if (chi_lambda_vel < 1.5 && chi_lambda_pos < 0.15) || (data.gnss.gnss_vel_std_n(gnss_idx) < 0.5 && data.gnss.gnss_pos_std_n(gnss_idx) < 5)
+                if (chi_lambda_vel < 0.5 && chi_lambda_pos < 0.15) || (data.gnss.gnss_vel_std_n(gnss_idx) < 0.3 && data.gnss.gnss_pos_std_n(gnss_idx) < 5)
                     update_gnss = true;
                     FB_BIT = bitor(FB_BIT, ESKF156_FB_A);
                     FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
                     FB_BIT = bitor(FB_BIT, ESKF156_FB_P);
                     FB_BIT = bitor(FB_BIT, ESKF156_FB_G);
                     FB_BIT = bitor(FB_BIT, ESKF156_FB_W);
-                elseif gnss_lost_elapsed > 3 && (vel_uncertainty_std > 0.6 || pos_uncertainty_std > 10)
+                elseif gnss_lost_elapsed > 3 && (vel_uncertainty_std > 1.0 || pos_uncertainty_std > 20)
                     update_gnss = true;
                     FB_BIT = bitor(FB_BIT, ESKF156_FB_V);
                     FB_BIT = bitor(FB_BIT, ESKF156_FB_P);
