@@ -5,7 +5,7 @@ clc;
 format long g;
 format compact;
 
-N = 17;             % ESKF维度
+N = 20;             % ESKF维度
 R2D = 180/pi;       % Rad to Deg
 D2R = pi/180;       % Deg to Rad
 GRAVITY = 9.8;      % 重力加速度
@@ -17,18 +17,18 @@ opt.outage_start = 970;         % 丢失开始时间(s)
 opt.outage_stop = 990;          % 丢失结束时间(s)
 opt.nhc_enable = 1;              % 车辆运动学约束
 opt.nhc_lever_arm = 2*[0.35,0.35,-1.35]; %nhc杆臂长度 b系下（右-前-上）240816测试杆臂,仅测试天向，其他两轴为目测值
-opt.nhc_R = 1;                % 车载非完整性约束噪声
+opt.nhc_R = 0.3;                % 车载非完整性约束噪声
 opt.gnss_min_interval = 0;    % 设定时间间隔，例如0.5秒
-opt.gnss_delay = 0.00;              % GNSS量测延迟 sec
-opt.gnss_lever_arm = 1*[0.40;0.15;0.55]; %GNSS杆臂长度 b系下（右-前-上）240816测试杆臂
+opt.gnss_delay = 0.03;              % GNSS量测延迟 sec
+opt.gnss_lever_arm = 0*[0.40;0.15;0.55]; %GNSS杆臂长度 b系下（右-前-上）240816测试杆臂
 opt.has_install_esti = 1;       %% can close or open ;1:esti insatllangle ; 0:no esti
 opt.cali_status = 0;%设置标定标志位 0：未标定，1：标定中，2标定完成
 opt.zupt_enable = 1;              % 启用ZUPT
 opt.zupt_vel_threshold = 2.5;     % ZUPT速度阈值(m/s)
-opt.zupt_gyr_threshold = 0.5*D2R; % ZUPT角速度阈值(rad/s)
+opt.zupt_gyr_threshold = 0.6*D2R; % ZUPT角速度阈值(rad/s)
 opt.zupt_time_threshold = 1.0;    % ZUPT持续时间阈值(s)
 opt.zupt_R = diag([0.1, 0.1, 0.1].^2); % ZUPT测量噪声协方差
-opt.init_yaw_time = 10;
+opt.init_yaw_time = 5;
 
 
 %%
@@ -53,14 +53,14 @@ cd(scriptFolder);
 % load("dataset\20241025A2\20241025A2.mat");
 % load("dataset\20241025A3\20241025A3.mat");
 % load("dataset\20241025A4\20241025A4.mat");
-% load("dataset\20241028A1\20241028A1.mat");
-% load("dataset\20241028A2\20241028A2.mat");
+% load("dataset\20241028A1\20241028A1.mat");%imu数据波特率不够导致频率不对
+load("dataset\20241028A2\20241028A2.mat");
 % load("dataset\20241028B1\20241028B1.mat");
 % load("dataset\20241028B2\20241028B2.mat");
 % load("dataset\20241028A3\20241028A3.mat");%10.28A 90安装角
 % load("dataset\20241028B3\20241028B3.mat");
 % load("dataset\20241029B3\20241029B3.mat");
-load("dataset\20241031A3\20241031A3.mat");
+% load("dataset\20241031A3\20241031A3.mat");
 %单位国际化
 data.imu.acc =  data.imu.acc*GRAVITY;
 data.imu.gyr =  data.imu.gyr*D2R;
@@ -84,6 +84,7 @@ ESKF156_FB_P = bitshift(1,2); %反馈位置
 ESKF156_FB_W = bitshift(1,3); %反馈陀螺零篇
 ESKF156_FB_G = bitshift(1,4); %反馈加计零篇
 ESKF156_FB_CBV = bitshift(1,5); %反馈安装角误差
+ESKF156_FB_LEVER = bitshift(1,6); %反馈杆臂误差
 gnss_vel_R = 0;
 gnss_pos_R = 0;
 gnss_lost_elapsed = 0;
@@ -98,14 +99,16 @@ loggnss.solq = 0;
 %% 说明
 % KF 状态量: 失准角(3) 速度误差(3) 位置误差(3) 陀螺零偏(3) 加计零偏(3)
 
-
+opt.Q = zeros(N,N);
+opt.P0 = zeros(N,N);
+opt.P1 =  zeros(N,N);
 % 初始状态方差:    姿态       ENU速度  水平位置      陀螺零偏                加速度计零偏        安装俯仰角 安装航向角
-opt.P0 = diag([[2 2 10]*D2R, [1 1 1], [5 5 5], 0.01*D2R*ones(1,3), 0.001*GRAVITY*ones(1,3), 2*D2R*ones(1,2) ])^2;
-opt.P1 = diag([[2 2 10]*D2R, [1 1 1], [5 5 5], 0.01*D2R*ones(1,3), 0.001*GRAVITY*ones(1,3), D2R*[10 100] ])^2;
-N = length(opt.P0);
+opt.P0 = diag([[2 2 10]*D2R, [1 1 1], [5 5 5], 0.01*D2R*[1,1,1], 0.001*GRAVITY*ones(1,3), 2*D2R*ones(1,2) ,1*[1,1,1]])^2;
+opt.P1 = diag([[2 2 10]*D2R, [1 1 1], [5 5 5], 0.01*D2R*[1,1,1], 0.001*GRAVITY*ones(1,3), D2R*[10 100] ,1*[1,1,0.1]])^2;
+% N = length(opt.P0);
 % 系统误差:         角度随机游走          速度随机游走                     角速度随机游走            加速度随机游走
 % opt.Q = diag([(0.1*D2R)*ones(1,3), (0.01)*ones(1,3), 0*ones(1,3), 2.5/3600*D2R*ones(1,3), 0.0/3600*GRAVITY*ones(1,3), 1/3600*[1 1] ])^2;
-opt.Q = diag([(0.05*D2R)*ones(1,3), (0.01)*ones(1,3), 0*ones(1,3), 2.0/36000*D2R*ones(1,3), 25/1e6*GRAVITY*ones(1,3), 5/3600*[1 1]*D2R])^2;
+opt.Q = diag([(0.05*D2R)*ones(1,3), (0.01)*ones(1,3), 0*ones(1,3), 2.0/3600*D2R*[1,1,1], 25/1e6*GRAVITY*ones(1,3), 5/3600*[1 1]*D2R , 0.1/3600*[1,1,1]])^2;
 imu_len = length(data.imu.tow);
 dev_len = length(data.dev.tow);
 
@@ -147,7 +150,7 @@ inital_gnss_idx = 0;
 % 根据速度 获得初始航向角
 %imu初始化航向前imu数据姿态和速度解算
 g_b = - mean(acc_align0)';
-g_b = g_b/norm(g_b);
+g_b = Cb2v_simulate * g_b/norm(g_b);
 pitch00 = zeros(imu_len,1);
 roll00 = zeros(imu_len,1);
 yaw00 = zeros(imu_len,1);
@@ -158,24 +161,48 @@ vel0 = zeros(imu_len,3)';
 pos0 = zeros(imu_len,3)';
 zupt_detect_time0 = 0;
 is_zupt0 = 0;
+%% test，定义一阶kf滤波P,Q,R;
+P_BV = 100;Q_BV = 0;R_BV = 10;
+X_BV = 0;vel_norm0 = 0;
+%%
 for i=1:length(data.imu.tow)
     
     w_b = data.imu.gyr(i,:)';
-    w_b = Cb2v_simulate*w_b;
     w_b = w_b - gyr_bias0';
-
+    w_b = Cb2v_simulate*w_b;
+    
     f_b = data.imu.acc(i,:)';
     f_b = Cb2v_simulate*f_b;
+   
+
+    
     if i>1
         [Qb2n, pos0(:,i), vel0(:,i), ~] = inertial_navigation_update(w_b, f_b, Qb2n, pos0(:,i-1), vel0(:,i-1), GRAVITY, imu_dt);
         [pitch00(i), roll00(i), yaw00(i)] = q2att(Qb2n);
+        Qb2n = angle2quat(-0, pitch00(i)*D2R, roll00(i)*D2R, 'ZXY');
     end
-    Qb2n = angle2quat(-0, pitch00(1), roll00(1), 'ZXY');
-    %判断载体航向初始化前静止
-    vel_norm = norm(vel0);
-    gyr_norm = norm(w_b);
+   
 
-    if vel_norm < opt.zupt_vel_threshold && gyr_norm < opt.zupt_gyr_threshold
+
+    %一阶KF计算imu安装
+    f_n = ch_qmulv(Qb2n, f_b);
+    dv = f_n + [0; 0; -GRAVITY];
+    
+    if norm(w_b) < 2 * D2R && norm(vel0(:,i))-vel_norm0>0 && norm(dv(1:2)) > 1
+        Z_BV = atan2(dv(1),dv(2))*R2D;
+        if X_BV ==0
+            X_BV = Z_BV;%安装角初始化
+        end
+        P_BV = P_BV +Q_BV;
+        [X_BV, P_BV, ~, ~] = kf_measurement_update(X_BV, P_BV, Z_BV, 1, R_BV);
+    end
+    log.X_BV(i,1) = X_BV;
+    log.dv(i,:) = dv;
+    %判断载体航向初始化前静止
+    
+    vel_norm0 = norm(vel0(:,i));
+    gyr_norm = norm(w_b);
+    if vel_norm0 < opt.zupt_vel_threshold && gyr_norm < opt.zupt_gyr_threshold *2
         zupt_detect_time0 = zupt_detect_time0 + imu_dt;
         if zupt_detect_time0 >= opt.zupt_time_threshold
             is_zupt0 = true;
@@ -197,7 +224,7 @@ for i=1:length(data.imu.tow)
             if(opt.inital_yaw < 0)
                 opt.inital_yaw =  opt.inital_yaw + 360*D2R;
             end
-    %         opt.inital_yaw =  270*D2R;
+            opt.inital_yaw = opt.inital_yaw + (-atan2(vel0(1,i),vel0(2,i)));
             
             
             %根据速度和双天线航向估计双天线安装角度---start
@@ -217,10 +244,11 @@ for i=1:length(data.imu.tow)
             %根据速度和双天线航向估计双天线安装角度---end
             
             
-            if(init_yaw_count >opt.init_yaw_time/0.1) || norm(data.gnss.vel_enu(inital_gnss_idx,:)) > 3 %GNSS-10hz计算
+            if(init_yaw_count >opt.init_yaw_time/0.1 ) || (norm(data.gnss.vel_enu(inital_gnss_idx,:)) > 3 && 0.5*init_yaw_count >opt.init_yaw_time/0.1) %GNSS-10hz计算
                 diff_values = abs(data.imu.tow - data.gnss.tow(inital_gnss_idx));
                 [~, inital_imu_idx] = min(diff_values);
-                fprintf("初始航向角:%.2f°, 从GNSS数据:%d开始, IMU数据:%d\r\n",  opt.inital_yaw*R2D, inital_gnss_idx, i);
+                fprintf("初始速度航向角:%.2f°,初始IMU安装角:%f°, 从GNSS数据:%d开始, IMU数据:%d\r\n",  opt.inital_yaw*R2D, atan2(vel0(1,i),vel0(2,i))*R2D, inital_gnss_idx, i);
+                fprintf("初始IMU安装角:%f°\r\n",  X_BV);
                 break;
             end
         else 
@@ -266,7 +294,8 @@ vel = [0 0 0]';
 pos = [0 0 0]';
 
 X = zeros(N,1);
-gyr_bias = X(10:12);
+gyr_bias = gyr_bias0';
+
 acc_bias = X(13:15);
 %AVP初始化完成，根据标定状态修改标定位并选择进入标定状态或者正常导航状态
 if data.dev.cali_status == 0
@@ -300,6 +329,8 @@ log.sins_att = zeros(imu_len, 3);
 log.vb = zeros(imu_len, 3);
 log.installangle = zeros(imu_len, 3);
 log.Z_dual_heading = zeros(imu_len, 1);
+log.gnss_lever_arm = zeros(imu_len, 3);
+log.gnss_delay = zeros(imu_len, 1);
 Z_dual_heading = 0;
 tic;
 last_time = toc;
@@ -355,6 +386,7 @@ for i=inital_imu_idx:imu_len
 
             Hvel = zeros(3,N);
             Hvel(1:3, 4:6) = eye(3);
+    
             Zvel = vel - data.gnss.vel_enu(gnss_idx,:)';
 %             Zvel = Zvel - a_n*data.gnss.timediff(gnss_idx)/1000;%opt.gnss_delay; % GNSS量测延迟补偿
             Zvel = Zvel - a_n*opt.gnss_delay; % GNSS量测延迟补偿
@@ -367,7 +399,12 @@ for i=inital_imu_idx:imu_len
 %             Zpos = Zpos - vel*data.gnss.timediff(gnss_idx)/1000;%*opt.gnss_delay; % GNSS量测延迟补偿
             Zpos = Zpos - vel*opt.gnss_delay; % GNSS量测延迟补偿
             Zpos = Zpos + (Cb2n)*opt.gnss_lever_arm; % GNSS天线杆壁效应补偿
-            
+            if N==20
+                Hvel(1:3, 18:20) = -Cb2n*v3_skew(w_b);
+                Hpos(1:3, 18:20) = -(Cb2n);
+                Hvel(1:3, 20) = a_n;
+                Hpos(1:3, 20) = vel;
+            end
             gnss_vel_R = diag(ones(3,1) * (data.gnss.gnss_vel_std_n(gnss_idx) + 0.1))^2 * 1;
             gnss_pos_R = diag(ones(3,1) * data.gnss.gnss_pos_std_n(gnss_idx) + 0.2)^2 * 1;
        
@@ -463,10 +500,11 @@ for i=inital_imu_idx:imu_len
                 end
              end
 
-                % 假设失准角对应的状态量索引为1:3，加速度计零偏对应的状态量索引为13:15
-                acc_bias_converged = all(diag(P(13:14, 13:14)) < (0.001 * GRAVITY)^2);
+                % 杆臂零偏和时间延迟全部设置为安装角收敛后反馈
+%                 acc_bias_converged = all(diag(P(13:14, 13:14)) < (0.001 * GRAVITY)^2);
                 gyr_bias_converged = all(diag(P(17, 17)) < (0.6*D2R)^2);
                 acc_bias_converged =  gyr_bias_converged;
+                lever_arm_converged = gyr_bias_converged;
                 % 确保 FB_BIT 是无符号整数类型
                 FB_BIT = uint32(FB_BIT);
 
@@ -485,6 +523,13 @@ for i=inital_imu_idx:imu_len
                     X(10:12) = 0;
                 end
 
+                if lever_arm_converged ||1%&& norm(w_b) < 2*D2R
+                    FB_BIT = bitor(FB_BIT, uint32(ESKF156_FB_LEVER));
+                else
+                    FB_BIT = bitand(FB_BIT, uint32(bitcmp(uint32(ESKF156_FB_LEVER))));
+                    X(18:20) = 0;
+                end
+                
                 % 更新上一次融合的时间
                 last_gnss_fusion_time = current_time;
         end
@@ -657,7 +702,12 @@ for i=inital_imu_idx:imu_len
         X(16:17) = 0;
         att = m2att(Cb2v);
     end
-
+    
+    if bitand(FB_BIT, ESKF156_FB_LEVER) 
+       opt.gnss_lever_arm(1:2) = opt.gnss_lever_arm(1:2) + X(18:19);
+       opt.gnss_delay = opt.gnss_delay + X(20);
+       X(18:20) = 0;
+    end
    
 
 
@@ -680,8 +730,10 @@ for i=inital_imu_idx:imu_len
     log.Z_dual_heading(i,:) = Z_dual_heading;
     log.att_gv0(i,:) = att_gv0*R2D;
     log.Z_NHC(i,:) = Z';
-    log.gnss_solq(i) = loggnss.solq;
+    log.gnss_solq(i) = loggnss.solq';
     log.is_gnss_update(i,:) = update_gnss;
+    log.gnss_lever_arm(i,:) = opt.gnss_lever_arm';
+    log.gnss_delay(i) = opt.gnss_delay;
 end
 vel0=vel0';
 pos0=pos0';
