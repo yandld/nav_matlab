@@ -104,6 +104,7 @@ data.gnss.msl = gnss.gnss_msl;
 data.gnss.vel_enu = [gnss.gnss_vel_e, gnss.gnss_vel_n, gnss.gnss_vel_u];
 data.gnss.gnss_pos_std_n = gnss.gnss_pos_std_n;
 data.gnss.gnss_vel_std_n = gnss.gnss_vel_std_n;
+data.gnss.dual_enu = [gnss.gnss_dual_e, gnss.gnss_dual_n, gnss.gnss_dual_u];
 data.gnss.nv = gnss.nv;
 data.gnss.hdop = gnss.hdop;
 
@@ -209,6 +210,7 @@ figure('name', '姿态信息');
 subplot(2,2,1); plot(data.dev.tow, data.dev.roll, '.-'); hold on; title("Roll"); xlim tight;
 subplot(2,2,2); plot(data.dev.tow, data.dev.pitch, '.-'); hold on; title("Pitch"); xlim tight;
 subplot(2,2,3); plot(data.dev.tow, data.dev.yaw, '.-'); hold on; title("Yaw"); xlim tight;
+
 
 figure('name', '零偏信息');
 subplot(2,1,1); plot(data.dev.tow, data.dev.kf_wb*R2D, '.-');  title("GYR BIAS"); xlabel("tow"); ylabel("deg"); legend("X", "Y", "Z"); xlim tight;
