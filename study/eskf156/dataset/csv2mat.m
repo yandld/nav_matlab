@@ -11,14 +11,13 @@ scriptPath = mfilename('fullpath');
 scriptFolder = fileparts(scriptPath);
 cd(scriptFolder);
 
-
-fullfilename  = ".\240927\240927B2.csv";
+fullfilename  = "C:\Users\60265\Documents\WeChat Files\wxid_0okrn6c44nhf22\FileStorage\File\2024-12\241212\241212\2024-12-12-B1-15-33-45.csv";
 
 % 获取输入文件的路径和文件名
 [inputFolder, file_name, ext] = fileparts(fullfilename);
-
+outputFolder = fullfile(scriptFolder,file_name);
 % 使用输入文件的文件夹作为输出文件夹
-outputFolder = inputFolder;
+% outputFolder = inputFolder;
 
 fprintf("正在读取%s\r\n", fullfilename);
 T = readtable(fullfilename); % 读取 CSV 文件
@@ -107,7 +106,7 @@ data.gnss.gnss_vel_std_n = gnss.gnss_vel_std_n;
 data.gnss.dual_enu = [gnss.gnss_dual_e, gnss.gnss_dual_n, gnss.gnss_dual_u];
 data.gnss.nv = gnss.nv;
 data.gnss.hdop = gnss.hdop;
-
+data.gnss.gnss_delay = gnss.undulation;
 % 里程计
 data.od.tow = data.imu.tow;
 data.od.speed = T.pc_counter;
@@ -149,6 +148,10 @@ fprintf("%-20s: %.3f s\n", "GNSS帧平均发送周期", mean(diff(data.gnss.tow)
 % 修改保存数据的路径
 fprintf("保存数据...\r\n");
 fprintf("保存位置%s\r\n", fullfile(outputFolder, file_name + ".mat"));
+% 检查目录是否存在，如果不存在则创建它
+if ~exist(outputFolder, 'dir')
+    mkdir(outputFolder);
+end
 save(fullfile(outputFolder, file_name + ".mat"), 'data');
 fprintf("保存完成\r\n");
 
@@ -227,6 +230,7 @@ subplot(3,1,3);
 plot(data.gnss.tow, data.gnss.pos_enu(:,3), '.-'); hold on;
 title('Pos Up'); xlabel('时间(s)'); ylabel('m'); legend('MATLAB'); xlim tight;
 
+%% 
 
 figure('name', '2D轨迹');
 plot(data.gnss.pos_enu(:,1), data.gnss.pos_enu(:,2), '.-');
@@ -238,6 +242,7 @@ xlabel("East"); ylabel("North");
 axis equal;
 
 set(gcf, 'Units', 'normalized', 'Position', [0.025, 0.05, 0.95, 0.85]);
+%% 
 
 
 % 打印保存位置信息
