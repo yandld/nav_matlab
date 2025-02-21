@@ -1,21 +1,20 @@
 clear;
 close all;
 %%加载升沉数据
-data = readtable("100s_110mm_0.2Hz_sin5.csv");
+data = readtable("50s_90mm幅值_0.2hz_sin波形.csv");
 %%加载数据
-GRAVITY = 9.81;
-n = height(data);
+GRAVITY = 9.81;%重力加速度
+n = height(data);%数据行数
 acc_n = zeros(n,3);
 data.bias_n_z = zeros(n,1);
 data.velocity = zeros(n,1);
 data.heave = zeros(n,1);
 
 %%
-
-Fs = 100;
-Fc = 0.10;   % 高通截止频率 (Hz),为了同时保证高低频率升沉的效果，应该动态的决定滤波频率
+Fs = 100;   %采样频率
+Fc = 0.10;  % 高通截止频率 (Hz),为了同时保证高低频率升沉的效果，应该动态的决定滤波频率
 Fc2 = 2.5;  %低通截止频率
-dt = 1/Fs;
+dt = 1/Fs;  %采样时间
 % 归一化截止频率（相对于奈奎斯特频率）
 Wn = Fc / (Fs / 2);
 
@@ -24,33 +23,29 @@ Wn = Fc / (Fs / 2);
 [b2, a2] = butter(3, Fc2 / (Fs / 2), 'low');
 t = (0:n-1) * dt; % 时间向量 (秒)
 
-X = zeros(n,4);
-X2 = zeros(n,4);
+log.X = zeros(n,4);
+log.X2 = zeros(n,4);
 log.est_freq = zeros(n,1);
 %kf初始化
 KF = initializeKF(dt);%KF1处理滤波前
 KF2 = initializeKF(dt);%KF2处理滤波后
-Qb2n = [data.quat_w, data.quat_x,data.quat_y,data.quat_z];
-acc_b = [data.acc_x, data.acc_y, data.acc_z] * GRAVITY;
+Qb2n = [data.quat_w, data.quat_x,data.quat_y,data.quat_z];%加载四元数
+acc_b = [data.acc_x, data.acc_y, data.acc_z] * GRAVITY;%加载加速度数据
 %非线性频率估计器初始化
 % 参数设置,调节稳定性和响应速度
 esta = 1.0;  % 低通滤波器系数
 estb = 1.0;  % 观测器增益
 estk = 1.0;  % 估计器增益
 
-% 初始化结构体
+% 初始化非线性频率估计器
 Est = initialize_nl_sin_frq_est(esta, estb, estk);
-
-% 查看初始化结果
-disp(Est);
 
 for i = 1:n
     acc_n(i,:) = qmulv(Qb2n(i,:) , acc_b(i,:));
     acc_n(i,3) = acc_n(i,3) - GRAVITY;
     KF = predictKF(KF, acc_n(i,3));
     KF = updateKF(KF, 0);
-    X(i,:) = KF.x';
-     
+    log.X(i,:) = KF.x';%记录数据
 end
 
 y = filter(b, a, acc_n-mean(acc_n)); % 滤波后的信号
@@ -58,26 +53,25 @@ y = filter(b2, a2, y); % 滤波后的信号
 for i = 1:n
     KF2 = predictKF(KF2, y(i,3));
     KF2 = updateKF(KF2, 0);
-    X2(i,:) = KF2.x';
+    log.X2(i,:) = KF2.x';
     %非线性正弦频率估计
     Est = nl_sin_frq_est_update(Est, y(i,3), dt);
-    log.est_freq(i) = Est.freq;
+    log.est_freq(i) = Est.freq;%记录频率
 end
 % 提取升沉和速度
-heave = X(:, 2); % 升沉 (第 2 列)
-velocity = X(:, 3); % 速度 (第 3 列)
+heave = log.X(:, 2); % 升沉 (第 2 列)
+velocity = log.X(:, 3); % 速度 (第 3 列)
 % 提取升沉和速度
-heave2 = X2(:, 2); % 升沉 (第 2 列)
-velocity2 = X2(:, 3); % 速度 (第 3 列)
-%%
+heave2 = log.X2(:, 2); % 升沉 (第 2 列)
+velocity2 = log.X2(:, 3); % 速度 (第 3 列)
+%% n系加计绘图
 figure;
 plot(t,acc_n(:,3));hold on;
 plot(t,y(:,3));
-plot(t,data.yaw);
-legend("acc_n_z","acc_n_z_filter","HI")
+legend("acc_n_z","acc_n_z_filter")
 title("acc_n");
 
-%% 创建图像
+%% 升沉和速度信息绘图
 figure;
 
 % 绘制升沉
@@ -105,25 +99,12 @@ ylabel('Velocity');
 legend("滤波前","滤波后");
 % 调整图像布局
 sgtitle('Heave and Velocity'); % 总标题
-for i=1:n
-    eular(i,:) = quat2euler_ZXY(Qb2n(i,:));
-end
-%% 绘图欧拉角
-figure;
-subplot(3, 1, 1);
-plot(eular(:,1));
-legend("roll");
-subplot(3, 1, 2);
-plot(eular(:,2));
-legend("pitch");
-subplot(3, 1, 3);
-plot(eular(:,3));
-legend("yaw");
-%%
+
+%% 绘制非线性器频率估计
 figure;
 plot(log.est_freq(1:end));
 
-%%
+%% 函数
 function r = qmulv(q, v)
     % qmulv - 使用单位四元数旋转三维向量
     %
@@ -207,12 +188,12 @@ function kf = initializeKF(dt)
     
     % 初始化过程噪声协方差矩阵 Q
     pos_integral_std = 20 / 360; % 位置积分标准差
-    heave_noise_std = 1.4 / 36;  % 升沉噪声标准差
-    vel_noise_std = 0.2 / 360;    % 速度噪声标准差
+    heave_noise_std = 1.4 / 360;  % 升沉噪声标准差
+    vel_noise_std = 0.1 / 3600;    % 速度噪声标准差
     bias_noise_std = 0.1 / 3600;   % 偏差噪声标准差
     kf.Q = diag([pos_integral_std^2, heave_noise_std^2, vel_noise_std^2, bias_noise_std^2])*dt; % Q 矩阵
     % 初始化观测噪声协方差矩阵 R (根据实际传感器噪声设置)
-    pos_meas_std = 1.64;   % 位置测量噪声标准差
+    pos_meas_std = 0.64;   % 位置测量噪声标准差
     kf.R = diag(pos_meas_std^2); % R 矩阵
     
     % 初始化状态转移矩阵 F (假设简单的线性模型)
@@ -246,13 +227,12 @@ function kf = updateKF(kf, z)
     % 观测更新（测量更新）
     % kf: 卡尔曼滤波器结构体
     % z: 当前观测值
-
+    % 更新状态向量
+    y = z - kf.H * kf.x;            % 观测残差
+%     kf.R = 0.8 *kf.R + 0.2*(y*y); %自适应R
     % 计算卡尔曼增益
     S = kf.H * kf.P * kf.H' + kf.R; % 观测预测协方差
     K = kf.P * kf.H' / S;           % 卡尔曼增益
-
-    % 更新状态向量
-    y = z - kf.H * kf.x;            % 观测残差
     kf.x = kf.x + K * y;
 
     % 更新协方差矩阵
