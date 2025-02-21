@@ -64,45 +64,53 @@ velocity = log.X(:, 3); % 速度 (第 3 列)
 % 提取升沉和速度
 heave2 = log.X2(:, 2); % 升沉 (第 2 列)
 velocity2 = log.X2(:, 3); % 速度 (第 3 列)
+
+
+
 %% n系加计绘图
-figure;
-plot(t,acc_n(:,3));hold on;
-plot(t,y(:,3));
-legend("acc_n_z","acc_n_z_filter")
-title("acc_n");
+figure('Name', 'Navigation Frame Acceleration');
+plot(t, acc_n(:,3), '.-');
+hold on;
+plot(t, y(:,3), '.-');
+legend('Raw', 'Filtered');
+xlabel('Time (s)');
+ylabel('Acceleration (m/s^2)');
+grid on;
 
 %% 升沉和速度信息绘图
-figure;
+figure('Name', 'Heave Motion Analysis');
 
-% 绘制升沉
-subplot(2, 1, 1); % 创建第一个子图
-plot(t, heave, 'b-', 'LineWidth', 1.5); % 滤波前，蓝色实线
+% 升沉子图
+subplot(2, 1, 1);
+plot(t, heave, '.-');
 hold on;
-plot(t, heave2, 'r--', 'LineWidth', 1.5); % 滤波后，红色虚线
-plot(t, data.heave, 'g:', 'LineWidth', 1.5); % HI数据，绿色点划线
+plot(t, heave2, '.-');
+plot(t, data.heave, '.-');
 grid on;
-title('Heave (升沉)');
 xlabel('Time (s)');
-ylabel('Heave');
-legend("滤波前","滤波后","HI");
+ylabel('Heave (m)');
+legend('Raw', 'Filtered', 'Reference');
 
-% 绘制速度
-subplot(2, 1, 2); % 创建第二个子图
-plot(t, velocity, 'b-', 'LineWidth', 1.5); % 速度曲线，蓝色
+% 速度子图
+subplot(2, 1, 2);
+plot(t, velocity, '.-');
 hold on;
-plot(t, velocity2, 'r-', 'LineWidth', 1.5); % 速度曲线，红色
-plot(t, data.velocity, 'g-', 'LineWidth', 1.5); % 速度曲线，绿色
+plot(t, velocity2, '.-');
+plot(t, data.velocity, '.-');
 grid on;
-title('Velocity (速度)');
 xlabel('Time (s)');
-ylabel('Velocity');
-legend("滤波前","滤波后");
-% 调整图像布局
-sgtitle('Heave and Velocity'); % 总标题
+ylabel('Velocity (m/s)');
+legend('Raw', 'Filtered', 'Reference');
 
-%% 绘制非线性器频率估计
-figure;
-plot(log.est_freq(1:end));
+%% 频率估计
+figure('Name', 'Frequency Estimation');
+plot(t, log.est_freq, '.-');
+xlabel('Time (s)');
+ylabel('Frequency (Hz)');
+grid on;
+
+
+
 
 %% 函数
 function r = qmulv(q, v)
@@ -241,22 +249,7 @@ function kf = updateKF(kf, z)
     kf.P = 0.5 * (kf.P + kf.P');
 end
 
-% 四元数转欧拉角函数（Z-X-Y 旋转顺序）
-function euler = quat2euler_ZXY(qnb)
-    q11 = qnb(1)*qnb(1); q12 = qnb(1)*qnb(2); q13 = qnb(1)*qnb(3); q14 = qnb(1)*qnb(4);
-    q22 = qnb(2)*qnb(2); q23 = qnb(2)*qnb(3); q24 = qnb(2)*qnb(4); 
-    q33 = qnb(3)*qnb(3); q34 = qnb(3)*qnb(4);
-    q44 = qnb(4)*qnb(4);
-    C12=2*(q23-q14);
-    C22=q11-q22+q33-q44;
-    C31=2*(q24-q13); C32=2*(q34+q12); C33=q11-q22-q33+q44;
-    
-    pitch = asind(C32);
-    roll = atan2d(-C31,C33);
-    yaw = -atan2d(C12,C22);
-    %yaw = yaw + (yaw<0)*360;
-    euler = [roll; pitch; yaw];
-end
+
 %非线性频率估计器初始化
 function est = initialize_nl_sin_frq_est(a, b, k)
     % Initialize the nl_sin_frq_est_t structure with given parameters
