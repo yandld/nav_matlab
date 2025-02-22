@@ -12,16 +12,17 @@ data.heave = zeros(n,1);
 
 %%
 Fs = 100;   %采样频率
-Fc = 0.10;  % 高通截止频率 (Hz),为了同时保证高低频率升沉的效果，应该动态的决定滤波频率
+Fc = 0.1;  % 高通截止频率 (Hz),为了同时保证高低频率升沉的效果，应该动态的决定滤波频率
 Fc2 = 2.5;  %低通截止频率
 dt = 1/Fs;  %采样时间
 % 归一化截止频率（相对于奈奎斯特频率）
 Wn = Fc / (Fs / 2);
 
 % 设计二阶巴特沃斯高通滤波器
-[b, a] = butter(5, Wn, 'high');
+[b, a] = butter(2, Wn, 'high');
 [b2, a2] = butter(3, Fc2 / (Fs / 2), 'low');
 t = (0:n-1) * dt; % 时间向量 (秒)
+
 
 log.X = zeros(n,4);
 log.X2 = zeros(n,4);
@@ -48,8 +49,10 @@ for i = 1:n
     log.X(i,:) = KF.x';%记录数据
 end
 
-y = filter(b, a, acc_n-mean(acc_n)); % 滤波后的信号
-y = filter(b2, a2, y); % 滤波后的信号
+y = filter(b2, a2, acc_n); % low pass
+y = filter(b, a, y); % high pass
+
+
 for i = 1:n
     KF2 = predictKF(KF2, y(i,3));
     KF2 = updateKF(KF2, 0);
