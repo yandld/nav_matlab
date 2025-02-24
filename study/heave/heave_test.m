@@ -1,7 +1,18 @@
 clear;
 close all;
+clc;
+
 %%加载升沉数据
 data = readtable("50s_90mm幅值_0.2hz_sin波形.csv");
+
+% 90mm0.1hz-14-18-20
+% 90mm0.2hz-14-14-18
+% 90mm0.5hz-14-10-25
+% line_0.1Hz_106mm
+% line_0.1Hz_106mm_B
+% 100s_110mm_0.2Hz_sin5
+% 50s_90mm幅值_0.2hz_sin波形
+
 %%加载数据
 GRAVITY = 9.81;%重力加速度
 n = height(data);%数据行数
@@ -11,35 +22,47 @@ data.velocity = zeros(n,1);
 data.heave = zeros(n,1);
 
 %%
-Fs = 100;   %采样频率
-Fc = 0.1;  % 高通截止频率 (Hz),为了同时保证高低频率升沉的效果，应该动态的决定滤波频率
-Fc2 = 2.5;  %低通截止频率
-dt = 1/Fs;  %采样时间
+Fs = 100;   % 采样频率
+Fc = 0.06;  % 高通截止频率 (Hz),为了同时保证高低频率升沉的效果，应该动态的决定滤波频率
+Fc2 = 10.5;  % 低通截止频率
+dt = 1/Fs;  % 采样时间
 % 归一化截止频率（相对于奈奎斯特频率）
 Wn = Fc / (Fs / 2);
 
-% 设计二阶巴特沃斯高通滤波器
-[b, a] = butter(2, Wn, 'high');
-[b2, a2] = butter(3, Fc2 / (Fs / 2), 'low');
+%% 设计二阶巴特沃斯高通 低通 滤波器 
+[b_hp, a_hp] = butter(2, Wn, 'high');
+[b_lp, a_lp] = butter(3, Fc2 / (Fs / 2), 'low');
 t = (0:n-1) * dt; % 时间向量 (秒)
+
+%% 设计全通滤波器
+main_freq = 0.2;  % Hz, 已知的主频率
+desired_phase = 10;  % 度, 期望补偿的相位
+
+% 计算全通滤波器系数
+omega = 2 * pi * main_freq / Fs;
+phase_rad = desired_phase * pi / 180;
+tan_half = tan(omega/2);
+alpha = (tan_half - tan(phase_rad/2)) / (tan_half + tan(phase_rad/2));
+
+%% 构建全通滤波器系数
+b_ap = [alpha, 1];        % 分子系数 [alpha, 1]
+a_ap = [1, alpha];        % 分母系数 [1, alpha]
 
 
 log.X = zeros(n,4);
 log.X2 = zeros(n,4);
 log.est_freq = zeros(n,1);
+
 %kf初始化
 KF = initializeKF(dt);%KF1处理滤波前
 KF2 = initializeKF(dt);%KF2处理滤波后
 Qb2n = [data.quat_w, data.quat_x,data.quat_y,data.quat_z];%加载四元数
 acc_b = [data.acc_x, data.acc_y, data.acc_z] * GRAVITY;%加载加速度数据
+
 %非线性频率估计器初始化
 % 参数设置,调节稳定性和响应速度
-esta = 1.0;  % 低通滤波器系数
-estb = 1.0;  % 观测器增益
-estk = 1.0;  % 估计器增益
-
-% 初始化非线性频率估计器
-Est = initialize_nl_sin_frq_est(esta, estb, estk);
+f_up = 0.5; % 最大频率 1Hz 
+frq_est = aranovskiy_freq_est(Fs, f_up);
 
 for i = 1:n
     acc_n(i,:) = qmulv(Qb2n(i,:) , acc_b(i,:));
@@ -49,18 +72,20 @@ for i = 1:n
     log.X(i,:) = KF.x';%记录数据
 end
 
-y = filter(b2, a2, acc_n); % low pass
-y = filter(b, a, y); % high pass
+y = filter(b_hp, a_hp, acc_n); % high pass
+y = filter(b_ap, a_ap, y); % all pass
+%y = filter(b_lp, a_lp, y); % low pass
 
 
 for i = 1:n
     KF2 = predictKF(KF2, y(i,3));
     KF2 = updateKF(KF2, 0);
     log.X2(i,:) = KF2.x';
+
     %非线性正弦频率估计
-    Est = nl_sin_frq_est_update(Est, y(i,3), dt);
-    log.est_freq(i) = Est.freq;%记录频率
+    log.est_freq(i) = frq_est.update(log.X2(i, 3));
 end
+
 % 提取升沉和速度
 heave = log.X(:, 2); % 升沉 (第 2 列)
 velocity = log.X(:, 3); % 速度 (第 3 列)
@@ -68,6 +93,60 @@ velocity = log.X(:, 3); % 速度 (第 3 列)
 heave2 = log.X2(:, 2); % 升沉 (第 2 列)
 velocity2 = log.X2(:, 3); % 速度 (第 3 列)
 
+%% 改进的相位差分析
+% 1. 先对信号进行预处理
+signal1 = acc_n(:,3) - mean(acc_n(:,3)); % 去除直流分量
+signal2 = y(:,3) - mean(y(:,3));
+
+% 2. 使用FFT直接分析
+N = length(signal1);
+freq = (0:N-1)*(Fs/N);
+Y1 = fft(signal1);
+Y2 = fft(signal2);
+
+% 3. 找到主要频率成分（排除0Hz和Nyquist频率）
+[~, peak_indices] = findpeaks(abs(Y1(1:floor(N/2))), 'MinPeakHeight', max(abs(Y1))/10);
+valid_peaks = peak_indices(freq(peak_indices) > 0.05); % 排除过低频率
+main_freq_idx = valid_peaks(1); % 使用第一个有效峰值
+
+% 4. 在主频率处计算相位差
+phase1 = angle(Y1(main_freq_idx));
+phase2 = angle(Y2(main_freq_idx));
+phase_diff = (phase1 - phase2) * 180/pi;
+% 将相位差规范化到 [-180, 180] 范围内
+phase_diff = mod(phase_diff + 180, 360) - 180;
+
+fprintf('主频率: %.3f Hz\n', freq(main_freq_idx));
+fprintf('相位差: %.2f 度\n', phase_diff);
+
+% 5. 绘制频谱图用于验证
+figure('Name', 'Frequency Analysis');
+subplot(2,1,1);
+plot(freq(1:floor(N/2)), abs(Y1(1:floor(N/2))));
+hold on;
+plot(freq(1:floor(N/2)), abs(Y2(1:floor(N/2))));
+grid on;
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+legend('Raw', 'Filtered');
+title('Frequency Spectrum');
+
+% 在主频率处添加标记
+plot(freq(main_freq_idx), abs(Y1(main_freq_idx)), 'ro', 'MarkerSize', 10);
+
+% 6. 绘制局部时域对比
+subplot(2,1,2);
+t = (0:N-1)/Fs;
+window_size = round(5*Fs); % 显示5秒数据
+start_idx = round(N/2); % 从中间开始
+plot(t(start_idx:start_idx+window_size), signal1(start_idx:start_idx+window_size));
+hold on;
+plot(t(start_idx:start_idx+window_size), signal2(start_idx:start_idx+window_size));
+grid on;
+xlabel('Time (s)');
+ylabel('Amplitude');
+legend('Raw', 'Filtered');
+title('Time Domain Comparison (5s window)');
 
 
 %% n系加计绘图
@@ -111,7 +190,6 @@ plot(t, log.est_freq, '.-');
 xlabel('Time (s)');
 ylabel('Frequency (Hz)');
 grid on;
-
 
 
 
@@ -200,7 +278,7 @@ function kf = initializeKF(dt)
     % 初始化过程噪声协方差矩阵 Q
     pos_integral_std = 20 / 360; % 位置积分标准差
     heave_noise_std = 1.4 / 360;  % 升沉噪声标准差
-    vel_noise_std = 0.1 / 3600;    % 速度噪声标准差
+    vel_noise_std = 0.1 / 360;    % 速度噪声标准差
     bias_noise_std = 0.1 / 3600;   % 偏差噪声标准差
     kf.Q = diag([pos_integral_std^2, heave_noise_std^2, vel_noise_std^2, bias_noise_std^2])*dt; % Q 矩阵
     % 初始化观测噪声协方差矩阵 R (根据实际传感器噪声设置)
@@ -252,54 +330,3 @@ function kf = updateKF(kf, z)
     kf.P = 0.5 * (kf.P + kf.P');
 end
 
-
-%非线性频率估计器初始化
-function est = initialize_nl_sin_frq_est(a, b, k)
-    % Initialize the nl_sin_frq_est_t structure with given parameters
-    % Parameters:
-    %   a - Low-pass filter coefficient
-    %   b - Observer gain
-    %   k - Estimator gain
-    % Returns:
-    %   est - Initialized structure
-
-    % Parameters
-    est.a = a;      % Low-pass filter coefficient
-    est.b = b;      % Observer gain
-    est.k = k;      % Estimator gain
-
-    % States (initialized to zero)
-    est.y = 0.0;    % Measurement signal
-    est.x1 = 0.0;   % State estimate
-    est.theta = 0.0; % Frequency parameter estimate
-    est.sigma = 0.0; % Auxiliary variable
-    est.omega = 0.0; % Estimated angular frequency
-    est.freq = 0.0;  % Estimated frequency in Hz
-end
-%非线性正弦函数估计器
-function est = nl_sin_frq_est_update(est, y, dt)
-    % Update frequency estimate with new measurement
-    % Implementation based on:
-    % "The New Algorithm of Sinusoidal Signal Frequency Estimation"
-    % by Bobtsov et al., IFAC 2013
-
-    % Store measurement
-    est.y = y;
-
-    % Calculate state derivative
-    x1_dot = -est.a * est.x1 + est.b * y;
-
-    % Calculate auxiliary variable derivative
-    sigma_dot = -est.k * est.x1^2 * est.theta ...
-                - est.k * est.a * est.x1 * x1_dot ...
-                - est.k * est.b * x1_dot * y;
-
-    % Update states using Euler integration
-    est.x1 = est.x1 + x1_dot * dt;
-    est.sigma = est.sigma + sigma_dot * dt;
-
-    % Update frequency estimate
-    est.theta = est.sigma + est.k * est.b * est.x1 * y;
-    est.omega = sqrt(abs(est.theta));
-    est.freq = est.omega / (2.0 * pi);
-end
