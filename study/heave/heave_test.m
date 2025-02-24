@@ -16,11 +16,10 @@ data = readtable("50s_90mm幅值_0.2hz_sin波形.csv");
 %%加载数据
 GRAVITY = 9.81;%重力加速度
 n = height(data);%数据行数
-acc_n = zeros(n,3);
-data.bias_n_z = zeros(n,1);
-data.velocity = zeros(n,1);
-data.heave = zeros(n,1);
 
+acc_n = zeros(n,3);
+all_pass_acc = zeros(n,3);
+hp_allpass_heave = zeros(n,1);
 %%
 Fs = 100;   % 采样频率
 Fc = 0.06;  % 高通截止频率 (Hz),为了同时保证高低频率升沉的效果，应该动态的决定滤波频率
@@ -31,8 +30,15 @@ Wn = Fc / (Fs / 2);
 
 %% 设计二阶巴特沃斯高通 低通 滤波器 
 [b_hp, a_hp] = butter(2, Wn, 'high');
-[b_lp, a_lp] = butter(3, Fc2 / (Fs / 2), 'low');
+%[b_lp, a_lp] = butter(3, Fc2 / (Fs / 2), 'low');
 t = (0:n-1) * dt; % 时间向量 (秒)
+
+%% 分析高通滤波器在目标频率范围的相位响应
+% 生成关注频率范围的频率点
+freq_interest = linspace(0.05, 1, 100);
+[h_interest, w_interest] = freqz(b_hp, a_hp, freq_interest, Fs);
+phase_response_interest = unwrap(angle(h_interest))*180/pi;
+
 
 %% 设计全通滤波器
 main_freq = 0.2;  % Hz, 已知的主频率
@@ -54,8 +60,9 @@ log.X2 = zeros(n,4);
 log.est_freq = zeros(n,1);
 
 %kf初始化
-KF = initializeKF(dt);%KF1处理滤波前
-KF2 = initializeKF(dt);%KF2处理滤波后
+KF = initializeKF(dt);
+KF2 = initializeKF(dt);
+KF3 = initializeKF(dt);
 Qb2n = [data.quat_w, data.quat_x,data.quat_y,data.quat_z];%加载四元数
 acc_b = [data.acc_x, data.acc_y, data.acc_z] * GRAVITY;%加载加速度数据
 
@@ -64,133 +71,176 @@ acc_b = [data.acc_x, data.acc_y, data.acc_z] * GRAVITY;%加载加速度数据
 f_up = 0.5; % 最大频率 1Hz 
 frq_est = aranovskiy_freq_est(Fs, f_up);
 
+%计算 acc_n
 for i = 1:n
     acc_n(i,:) = qmulv(Qb2n(i,:) , acc_b(i,:));
     acc_n(i,3) = acc_n(i,3) - GRAVITY;
-    KF = predictKF(KF, acc_n(i,3));
-    KF = updateKF(KF, 0);
-    log.X(i,:) = KF.x';%记录数据
 end
 
-y = filter(b_hp, a_hp, acc_n); % high pass
-y = filter(b_ap, a_ap, y); % all pass
+hp_acc_n = filter(b_hp, a_hp, acc_n); % high pass
+%y = filter(b_ap, a_ap, y); % all pass
 %y = filter(b_lp, a_lp, y); % low pass
 
 
+% 修改主循环部分
 for i = 1:n
-    KF2 = predictKF(KF2, y(i,3));
+    
+    % raw
+    KF = predictKF(KF, acc_n(i,3));
+    KF = updateKF(KF, 0);
+    log.X(i,:) = KF.x';%记录数据
+
+    % hp
+    KF2 = predictKF(KF2, hp_acc_n(i,3));
     KF2 = updateKF(KF2, 0);
     log.X2(i,:) = KF2.x';
 
-    %非线性正弦频率估计
-    log.est_freq(i) = frq_est.update(log.X2(i, 3));
+    % 非线性正弦频率估计
+    current_freq = frq_est.update(log.X2(i, 3));
+    log.est_freq(i) = current_freq;
+
+    % 动态计算全通滤波器系数
+    if current_freq > 0.01  % 避免频率太小导致计算不稳定
+        omega = 2 * pi * current_freq / Fs;
+        % 根据频率动态调整期望相位补偿
+        % 这里的相位补偿角度需要根据实际测试调整
+         phase_delay = interp1(freq_interest, phase_response_interest, current_freq, 'linear', 'extrap');
+        desired_phase = phase_delay;  % 补偿10°
+        phase_rad = desired_phase * pi / 180;
+        tan_half = tan(omega/2);
+        alpha = (tan_half - tan(phase_rad/2)) / (tan_half + tan(phase_rad/2));
+        
+        % 更新全通滤波器系数
+        b_ap = [alpha, 1];
+        a_ap = [1, alpha];
+        
+        % 应用全通滤波器
+        if i >= 2
+            all_pass_acc(i,3) = -a_ap(2) * all_pass_acc(i-1,3) + ...
+                                   b_ap(1) * hp_acc_n(i,3) + ...
+                                   b_ap(2) * hp_acc_n(i-1,3);
+        else
+            all_pass_acc(i,3) = hp_acc_n(i,3);
+        end
+    else
+        all_pass_acc(i,3) = hp_acc_n(i,3);
+    end
+    
+    % 使用补偿后的加速度更新KF
+    KF3 = predictKF(KF3, all_pass_acc(i,3));
+    KF3 = updateKF(KF3, 0);
+    log.X3(i,:) = KF3.x';
 end
 
-% 提取升沉和速度
-heave = log.X(:, 2); % 升沉 (第 2 列)
-velocity = log.X(:, 3); % 速度 (第 3 列)
-% 提取升沉和速度
-heave2 = log.X2(:, 2); % 升沉 (第 2 列)
-velocity2 = log.X2(:, 3); % 速度 (第 3 列)
+raw_heave = log.X(:, 2);
+hp_heave = log.X2(:, 2);
+hp_allpass_heave = log.X3(:, 2);
 
-%% 改进的相位差分析
-% 1. 先对信号进行预处理
-signal1 = acc_n(:,3) - mean(acc_n(:,3)); % 去除直流分量
-signal2 = y(:,3) - mean(y(:,3));
+%% heave信号相位差分析
+% 1. heave信号预处理（去除直流分量）
+raw_heave_ac = raw_heave - mean(raw_heave);
+hp_heave_ac = hp_heave - mean(hp_heave);
+hp_allpass_heave_ac = hp_allpass_heave - mean(hp_allpass_heave);
 
-% 2. 使用FFT直接分析
-N = length(signal1);
+% 2. 使用FFT分析
+N = length(raw_heave_ac);
 freq = (0:N-1)*(Fs/N);
-Y1 = fft(signal1);
-Y2 = fft(signal2);
 
-% 3. 找到主要频率成分（排除0Hz和Nyquist频率）
-[~, peak_indices] = findpeaks(abs(Y1(1:floor(N/2))), 'MinPeakHeight', max(abs(Y1))/10);
+% heave信号的FFT
+Y_raw = fft(raw_heave_ac);
+Y_hp = fft(hp_heave_ac);
+Y_hp_ap = fft(hp_allpass_heave_ac);
+
+% 3. 找到主要频率成分（使用原始heave信号查找主频率）
+[~, peak_indices] = findpeaks(abs(Y_raw(1:floor(N/2))), 'MinPeakHeight', max(abs(Y_raw))/10);
 valid_peaks = peak_indices(freq(peak_indices) > 0.05); % 排除过低频率
 main_freq_idx = valid_peaks(1); % 使用第一个有效峰值
 
-% 4. 在主频率处计算相位差
-phase1 = angle(Y1(main_freq_idx));
-phase2 = angle(Y2(main_freq_idx));
-phase_diff = (phase1 - phase2) * 180/pi;
+% 4. 计算heave信号的相位
+phase_raw = angle(Y_raw(main_freq_idx));
+phase_hp = angle(Y_hp(main_freq_idx));
+phase_hp_ap = angle(Y_hp_ap(main_freq_idx));
+
+% 5. 计算相对于原始heave的相位差
+phase_diff_hp = (phase_hp - phase_raw) * 180/pi;
+phase_diff_hp_ap = (phase_hp_ap - phase_raw) * 180/pi;
+
 % 将相位差规范化到 [-180, 180] 范围内
-phase_diff = mod(phase_diff + 180, 360) - 180;
+phase_diff_hp = mod(phase_diff_hp + 180, 360) - 180;
+phase_diff_hp_ap = mod(phase_diff_hp_ap + 180, 360) - 180;
 
+% 6. 计算幅值比
+amp_raw = abs(Y_raw(main_freq_idx));
+amp_hp = abs(Y_hp(main_freq_idx));
+amp_hp_ap = abs(Y_hp_ap(main_freq_idx));
+
+% 7. 输出分析结果
+fprintf('\n=== Heave信号分析结果 ===\n');
 fprintf('主频率: %.3f Hz\n', freq(main_freq_idx));
-fprintf('相位差: %.2f 度\n', phase_diff);
+fprintf('\n相对于原始heave的相位差：\n');
+fprintf('High-pass heave相位差: %.2f 度\n', phase_diff_hp);
+fprintf('High-pass + All-pass heave相位差: %.2f 度\n', phase_diff_hp_ap);
+fprintf('\n幅值比（相对于原始heave）：\n');
+fprintf('High-pass heave幅值比: %.2f\n', amp_hp/amp_raw);
+fprintf('High-pass + All-pass heave幅值比: %.2f\n', amp_hp_ap/amp_raw);
 
-% 5. 绘制频谱图用于验证
-figure('Name', 'Frequency Analysis');
-subplot(2,1,1);
-plot(freq(1:floor(N/2)), abs(Y1(1:floor(N/2))));
+
+
+%% 绘图部分
+figure('Name', 'Heave Analysis Results', 'Position', [100, 100, 1200, 800]);
+
+% 1. 频率估计结果
+subplot(3,2,1);
+plot(t, log.est_freq, 'LineWidth', 1.5);
+xlabel('Time (s)');
+ylabel('Frequency (Hz)');
+title('Estimated Wave Frequency');
+grid on;
+
+% 2. 导航系加速度对比
+subplot(3,2,2);
+plot(t, acc_n(:,3), 'b', 'LineWidth', 1, 'DisplayName', 'Raw');
 hold on;
-plot(freq(1:floor(N/2)), abs(Y2(1:floor(N/2))));
+plot(t, hp_acc_n(:,3), 'r', 'LineWidth', 1, 'DisplayName', 'High-pass');
+plot(t, all_pass_acc(:,3), 'g', 'LineWidth', 1, 'DisplayName', 'High-pass + All-pass');
+xlabel('Time (s)');
+ylabel('Acceleration (m/s^2)');
+title('Navigation Frame Acceleration');
+legend('Location', 'best');
+grid on;
+
+% 3. 频谱分析
+subplot(3,2,[3,4]);
+plot(freq(1:floor(N/2)), abs(Y_raw(1:floor(N/2))), 'b', 'LineWidth', 1.5, 'DisplayName', 'Raw');
+hold on;
+plot(freq(1:floor(N/2)), abs(Y_hp(1:floor(N/2))), 'r', 'LineWidth', 1.5, 'DisplayName', 'High-pass');
+plot(freq(1:floor(N/2)), abs(Y_hp_ap(1:floor(N/2))), 'g', 'LineWidth', 1.5, 'DisplayName', 'High-pass + All-pass');
+plot(freq(main_freq_idx), abs(Y_raw(main_freq_idx)), 'ko', 'MarkerSize', 10, 'DisplayName', 'Main Frequency');
 grid on;
 xlabel('Frequency (Hz)');
 ylabel('Magnitude');
-legend('Raw', 'Filtered');
-title('Frequency Spectrum');
+title(sprintf('Frequency Spectrum (Main Freq: %.3f Hz)', freq(main_freq_idx)));
+legend('Location', 'northeast');
+xlim([0 2]); % 限制频率显示范围
 
-% 在主频率处添加标记
-plot(freq(main_freq_idx), abs(Y1(main_freq_idx)), 'ro', 'MarkerSize', 10);
-
-% 6. 绘制局部时域对比
-subplot(2,1,2);
-t = (0:N-1)/Fs;
-window_size = round(5*Fs); % 显示5秒数据
-start_idx = round(N/2); % 从中间开始
-plot(t(start_idx:start_idx+window_size), signal1(start_idx:start_idx+window_size));
+% 4. 升沉结果对比
+subplot(3,2,[5,6]);
+plot(t, raw_heave, 'b', 'LineWidth', 1.5, 'DisplayName', 'Raw');
 hold on;
-plot(t(start_idx:start_idx+window_size), signal2(start_idx:start_idx+window_size));
-grid on;
-xlabel('Time (s)');
-ylabel('Amplitude');
-legend('Raw', 'Filtered');
-title('Time Domain Comparison (5s window)');
-
-
-%% n系加计绘图
-figure('Name', 'Navigation Frame Acceleration');
-plot(t, acc_n(:,3), '.-');
-hold on;
-plot(t, y(:,3), '.-');
-legend('Raw', 'Filtered');
-xlabel('Time (s)');
-ylabel('Acceleration (m/s^2)');
-grid on;
-
-%% 升沉和速度信息绘图
-figure('Name', 'Heave Motion Analysis');
-
-% 升沉子图
-subplot(2, 1, 1);
-plot(t, heave, '.-');
-hold on;
-plot(t, heave2, '.-');
-plot(t, data.heave, '.-');
-grid on;
+plot(t, hp_heave, 'r', 'LineWidth', 1.5, 'DisplayName', 'High-pass');
+plot(t, hp_allpass_heave, 'g', 'LineWidth', 1.5, 'DisplayName', 'High-pass + All-pass');
+if isfield(data, 'heave') % 如果有参考值则显示
+    plot(t, data.heave, 'k--', 'LineWidth', 1.5, 'DisplayName', 'Reference');
+end
 xlabel('Time (s)');
 ylabel('Heave (m)');
-legend('Raw', 'Filtered', 'Reference');
-
-% 速度子图
-subplot(2, 1, 2);
-plot(t, velocity, '.-');
-hold on;
-plot(t, velocity2, '.-');
-plot(t, data.velocity, '.-');
-grid on;
-xlabel('Time (s)');
-ylabel('Velocity (m/s)');
-legend('Raw', 'Filtered', 'Reference');
-
-%% 频率估计
-figure('Name', 'Frequency Estimation');
-plot(t, log.est_freq, '.-');
-xlabel('Time (s)');
-ylabel('Frequency (Hz)');
+title('Heave Estimation Comparison');
+legend('Location', 'best');
 grid on;
 
+% 设置图形整体样式
+set(gcf, 'Color', 'w'); % 设置图形背景为白色
+set(findall(gcf,'-property','FontSize'),'FontSize', 11); % 统一字体大小
 
 
 %% 函数
