@@ -3,7 +3,7 @@ close all;
 clc;
 
 %%加载升沉数据
-data = readtable("50s_90mm幅值_0.2hz_sin波形.csv");
+data = readtable("90mm0.2hz-14-14-18.csv");
 
 % 90mm0.1hz-14-18-20
 % 90mm0.2hz-14-14-18
@@ -17,28 +17,47 @@ data = readtable("50s_90mm幅值_0.2hz_sin波形.csv");
 GRAVITY = 9.81;%重力加速度
 n = height(data);%数据行数
 
-acc_n = zeros(n,3);
-all_pass_acc = zeros(n,3);
+raw_acc_n = zeros(n,3);
+hp_acc_n = zeros(n,3);
+hp_ap_acc_n = zeros(n,3);
 hp_allpass_heave = zeros(n,1);
+
 %%
 Fs = 100;   % 采样频率
-Fc = 0.06;  % 高通截止频率 (Hz),为了同时保证高低频率升沉的效果，应该动态的决定滤波频率
-Fc2 = 10.5;  % 低通截止频率
+Fc = 0.05;  % 高通截止频率 (Hz),为了同时保证高低频率升沉的效果，应该动态的决定滤波频率
 dt = 1/Fs;  % 采样时间
 % 归一化截止频率（相对于奈奎斯特频率）
 Wn = Fc / (Fs / 2);
 
 %% 设计二阶巴特沃斯高通 低通 滤波器 
 [b_hp, a_hp] = butter(2, Wn, 'high');
-%[b_lp, a_lp] = butter(3, Fc2 / (Fs / 2), 'low');
 t = (0:n-1) * dt; % 时间向量 (秒)
 
-%% 分析高通滤波器在目标频率范围的相位响应
-% 生成关注频率范围的频率点
-freq_interest = linspace(0.05, 1, 100);
-[h_interest, w_interest] = freqz(b_hp, a_hp, freq_interest, Fs);
-phase_response_interest = unwrap(angle(h_interest))*180/pi;
+% %% 分析高通滤波器在目标频率范围的相位响应
+% % 生成关注频率范围的频率点
+% freq_interest = linspace(0.05, 1, 100);
+% [h_interest, w_interest] = freqz(b_hp, a_hp, freq_interest, Fs);
+% phase_response_interest = unwrap(angle(h_interest))*180/pi;
 
+%% 生成频率-相位查找表（为MCU优化）
+% 定义关键频率点（根据实际需求调整）
+freq_points = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5];
+n_points = length(freq_points);
+
+% 计算这些频率点的相位响应
+[h_table, ~] = freqz(b_hp, a_hp, freq_points, Fs);
+phase_table = unwrap(angle(h_table))*180/pi;
+
+% 打印C代码格式的查找表
+fprintf('\n// 频率-相位查找表 (MCU实现用)\n');
+fprintf('const uint8_t PHASE_TABLE_SIZE = %d;\n', n_points);
+fprintf('const float freq_table[%d] = {', n_points);
+fprintf('%.2f,', freq_points(1:end-1));
+fprintf('%.2f};\n', freq_points(end));
+
+fprintf('const float phase_table[%d] = {', n_points);
+fprintf('%.1f,', phase_table(1:end-1));
+fprintf('%.1f};\n', phase_table(end));
 
 %% 设计全通滤波器
 main_freq = 0.2;  % Hz, 已知的主频率
@@ -55,45 +74,43 @@ b_ap = [alpha, 1];        % 分子系数 [alpha, 1]
 a_ap = [1, alpha];        % 分母系数 [1, alpha]
 
 
-log.X = zeros(n,4);
+log.X1 = zeros(n,4);
 log.X2 = zeros(n,4);
 log.est_freq = zeros(n,1);
 
 %kf初始化
-KF = initializeKF(dt);
-KF2 = initializeKF(dt);
-KF3 = initializeKF(dt);
+KF_raw = initializeKF(dt);
+KF_hp = initializeKF(dt);
+KF_hp_ap = initializeKF(dt);
 Qb2n = [data.quat_w, data.quat_x,data.quat_y,data.quat_z];%加载四元数
 acc_b = [data.acc_x, data.acc_y, data.acc_z] * GRAVITY;%加载加速度数据
 
-%非线性频率估计器初始化
+%% 非线性频率估计器初始化
 % 参数设置,调节稳定性和响应速度
-f_up = 0.5; % 最大频率 1Hz 
+f_up = 0.3; % 最大频率 1Hz 
 frq_est = aranovskiy_freq_est(Fs, f_up);
 
 %计算 acc_n
 for i = 1:n
-    acc_n(i,:) = qmulv(Qb2n(i,:) , acc_b(i,:));
-    acc_n(i,3) = acc_n(i,3) - GRAVITY;
+    raw_acc_n(i,:) = qmulv(Qb2n(i,:) , acc_b(i,:));
+    raw_acc_n(i,3) = raw_acc_n(i,3) - GRAVITY;
 end
 
-hp_acc_n = filter(b_hp, a_hp, acc_n); % high pass
+hp_acc_n = filter(b_hp, a_hp, raw_acc_n); % high pass
 %y = filter(b_ap, a_ap, y); % all pass
-%y = filter(b_lp, a_lp, y); % low pass
-
 
 % 修改主循环部分
 for i = 1:n
     
     % raw
-    KF = predictKF(KF, acc_n(i,3));
-    KF = updateKF(KF, 0);
-    log.X(i,:) = KF.x';%记录数据
+    KF_raw = predictKF(KF_raw, raw_acc_n(i,3));
+    KF_raw = updateKF(KF_raw, 0);
+    log.X1(i,:) = KF_raw.x';%记录数据
 
     % hp
-    KF2 = predictKF(KF2, hp_acc_n(i,3));
-    KF2 = updateKF(KF2, 0);
-    log.X2(i,:) = KF2.x';
+    KF_hp = predictKF(KF_hp, hp_acc_n(i,3));
+    KF_hp = updateKF(KF_hp, 0);
+    log.X2(i,:) = KF_hp.x';
 
     % 非线性正弦频率估计
     current_freq = frq_est.update(log.X2(i, 3));
@@ -101,12 +118,25 @@ for i = 1:n
 
     % 动态计算全通滤波器系数
     if current_freq > 0.01  % 避免频率太小导致计算不稳定
-        omega = 2 * pi * current_freq / Fs;
-        % 根据频率动态调整期望相位补偿
-        % 这里的相位补偿角度需要根据实际测试调整
-         phase_delay = interp1(freq_interest, phase_response_interest, current_freq, 'linear', 'extrap');
-        desired_phase = phase_delay;  % 补偿10°
+        % 使用查找表进行相位补偿（替换原来的interp1）
+        % 找到最近的频率点
+        [~, idx] = min(abs(freq_points - current_freq));
+        if idx == 1
+            phase_delay = phase_table(1);
+        elseif idx == length(freq_points)
+            phase_delay = phase_table(end);
+        else
+            % 线性插值
+            f1 = freq_points(idx-1);
+            f2 = freq_points(idx);
+            p1 = phase_table(idx-1);
+            p2 = phase_table(idx);
+            phase_delay = p1 + (current_freq - f1)*(p2 - p1)/(f2 - f1);
+        end
+        
+        desired_phase = phase_delay;
         phase_rad = desired_phase * pi / 180;
+        omega = 2 * pi * current_freq / Fs;
         tan_half = tan(omega/2);
         alpha = (tan_half - tan(phase_rad/2)) / (tan_half + tan(phase_rad/2));
         
@@ -116,23 +146,23 @@ for i = 1:n
         
         % 应用全通滤波器
         if i >= 2
-            all_pass_acc(i,3) = -a_ap(2) * all_pass_acc(i-1,3) + ...
-                                   b_ap(1) * hp_acc_n(i,3) + ...
-                                   b_ap(2) * hp_acc_n(i-1,3);
+            hp_ap_acc_n(i,3) = -a_ap(2) * hp_ap_acc_n(i-1,3) + ...
+                               b_ap(1) * hp_acc_n(i,3) + ...
+                               b_ap(2) * hp_acc_n(i-1,3);
         else
-            all_pass_acc(i,3) = hp_acc_n(i,3);
+            hp_ap_acc_n(i,3) = hp_acc_n(i,3);
         end
     else
-        all_pass_acc(i,3) = hp_acc_n(i,3);
+        hp_ap_acc_n(i,3) = hp_acc_n(i,3);
     end
     
     % 使用补偿后的加速度更新KF
-    KF3 = predictKF(KF3, all_pass_acc(i,3));
-    KF3 = updateKF(KF3, 0);
-    log.X3(i,:) = KF3.x';
+    KF_hp_ap = predictKF(KF_hp_ap, hp_ap_acc_n(i,3));
+    KF_hp_ap = updateKF(KF_hp_ap, 0);
+    log.X3(i,:) = KF_hp_ap.x';
 end
 
-raw_heave = log.X(:, 2);
+raw_heave = log.X1(:, 2);
 hp_heave = log.X2(:, 2);
 hp_allpass_heave = log.X3(:, 2);
 
@@ -175,7 +205,7 @@ amp_hp = abs(Y_hp(main_freq_idx));
 amp_hp_ap = abs(Y_hp_ap(main_freq_idx));
 
 % 7. 输出分析结果
-fprintf('\n=== Heave信号分析结果 ===\n');
+fprintf('\n=== 后处理 FFT Heave信号分析结果 ===\n');
 fprintf('主频率: %.3f Hz\n', freq(main_freq_idx));
 fprintf('\n相对于原始heave的相位差：\n');
 fprintf('High-pass heave相位差: %.2f 度\n', phase_diff_hp);
@@ -199,10 +229,10 @@ grid on;
 
 % 2. 导航系加速度对比
 subplot(3,2,2);
-plot(t, acc_n(:,3), 'b', 'LineWidth', 1, 'DisplayName', 'Raw');
+plot(t, raw_acc_n(:,3), 'b', 'LineWidth', 1, 'DisplayName', 'Raw');
 hold on;
 plot(t, hp_acc_n(:,3), 'r', 'LineWidth', 1, 'DisplayName', 'High-pass');
-plot(t, all_pass_acc(:,3), 'g', 'LineWidth', 1, 'DisplayName', 'High-pass + All-pass');
+plot(t, hp_ap_acc_n(:,3), 'g', 'LineWidth', 1, 'DisplayName', 'High-pass + All-pass');
 xlabel('Time (s)');
 ylabel('Acceleration (m/s^2)');
 title('Navigation Frame Acceleration');
