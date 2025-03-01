@@ -3,7 +3,7 @@ close all;
 clc;
 
 %%加载升沉数据
-data = readtable("datasets\ch_155mm_0.1Hz-16-23-43.csv");
+data = readtable("datasets\ch_155mm_0.2Hz-16-35-01.csv");
 
 % 90mm0.1hz-14-18-20
 % 90mm0.2hz-14-14-18
@@ -109,13 +109,13 @@ fprintf('检测主频率: %.3f Hz, 最接近查找表频率: %.3f Hz\n', est_fre
 fprintf('需要校正的相位: %.1f 度\n', phase_to_correct);
 
 % 计算归一化角频率
-w = 2 * pi * closest_freq / Fs;
+omega_0 = 2 * pi * closest_freq / Fs;
 
 % 计算所需的相位补偿（取负值，因为我们要补偿）
-phase_rad = 3*phase_to_correct * pi / 180;
+phase_rad = 3 * phase_to_correct * pi / 180;
 
 % 计算全通滤波器系数
-alpha = (1 - tan(phase_rad/2)) / (1 + tan(phase_rad/2));
+alpha = sin((omega_0 - phase_rad)/2) / sin((omega_0 + phase_rad)/2);
 
 % 确保滤波器稳定性
 if abs(alpha) >= 1
