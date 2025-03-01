@@ -3,7 +3,7 @@ close all;
 clc;
 
 %%加载升沉数据
-data = readtable("datasets\ch_155mm_0.1Hz-16-23-43.csv");
+data = readtable("huizhou_400mm-14-14-47.csv");
 
 % 90mm0.1hz-14-18-20
 % 90mm0.2hz-14-14-18
@@ -15,6 +15,7 @@ data = readtable("datasets\ch_155mm_0.1Hz-16-23-43.csv");
 % huizhou_400mm-14-14-47
 
 % ch_108mm_0.2Hz-16-09-46
+% ch_108mm_0.1Hz-16-04-57
 
 
 %%加载数据
@@ -60,34 +61,79 @@ frq_est = aranovskiy_freq_est(Fs, f_up);
 
 % 初始化存储变量
 log.est_freq = zeros(n,1);
-vel = zeros(n,1);
-heave = zeros(n,1);
 
-%kf初始化
+% 初始化状态变量
+hp_acc_n = zeros(n,1);
+vel = zeros(n,1);
+hp_vel = zeros(n,1);
+heave = zeros(n,1);
+hp_heave = zeros(n,1);
+
+% 滤波器状态变量 - 每个滤波器需要保存前两个输入和输出
+x1 = zeros(3,1); y1 = zeros(3,1); % 第一次高通滤波
+x2 = zeros(3,1); y2 = zeros(3,1); % 第二次高通滤波
+x3 = zeros(3,1); y3 = zeros(3,1); % 第三次高通滤波
+
+
+% 初始化
 Qb2n = [data.quat_w, data.quat_x,data.quat_y,data.quat_z];%加载四元数
 acc_b = [data.acc_x, data.acc_y, data.acc_z] * GRAVITY;%加载加速度数据
 
 % 调用body2nav函数计算导航系下加速度
 [acc_n, raw_acc_n] = body2nav(Qb2n, acc_b, GRAVITY);
 
-%% 三次高通滤波实现升沉估计
-% 1. 第一次高通滤波 - 处理加速度
-hp_acc_n = filter(b_hp, a_hp, acc_n);
+%% 三次高通滤波实现升沉估计 - 使用for循环实现
+% 初始化状态变量
+hp_acc_n = zeros(n,1);
+vel = zeros(n,1);
+hp_vel = zeros(n,1);
+heave = zeros(n,1);
+hp_heave = zeros(n,1);
 
-% 2. 积分得到速度 - 向量化实现
-vel = [0; cumsum(hp_acc_n(2:end)*dt)];
+% 滤波器状态变量 - 每个滤波器需要保存前两个输入和输出
+x1 = zeros(3,1); y1 = zeros(3,1); % 第一次高通滤波
+x2 = zeros(3,1); y2 = zeros(3,1); % 第二次高通滤波
+x3 = zeros(3,1); y3 = zeros(3,1); % 第三次高通滤波
 
-% 3. 第二次高通滤波 - 处理速度
-hp_vel = filter(b_hp, a_hp, vel);
-
-% 4. 积分得到位移 - 向量化实现
-heave = [0; cumsum(hp_vel(2:end)*dt)];
-
-% 5. 第三次高通滤波 - 处理位移，得到最终升沉结果
-hp_heave = filter(b_hp, a_hp, heave);
-
-% 非线性正弦频率估计
+% 使用for循环逐点处理
 for i = 1:n
+    % 1. 第一次高通滤波 - 处理加速度
+    % 更新滤波器状态
+    x1 = [acc_n(i); x1(1:2)]; 
+    y_new = b_hp(1)*x1(1) + b_hp(2)*x1(2) + b_hp(3)*x1(3) - a_hp(2)*y1(1) - a_hp(3)*y1(2);
+    y1 = [y_new; y1(1:2)];
+    hp_acc_n(i) = y_new;
+    
+    % 2. 积分得到速度
+    if i == 1
+        vel(i) = 0;  % 初始速度为0
+    else
+        vel(i) = vel(i-1) + hp_acc_n(i) * dt;
+    end
+    
+    % 3. 第二次高通滤波 - 处理速度
+    % 更新滤波器状态
+    x2 = [vel(i); x2(1:2)];
+    y_new = b_hp(1)*x2(1) + b_hp(2)*x2(2) + b_hp(3)*x2(3) - a_hp(2)*y2(1) - a_hp(3)*y2(2);
+    y2 = [y_new; y2(1:2)];
+    hp_vel(i) = y_new;
+    
+    % 4. 积分得到位移
+    if i == 1
+        heave(i) = 0;  % 初始位移为0
+    else
+        heave(i) = heave(i-1) + hp_vel(i) * dt;
+    end
+    
+%     % 5. 第三次高通滤波 - 处理位移
+%     % 更新滤波器状态
+%     x3 = [heave(i); x3(1:2)];
+%     y_new = b_hp(1)*x3(1) + b_hp(2)*x3(2) + b_hp(3)*x3(3) - a_hp(2)*y3(1) - a_hp(3)*y3(2);
+%     y3 = [y_new; y3(1:2)];
+%     hp_heave(i) = y_new;
+%     
+    hp_heave(i) = heave(i);
+    % 6. 非线性正弦频率估计
     current_freq = frq_est.update(hp_heave(i));
     log.est_freq(i) = current_freq;
 end
@@ -109,13 +155,13 @@ fprintf('检测主频率: %.3f Hz, 最接近查找表频率: %.3f Hz\n', est_fre
 fprintf('需要校正的相位: %.1f 度\n', phase_to_correct);
 
 % 计算归一化角频率
-w = 2 * pi * closest_freq / Fs;
+omega_0 = 2 * pi * closest_freq / Fs;
 
 % 计算所需的相位补偿（取负值，因为我们要补偿）
-phase_rad = 3*phase_to_correct * pi / 180;
+phase_rad = 2 * phase_to_correct * pi / 180;
 
 % 计算全通滤波器系数
-alpha = (1 - tan(phase_rad/2)) / (1 + tan(phase_rad/2));
+alpha = sin((omega_0 - phase_rad)/2) / sin((omega_0 + phase_rad)/2);
 
 % 确保滤波器稳定性
 if abs(alpha) >= 1
@@ -177,67 +223,83 @@ if ~isempty(peak_indices)
 end
 
 
-%% 新增相位对比图 - 简化版
-figure('Name', '相位对比分析', 'Position', [100, 100, 900, 400]);
+%% 绘图
+figure('Name', '升沉估计分析 - 实时处理与相位校正', 'Position', [50, 50, 1200, 900]);
 
-% 1. 时域信号对比 - 零相位vs普通滤波
-subplot(1,2,1);
-plot(t, hp_heave, 'b', 'LineWidth', 1.5, 'DisplayName', '三次高通滤波');
+%% 1. 三次高通滤波过程 - 左上
+subplot(3, 2, 1);
+plot(t, acc_n, 'Color', [0.7 0.7 0.7], 'LineWidth', 1, 'DisplayName', '原始加速度');
 hold on;
-plot(t, hp_heave_zero, 'r', 'LineWidth', 1.5, 'DisplayName', '零相位滤波');
-xlabel('时间 (s)');
-ylabel('升沉 (m)');
-title('升沉估计对比');
+plot(t, hp_acc_n, 'b', 'LineWidth', 1.2, 'DisplayName', '高通滤波后');
+xlabel('时间 (s)'); ylabel('加速度 (m/s²)');
+title('1. 加速度信号滤波');
 legend('Location', 'best');
 grid on;
 
-% 2. 窄带滤波后的相位对比
-subplot(1,2,2);
-if exist('est_freq', 'var')
-    % 使用带通滤波获取窄带信号以便清晰显示相位
-    [b_narrow, a_narrow] = butter(2, [est_freq-0.02 est_freq+0.02]/(Fs/2), 'bandpass');
-    narrow_hp = filter(b_narrow, a_narrow, hp_heave);
-    narrow_hp_zero = filtfilt(b_narrow, a_narrow, hp_heave_zero);
-    
-    % 添加全通滤波器校正后的信号
-    narrow_hp_corrected = filter(b_narrow, a_narrow, hp_heave_corrected);
-        % 归一化
-    norm_hp_corrected = narrow_hp_corrected / max(abs(narrow_hp_corrected));
-    
-    % 归一化
-    norm_hp = narrow_hp / max(abs(narrow_hp));
-    norm_hp_zero = narrow_hp_zero / max(abs(narrow_hp_zero));
-    
-    % 选择一段稳定的数据进行显示
-    start_idx = floor(n/2);
-    window_size = min(round(5*Fs/est_freq), n-start_idx); % 显示约5个周期
-    plot_range = start_idx:(start_idx+window_size);
-    
-    plot(t(plot_range), norm_hp(plot_range), 'b', 'LineWidth', 1.5, 'DisplayName', '三次高通滤波');
-    hold on;
-    plot(t(plot_range), norm_hp_zero(plot_range), 'r', 'LineWidth', 1.5, 'DisplayName', '零相位滤波');
-    
-    % 添加全通滤波校正后的信号
-    if exist('hp_heave_corrected', 'var')
-        plot(t(plot_range), norm_hp_corrected(plot_range), 'g', 'LineWidth', 1.5, 'DisplayName', '全通校正');
-        
-        % 计算校正后的相位差（如果有）
-        if exist('Y_hp_heave_corrected', 'var') && exist('main_freq_idx', 'var')
-            corrected_phase_diff_str = sprintf(', 校正后: %.1f°', corrected_phase_diff);
-        else
-            corrected_phase_diff_str = '';
-        end
-        
-        title(sprintf('窄带滤波后相位对比 (%.3f Hz)\n相位差: %.1f°%s', est_freq, actual_phase_diff, corrected_phase_diff_str));
-    else
-        title(sprintf('窄带滤波后相位对比 (%.3f Hz)\n相位差: %.1f°', est_freq, actual_phase_diff));
-    end
-    
-    xlabel('时间 (s)');
-    ylabel('归一化幅值');
-    legend('Location', 'best');
-    grid on;
-end
+%% 2. 速度积分结果(经过高通滤波) - 右上
+subplot(3, 2, 2);
+plot(t, vel, 'b', 'LineWidth', 1.2, 'DisplayName', '高通滤波后');
+xlabel('时间 (s)'); ylabel('速度 (m/s)');
+title('2. 高通滤波后的速度积分结果');
+grid on;
 
+%% 3. 频率估计曲线 - 左中
+subplot(3, 2, 3);
+plot(t, log.est_freq, 'LineWidth', 1.5, 'Color', [0.2 0.6 0.2]);
+xlabel('时间 (s)'); ylabel('频率估计 (Hz)');
+title('3. 波浪频率估计');
+ylim([0, f_up*1.2]); % 设置合理的Y轴范围
+grid on;
+
+%% 4. 最终升沉结果对比 - 右中
+subplot(3, 2, 4);
+plot(t, hp_heave, 'b', 'LineWidth', 1.2, 'DisplayName', '三次高通滤波');
+hold on;
+if exist('hp_heave_corrected', 'var')
+    plot(t, hp_heave_corrected, 'g', 'LineWidth', 1.2, 'DisplayName', '相位校正');
+end
+plot(t, hp_heave_zero, 'r--', 'LineWidth', 1.0, 'DisplayName', '零相位参考');
+xlabel('时间 (s)'); ylabel('位移 (m)');
+title(sprintf('4. 升沉估计结果 (相位差: %.1f°)', actual_phase_diff));
+legend('Location', 'best');
+grid on;
+
+%% 5. 相位校正前后对比 - 左下
+subplot(3, 2, 5);
+% 选择数据的一个有代表性的片段进行放大显示
+segment_start = floor(n/2);  % 从中间开始
+segment_length = min(500, floor(n/4));  % 取适当长度
+segment_idx = segment_start:(segment_start+segment_length-1);
+
+plot(t(segment_idx), hp_heave(segment_idx), 'b', 'LineWidth', 1.2, 'DisplayName', '滤波前');
+hold on;
+plot(t(segment_idx), hp_heave_corrected(segment_idx), 'g', 'LineWidth', 1.2, 'DisplayName', '相位校正后');
+plot(t(segment_idx), hp_heave_zero(segment_idx), 'r--', 'LineWidth', 1.0, 'DisplayName', '零相位参考');
+xlabel('时间 (s)'); ylabel('位移 (m)');
+title('5. 相位校正效果对比 (局部放大)');
+legend('Location', 'best');
+grid on;
+
+%% 6. 直接积分的速度和位移(有漂移) - 右下
+subplot(3, 2, 6);
+yyaxis left
+plot(t, vel, 'Color', [0.8 0.4 0.2], 'LineWidth', 1.5, 'DisplayName', '直接积分速度');
+ylabel('速度 (m/s)');
+
+yyaxis right
+plot(t, heave, 'Color', [0.2 0.4 0.8], 'LineWidth', 1.5, 'DisplayName', '直接积分位移');
+ylabel('位移 (m)');
+
+xlabel('时间 (s)');
+title('6. 未经高通滤波的直接积分结果(显示漂移)');
+legend('Location', 'best');
+grid on;
+
+% 调整整体布局
+set(gcf, 'Color', 'w');
+set(findall(gcf,'-property','FontSize'),'FontSize', 11);
+
+
+% 调整整体布局
 set(gcf, 'Color', 'w');
 set(findall(gcf,'-property','FontSize'),'FontSize', 11);
