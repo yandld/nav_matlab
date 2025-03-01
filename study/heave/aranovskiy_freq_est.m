@@ -31,7 +31,7 @@ classdef aranovskiy_freq_est < handle
             % 估计器参数设置
             obj.a = obj.omega_up;
             obj.b = obj.a;
-            obj.k = 20;
+            obj.k = 15;
             
             % 状态初始化
             obj.x1_hat = 0;
