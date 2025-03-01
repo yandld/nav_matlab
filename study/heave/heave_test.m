@@ -3,7 +3,7 @@ close all;
 clc;
 
 %%加载升沉数据
-data = readtable("90mm0.5hz-14-10-25.csv");
+data = readtable("datasets\ch_155mm_0.1Hz-16-23-43.csv");
 
 % 90mm0.1hz-14-18-20
 % 90mm0.2hz-14-14-18
@@ -98,7 +98,40 @@ est_freq = median(log.est_freq(floor(n/2):end)); % 使用后半段数据的频�
 if est_freq < 0.05 % 如果频率估计不可靠
     est_freq = 0.2; % 使用默认值
 end
+%% 添加全通滤波器进行相位校正 - 修正版
+% 根据估计的频率选择最接近的频率点
+[~, closest_idx] = min(abs(freq_points - est_freq));
+closest_freq = freq_points(closest_idx);
+phase_to_correct = phase_table(closest_idx);
 
+fprintf('\n=== 全通滤波器相位校正 ===\n');
+fprintf('检测主频率: %.3f Hz, 最接近查找表频率: %.3f Hz\n', est_freq, closest_freq);
+fprintf('需要校正的相位: %.1f 度\n', phase_to_correct);
+
+% 计算归一化角频率
+w = 2 * pi * closest_freq / Fs;
+
+% 计算所需的相位补偿（取负值，因为我们要补偿）
+phase_rad = 3*phase_to_correct * pi / 180;
+
+% 计算全通滤波器系数
+alpha = (1 - tan(phase_rad/2)) / (1 + tan(phase_rad/2));
+
+% 确保滤波器稳定性
+if abs(alpha) >= 1
+    fprintf('警告: 计算的alpha值 %.6f 会导致不稳定滤波器\n', alpha);
+    alpha = sign(alpha) * 0.99; % 限制在稳定范围内
+    fprintf('已调整为: %.6f\n', alpha);
+end
+
+fprintf('全通滤波器系数 alpha: %.6f\n', alpha);
+
+% 创建全通滤波器系数
+b_ap = [alpha, 1];
+a_ap = [1, alpha];
+
+% 应用全通滤波器到 hp_heave 进行相位校正
+hp_heave_corrected = filter(b_ap, a_ap, hp_heave);
 
 %% 相位误差分析 - 使用零相位滤波作为参考
 % 使用filtfilt实现零相位滤波作为理想参考
@@ -124,12 +157,12 @@ Y_hp_heave_zero = fft(hp_heave_zero_windowed);
 if ~isempty(peak_indices)
     valid_peaks = peak_indices(freq(peak_indices) > 0.05); % 排除过低频率
     if ~isempty(valid_peaks)
-        main_freq_idx = valid_peaks(1); % 使用第一个有效峰值
-        main_freq = freq(main_freq_idx);
+        est_freq_idx = valid_peaks(1); % 使用第一个有效峰值
+        est_freq = freq(est_freq_idx);
         
         % 计算相位
-        phase_hp_heave = angle(Y_hp_heave(main_freq_idx));
-        phase_hp_heave_zero = angle(Y_hp_heave_zero(main_freq_idx));
+        phase_hp_heave = angle(Y_hp_heave(est_freq_idx));
+        phase_hp_heave_zero = angle(Y_hp_heave_zero(est_freq_idx));
         
         % 计算实际相位差 (滤波相位减去零相位)
         actual_phase_diff = (phase_hp_heave - phase_hp_heave_zero) * 180/pi;
@@ -138,7 +171,7 @@ if ~isempty(peak_indices)
         
         % 输出分析结果
         fprintf('\n=== 相位误差分析结果 ===\n');
-        fprintf('主频率: %.3f Hz\n', main_freq);
+        fprintf('主频率: %.3f Hz\n', est_freq);
         fprintf('实际相位差(滤波vs零相位): %.2f 度\n', actual_phase_diff);
     end
 end
@@ -160,11 +193,16 @@ grid on;
 
 % 2. 窄带滤波后的相位对比
 subplot(1,2,2);
-if exist('main_freq', 'var')
+if exist('est_freq', 'var')
     % 使用带通滤波获取窄带信号以便清晰显示相位
-    [b_narrow, a_narrow] = butter(2, [main_freq-0.02 main_freq+0.02]/(Fs/2), 'bandpass');
+    [b_narrow, a_narrow] = butter(2, [est_freq-0.02 est_freq+0.02]/(Fs/2), 'bandpass');
     narrow_hp = filter(b_narrow, a_narrow, hp_heave);
     narrow_hp_zero = filtfilt(b_narrow, a_narrow, hp_heave_zero);
+    
+    % 添加全通滤波器校正后的信号
+    narrow_hp_corrected = filter(b_narrow, a_narrow, hp_heave_corrected);
+        % 归一化
+    norm_hp_corrected = narrow_hp_corrected / max(abs(narrow_hp_corrected));
     
     % 归一化
     norm_hp = narrow_hp / max(abs(narrow_hp));
@@ -172,19 +210,34 @@ if exist('main_freq', 'var')
     
     % 选择一段稳定的数据进行显示
     start_idx = floor(n/2);
-    window_size = min(round(5*Fs/main_freq), n-start_idx); % 显示约5个周期
+    window_size = min(round(5*Fs/est_freq), n-start_idx); % 显示约5个周期
     plot_range = start_idx:(start_idx+window_size);
     
     plot(t(plot_range), norm_hp(plot_range), 'b', 'LineWidth', 1.5, 'DisplayName', '三次高通滤波');
     hold on;
     plot(t(plot_range), norm_hp_zero(plot_range), 'r', 'LineWidth', 1.5, 'DisplayName', '零相位滤波');
+    
+    % 添加全通滤波校正后的信号
+    if exist('hp_heave_corrected', 'var')
+        plot(t(plot_range), norm_hp_corrected(plot_range), 'g', 'LineWidth', 1.5, 'DisplayName', '全通校正');
+        
+        % 计算校正后的相位差（如果有）
+        if exist('Y_hp_heave_corrected', 'var') && exist('main_freq_idx', 'var')
+            corrected_phase_diff_str = sprintf(', 校正后: %.1f°', corrected_phase_diff);
+        else
+            corrected_phase_diff_str = '';
+        end
+        
+        title(sprintf('窄带滤波后相位对比 (%.3f Hz)\n相位差: %.1f°%s', est_freq, actual_phase_diff, corrected_phase_diff_str));
+    else
+        title(sprintf('窄带滤波后相位对比 (%.3f Hz)\n相位差: %.1f°', est_freq, actual_phase_diff));
+    end
+    
     xlabel('时间 (s)');
     ylabel('归一化幅值');
-    title(sprintf('窄带滤波后相位对比 (%.3f Hz)\n相位差: %.1f°', main_freq, actual_phase_diff));
     legend('Location', 'best');
     grid on;
 end
 
 set(gcf, 'Color', 'w');
 set(findall(gcf,'-property','FontSize'),'FontSize', 11);
-
