@@ -3,7 +3,7 @@ close all;
 clc;
 
 %%加载升沉数据
-data = readtable("huizhou_400mm-14-14-47.csv");
+data = readtable("ch_108mm_0.1Hz-16-04-57.csv");
 
 % 90mm0.1hz-14-18-20
 % 90mm0.2hz-14-14-18
@@ -131,8 +131,9 @@ for i = 1:n
 %     y_new = b_hp(1)*x3(1) + b_hp(2)*x3(2) + b_hp(3)*x3(3) - a_hp(2)*y3(1) - a_hp(3)*y3(2);
 %     y3 = [y_new; y3(1:2)];
 %     hp_heave(i) = y_new;
-%     
+
     hp_heave(i) = heave(i);
+    
     % 6. 非线性正弦频率估计
     current_freq = frq_est.update(hp_heave(i));
     log.est_freq(i) = current_freq;
@@ -144,7 +145,7 @@ est_freq = median(log.est_freq(floor(n/2):end)); % 使用后半段数据的频�
 if est_freq < 0.05 % 如果频率估计不可靠
     est_freq = 0.2; % 使用默认值
 end
-%% 添加全通滤波器进行相位校正 - 修正版
+
 % 根据估计的频率选择最接近的频率点
 [~, closest_idx] = min(abs(freq_points - est_freq));
 closest_freq = freq_points(closest_idx);
@@ -158,6 +159,7 @@ fprintf('需要校正的相位: %.1f 度\n', phase_to_correct);
 omega_0 = 2 * pi * closest_freq / Fs;
 
 % 计算所需的相位补偿（取负值，因为我们要补偿）
+
 phase_rad = 2 * phase_to_correct * pi / 180;
 
 % 计算全通滤波器系数
@@ -192,11 +194,13 @@ N = length(acc_n);
 window = hann(N);
 hp_heave_windowed = hp_heave .* window;
 hp_heave_zero_windowed = hp_heave_zero .* window;
+hp_heave_corrected_windowed = hp_heave_corrected .* window;
 
 % FFT分析
 freq = (0:N-1)*(Fs/N);
 Y_hp_heave = fft(hp_heave_windowed);
 Y_hp_heave_zero = fft(hp_heave_zero_windowed);
+Y_hp_heave_corrected = fft(hp_heave_corrected_windowed);
 
 % 找到主要频率成分
 [~, peak_indices] = findpeaks(abs(Y_hp_heave_zero(1:floor(N/2))), 'MinPeakHeight', max(abs(Y_hp_heave_zero(1:floor(N/2))))/10);
@@ -206,19 +210,25 @@ if ~isempty(peak_indices)
         est_freq_idx = valid_peaks(1); % 使用第一个有效峰值
         est_freq = freq(est_freq_idx);
         
-        % 计算相位
+        % 计算三种升沉信号的相位
         phase_hp_heave = angle(Y_hp_heave(est_freq_idx));
         phase_hp_heave_zero = angle(Y_hp_heave_zero(est_freq_idx));
+        phase_hp_heave_corrected = angle(Y_hp_heave_corrected(est_freq_idx));
         
-        % 计算实际相位差 (滤波相位减去零相位)
-        actual_phase_diff = (phase_hp_heave - phase_hp_heave_zero) * 180/pi;
-        actual_phase_diff = mod(actual_phase_diff + 180, 360) - 180;
+        % 计算实际相位差 (高通滤波相位减去零相位)
+        phase_diff_hp_vs_zero = (phase_hp_heave - phase_hp_heave_zero) * 180/pi;
+        phase_diff_hp_vs_zero = mod(phase_diff_hp_vs_zero + 180, 360) - 180;
         
+        % 计算校正后相位差 (校正后相位减去零相位)
+        phase_diff_corrected_vs_zero = (phase_hp_heave_corrected - phase_hp_heave_zero) * 180/pi;
+        phase_diff_corrected_vs_zero = mod(phase_diff_corrected_vs_zero + 180, 360) - 180;
         
         % 输出分析结果
         fprintf('\n=== 相位误差分析结果 ===\n');
         fprintf('主频率: %.3f Hz\n', est_freq);
-        fprintf('实际相位差(滤波vs零相位): %.2f 度\n', actual_phase_diff);
+        fprintf('高通滤波vs零相位相位差: %.2f 度\n', phase_diff_hp_vs_zero);
+        fprintf('校正后vs零相位相位差: %.2f 度\n', phase_diff_corrected_vs_zero);
+        fprintf('相位校正改善: %.2f 度\n', abs(phase_diff_hp_vs_zero) - abs(phase_diff_corrected_vs_zero));
     end
 end
 
@@ -260,7 +270,7 @@ if exist('hp_heave_corrected', 'var')
 end
 plot(t, hp_heave_zero, 'r--', 'LineWidth', 1.0, 'DisplayName', '零相位参考');
 xlabel('时间 (s)'); ylabel('位移 (m)');
-title(sprintf('4. 升沉估计结果 (相位差: %.1f°)', actual_phase_diff));
+title(sprintf('4. 升沉估计结果  '));
 legend('Location', 'best');
 grid on;
 
@@ -300,6 +310,3 @@ set(gcf, 'Color', 'w');
 set(findall(gcf,'-property','FontSize'),'FontSize', 11);
 
 
-% 调整整体布局
-set(gcf, 'Color', 'w');
-set(findall(gcf,'-property','FontSize'),'FontSize', 11);
