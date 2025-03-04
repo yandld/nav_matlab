@@ -3,20 +3,7 @@ close all;
 clc;
 
 %%加载升沉数据
-data = readtable("ch_108mm_0.1Hz-16-04-57.csv");
-
-% 90mm0.1hz-14-18-20
-% 90mm0.2hz-14-14-18
-% 90mm0.5hz-14-10-25
-% line_0.1Hz_106mm
-% line_0.1Hz_106mm_B
-% 100s_110mm_0.2Hz_sin5
-% 50s_90mm幅值_0.2hz_sin波形
-% huizhou_400mm-14-14-47
-
-% ch_108mm_0.2Hz-16-09-46
-% ch_108mm_0.1Hz-16-04-57
-
+data = readtable("datasets\ch_108mm_0.2Hz-16-09-46.csv");
 
 %%加载数据
 GRAVITY = 9.81;%重力加速度
@@ -25,15 +12,15 @@ n = height(data);%数据行数
 
 %%
 Fs = 100;   % 采样频率
-Fc = 0.03;  % 高通截止频率 (Hz),为了同时保证高低频率升沉的效果，应该动态的决定滤波频率
+Fc = 0.05;  % 高通截止频率 (Hz),为了同时保证高低频率升沉的效果，应该动态的决定滤波频率
 dt = 1/Fs;  % 采样时间
 % 归一化截止频率（相对于奈奎斯特频率）
 Wn = Fc / (Fs / 2);
 
-%% 设计二阶巴特沃斯高通滤波器 
-[b_hp, a_hp] = butter(2, Wn, 'high');
+%% 设计四阶巴特沃斯高通滤波器 (由二阶改为四阶)
+[b_hp, a_hp] = butter(4, Wn, 'high');  % 从2阶改为4阶
 t = (0:n-1) * dt; % 时间向量 (秒)
-
+% fvtool(b_hp, a_hp);
 %% 生成频率-相位查找表（为MCU优化）
 % 定义关键频率点（根据实际需求调整）
 freq_points = [0.02 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5];
@@ -62,19 +49,6 @@ frq_est = aranovskiy_freq_est(Fs, f_up);
 % 初始化存储变量
 log.est_freq = zeros(n,1);
 
-% 初始化状态变量
-hp_acc_n = zeros(n,1);
-vel = zeros(n,1);
-hp_vel = zeros(n,1);
-heave = zeros(n,1);
-hp_heave = zeros(n,1);
-
-% 滤波器状态变量 - 每个滤波器需要保存前两个输入和输出
-x1 = zeros(3,1); y1 = zeros(3,1); % 第一次高通滤波
-x2 = zeros(3,1); y2 = zeros(3,1); % 第二次高通滤波
-x3 = zeros(3,1); y3 = zeros(3,1); % 第三次高通滤波
-
-
 % 初始化
 Qb2n = [data.quat_w, data.quat_x,data.quat_y,data.quat_z];%加载四元数
 acc_b = [data.acc_x, data.acc_y, data.acc_z] * GRAVITY;%加载加速度数据
@@ -90,18 +64,19 @@ hp_vel = zeros(n,1);
 heave = zeros(n,1);
 hp_heave = zeros(n,1);
 
-% 滤波器状态变量 - 每个滤波器需要保存前两个输入和输出
-x1 = zeros(3,1); y1 = zeros(3,1); % 第一次高通滤波
-x2 = zeros(3,1); y2 = zeros(3,1); % 第二次高通滤波
-x3 = zeros(3,1); y3 = zeros(3,1); % 第三次高通滤波
+% 滤波器状态变量 - 每个滤波器需要保存前四个输入和输出 (由于是四阶滤波器)
+x1 = zeros(5,1); y1 = zeros(5,1); % 第一次高通滤波
+x2 = zeros(5,1); y2 = zeros(5,1); % 第二次高通滤波
+x3 = zeros(5,1); y3 = zeros(5,1); % 第三次高通滤波
 
 % 使用for循环逐点处理
 for i = 1:n
     % 1. 第一次高通滤波 - 处理加速度
-    % 更新滤波器状态
-    x1 = [acc_n(i); x1(1:2)]; 
-    y_new = b_hp(1)*x1(1) + b_hp(2)*x1(2) + b_hp(3)*x1(3) - a_hp(2)*y1(1) - a_hp(3)*y1(2);
-    y1 = [y_new; y1(1:2)];
+    % 更新滤波器状态 (四阶滤波器需要更多状态)
+    x1 = [acc_n(i); x1(1:4)]; 
+    y_new = b_hp(1)*x1(1) + b_hp(2)*x1(2) + b_hp(3)*x1(3) + b_hp(4)*x1(4) + b_hp(5)*x1(5) - ...
+            a_hp(2)*y1(1) - a_hp(3)*y1(2) - a_hp(4)*y1(3) - a_hp(5)*y1(4);
+    y1 = [y_new; y1(1:4)];
     hp_acc_n(i) = y_new;
     
     % 2. 积分得到速度
@@ -112,10 +87,11 @@ for i = 1:n
     end
     
     % 3. 第二次高通滤波 - 处理速度
-    % 更新滤波器状态
-    x2 = [vel(i); x2(1:2)];
-    y_new = b_hp(1)*x2(1) + b_hp(2)*x2(2) + b_hp(3)*x2(3) - a_hp(2)*y2(1) - a_hp(3)*y2(2);
-    y2 = [y_new; y2(1:2)];
+    % 更新滤波器状态 (四阶滤波器)
+    x2 = [vel(i); x2(1:4)];
+    y_new = b_hp(1)*x2(1) + b_hp(2)*x2(2) + b_hp(3)*x2(3) + b_hp(4)*x2(4) + b_hp(5)*x2(5) - ...
+            a_hp(2)*y2(1) - a_hp(3)*y2(2) - a_hp(4)*y2(3) - a_hp(5)*y2(4);
+    y2 = [y_new; y2(1:4)];
     hp_vel(i) = y_new;
     
     % 4. 积分得到位移
@@ -126,10 +102,11 @@ for i = 1:n
     end
     
 %     % 5. 第三次高通滤波 - 处理位移
-%     % 更新滤波器状态
-%     x3 = [heave(i); x3(1:2)];
-%     y_new = b_hp(1)*x3(1) + b_hp(2)*x3(2) + b_hp(3)*x3(3) - a_hp(2)*y3(1) - a_hp(3)*y3(2);
-%     y3 = [y_new; y3(1:2)];
+%     % 更新滤波器状态 (四阶滤波器)
+%     x3 = [heave(i); x3(1:4)];
+%     y_new = b_hp(1)*x3(1) + b_hp(2)*x3(2) + b_hp(3)*x3(3) + b_hp(4)*x3(4) + b_hp(5)*x3(5) - ...
+%             a_hp(2)*y3(1) - a_hp(3)*y3(2) - a_hp(4)*y3(3) - a_hp(5)*y3(4);
+%     y3 = [y_new; y3(1:4)];
 %     hp_heave(i) = y_new;
 
     hp_heave(i) = heave(i);
@@ -150,7 +127,9 @@ end
 [~, closest_idx] = min(abs(freq_points - est_freq));
 closest_freq = freq_points(closest_idx);
 phase_to_correct = phase_table(closest_idx);
-
+if phase_to_correct < 0
+    phase_to_correct = phase_to_correct + 360;
+end
 fprintf('\n=== 全通滤波器相位校正 ===\n');
 fprintf('检测主频率: %.3f Hz, 最接近查找表频率: %.3f Hz\n', est_freq, closest_freq);
 fprintf('需要校正的相位: %.1f 度\n', phase_to_correct);
@@ -159,26 +138,29 @@ fprintf('需要校正的相位: %.1f 度\n', phase_to_correct);
 omega_0 = 2 * pi * closest_freq / Fs;
 
 % 计算所需的相位补偿（取负值，因为我们要补偿）
-
 phase_rad = 2 * phase_to_correct * pi / 180;
 
-% 计算全通滤波器系数
-alpha = sin((omega_0 - phase_rad)/2) / sin((omega_0 + phase_rad)/2);
+% 计算全通滤波器系数 - 为四阶滤波器设计级联的二阶全通滤波器
+% 将总相位校正分为两部分，每个二阶滤波器校正一半
+phase_rad_half = phase_rad;
+
+% 计算一阶全通滤波器的alpha值
+alpha = sin((omega_0 - phase_rad_half)/2) / sin((omega_0 + phase_rad_half)/2);
 
 % 确保滤波器稳定性
 if abs(alpha) >= 1
-    fprintf('警告: 计算的alpha值 %.6f 会导致不稳定滤波器\n', alpha);
+    fprintf('警告: 计算的alpha1值 %.6f 会导致不稳定滤波器\n', alpha);
     alpha = sign(alpha) * 0.99; % 限制在稳定范围内
     fprintf('已调整为: %.6f\n', alpha);
 end
 
 fprintf('全通滤波器系数 alpha: %.6f\n', alpha);
 
-% 创建全通滤波器系数
+% 创建两个级联的二阶全通滤波器系数
 b_ap = [alpha, 1];
 a_ap = [1, alpha];
 
-% 应用全通滤波器到 hp_heave 进行相位校正
+% 应用级联全通滤波器到 hp_heave 进行相位校正
 hp_heave_corrected = filter(b_ap, a_ap, hp_heave);
 
 %% 相位误差分析 - 使用零相位滤波作为参考
@@ -234,7 +216,7 @@ end
 
 
 %% 绘图
-figure('Name', '升沉估计分析 - 实时处理与相位校正', 'Position', [50, 50, 1200, 900]);
+figure('Name', '升沉估计分析 - 实时处理与相位校正 (四阶滤波器)', 'Position', [50, 50, 1200, 900]);
 
 %% 1. 三次高通滤波过程 - 左上
 subplot(3, 2, 1);
@@ -242,7 +224,7 @@ plot(t, acc_n, 'Color', [0.7 0.7 0.7], 'LineWidth', 1, 'DisplayName', '原始加
 hold on;
 plot(t, hp_acc_n, 'b', 'LineWidth', 1.2, 'DisplayName', '高通滤波后');
 xlabel('时间 (s)'); ylabel('加速度 (m/s²)');
-title('1. 加速度信号滤波');
+title('1. 加速度信号滤波 (四阶)');
 legend('Location', 'best');
 grid on;
 
@@ -250,7 +232,7 @@ grid on;
 subplot(3, 2, 2);
 plot(t, vel, 'b', 'LineWidth', 1.2, 'DisplayName', '高通滤波后');
 xlabel('时间 (s)'); ylabel('速度 (m/s)');
-title('2. 高通滤波后的速度积分结果');
+title('2. 高通滤波后的速度积分结果 (四阶)');
 grid on;
 
 %% 3. 频率估计曲线 - 左中
@@ -270,7 +252,7 @@ if exist('hp_heave_corrected', 'var')
 end
 plot(t, hp_heave_zero, 'r--', 'LineWidth', 1.0, 'DisplayName', '零相位参考');
 xlabel('时间 (s)'); ylabel('位移 (m)');
-title(sprintf('4. 升沉估计结果  '));
+title(sprintf('4. 升沉估计结果 (四阶滤波器)'));
 legend('Location', 'best');
 grid on;
 
@@ -309,4 +291,5 @@ grid on;
 set(gcf, 'Color', 'w');
 set(findall(gcf,'-property','FontSize'),'FontSize', 11);
 
-
+% 添加滤波器阶数信息
+sgtitle('升沉估计分析 - 四阶巴特沃斯滤波器实现', 'FontSize', 14);
