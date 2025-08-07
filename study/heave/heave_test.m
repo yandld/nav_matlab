@@ -3,7 +3,7 @@ close all;
 clc;
 
 %%加载升沉数据
-data = readtable("datasets\ch_108mm_0.2Hz-16-09-46.csv");
+data = readtable("90mm0.2hz-14-14-18.csv");
 
 %%加载数据
 GRAVITY = 9.81;%重力加速度
@@ -52,10 +52,17 @@ log.est_freq = zeros(n,1);
 % 初始化
 Qb2n = [data.quat_w, data.quat_x,data.quat_y,data.quat_z];%加载四元数
 acc_b = [data.acc_x, data.acc_y, data.acc_z] * GRAVITY;%加载加速度数据
-
+gyro_b = [data.gyr_x, data.gyr_y, data.gyr_z] * 3.1415 / 180;
+r = [0 -0.130 0];
+acc_bm = acc_b;
+a_w_b = [0 0 0;diff(gyro_b)*Fs];%%
+for i=1:length(acc_b)
+    acc_bm(i,:) = acc_b(i,:) - (cross(a_w_b(i,:),r) + cross(gyro_b(i,:),(cross(gyro_b(i,:),r))));
+end
 % 调用body2nav函数计算导航系下加速度
-[acc_n, raw_acc_n] = body2nav(Qb2n, acc_b, GRAVITY);
-
+[acc_n, raw_acc_n] = body2nav(Qb2n, acc_bm, GRAVITY);
+figure;
+plot(acc_bm(:,3));hold on;plot(acc_b(:,3))
 %% 三次高通滤波实现升沉估计 - 使用for循环实现
 % 初始化状态变量
 hp_acc_n = zeros(n,1);

@@ -11,7 +11,7 @@ scriptPath = mfilename('fullpath');
 scriptFolder = fileparts(scriptPath);
 cd(scriptFolder);
 
-fullfilename  = "C:\Users\60265\Documents\WeChat Files\wxid_0okrn6c44nhf22\FileStorage\File\2024-12\241212\241212\2024-12-12-B1-15-33-45.csv";
+fullfilename  = "D:\WANGFENG\CHAOHE\CHCenter (2)\log\HI43_247_806-14-56-45.csv";
 
 % 获取输入文件的路径和文件名
 [inputFolder, file_name, ext] = fileparts(fullfilename);
@@ -72,6 +72,8 @@ fprintf("共: %d帧 GNSS 数据\n", N);
 
 % IMU数据
 data.imu.tow = T.gps_tow;
+datadiff = diff(data.imu.tow);
+index_diff = find(datadiff>100);
 data.imu.tow = data.imu.tow;
 data.imu.acc = [T.acc_x, T.acc_y, T.acc_z];
 data.imu.gyr = [T.gyr_x, T.gyr_y, T.gyr_z];
@@ -108,8 +110,8 @@ data.gnss.nv = gnss.nv;
 data.gnss.hdop = gnss.hdop;
 data.gnss.gnss_delay = gnss.undulation;
 % 里程计
-data.od.tow = data.imu.tow;
-data.od.speed = T.pc_counter;
+data.od.tow = T.pc_counter;
+data.od.speed = T.od_vel;
 
 % 相对时间
 time0 = data.imu.tow(1);
@@ -187,7 +189,7 @@ subplot(2,2,1); plot(data.gnss.tow, data.gnss.gnss_pos_std_n , '.-');  title("GN
 subplot(2,2,2);plot(data.gnss.tow, data.gnss.gnss_vel_std_n, '.-'); title("GNSS接收机给出的 vel_std(ENU模)"); hold on;
 subplot(2,2,3);plot(data.gnss.tow, data.gnss.solq_pos, '.-'); title("solq_pos"); hold on;
 
-
+%%
 figure('name', '位置与速度');
 gnss_pos_enu_interp = interp1(data.gnss.tow, data.gnss.pos_enu, data.imu.tow, 'previous', 'extrap');
 gnss_vel_enu_interp = interp1(data.gnss.tow, data.gnss.vel_enu, data.imu.tow, 'previous', 'extrap');
@@ -200,7 +202,7 @@ subplot(3,2,3); plot(data.imu.tow, gnss_vel_enu_interp(:,2), '.-'); hold on; plo
 subplot(3,2,5); plot(data.imu.tow, gnss_vel_enu_interp(:,3), '.-'); hold on; plot(data.imu.tow, data.dev.vel_enu(:,3), '.-'); hold on; title("Vel Up"); xlim tight;
 legend("纯GNSS", "设备组合导航");
 
-
+%%
 figure('name', '设备KF收敛状态');
 subplot(2,3,1); plot(data.imu.tow, data.dev.kf_p_att, '.-'); title("KF Att");
 subplot(2,3,2); plot(data.imu.tow, data.dev.kf_p_pos, '.-'); title("KF Postion");
