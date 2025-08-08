@@ -11,7 +11,7 @@ scriptPath = mfilename('fullpath');
 scriptFolder = fileparts(scriptPath);
 cd(scriptFolder);
 
-fullfilename  = "D:\WANGFENG\CHAOHE\CHCenter (2)\log\HI43_247_806-14-56-45.csv";
+fullfilename  = "D:\WANGFENG\CHAOHE\CHCenter (2)\log\HI43_247_808_dual-11-26-24.csv";
 
 % 获取输入文件的路径和文件名
 [inputFolder, file_name, ext] = fileparts(fullfilename);
@@ -98,7 +98,9 @@ data.dev.yaw = T.yaw;
 % GNSS
 data.gnss.tow = gnss.gps_tow;
 data.gnss.solq_pos = gnss.solq_pos;
+data.gnss.solq_pos2 = T.solq_pos;
 data.gnss.solq_heading = gnss.solq_heading;
+data.gnss.solq_heading2 = T.solq_heading;
 data.gnss.lat = gnss.gnss_lat;
 data.gnss.lon = gnss.gnss_lon;
 data.gnss.msl = gnss.gnss_msl;

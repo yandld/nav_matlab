@@ -44,7 +44,7 @@ cd(scriptFolder);
 
 %% 数据载入
 % load("dataset\2024-12-23-单天线1\2024-12-23-单天线1.mat");
-load("dataset\HI43_247_806-14-56-45\HI43_247_806-14-56-45.mat");
+load("dataset\HI43_247_808_dual-11-26-24\HI43_247_808_dual-11-26-24.mat");
 %load("dataset\HI43-4-15-APP245-2-15-07-45\HI43-4-15-APP245-2-15-07-45.mat");
 data.gnss.gnss_delay = data.gnss.gnss_delay;
 data.imu.tow = data.imu.tow - 0.000;
@@ -902,8 +902,8 @@ plot(diff(data.dev.pos_enu))
 legend('东向位置差分','北向位置差分','天向位置差分');
 
 %% dynamicDisplay(log, data, 播放速度, 播放开始时间s);
-dynamicDisplay(log, data, 100, 100);
-
+% dynamicDisplay(log, data, 100, 10);
+dynamicDisplayGUI(log, data);
 %%
 function [chi_lambda, innov] = calculate_chi_square(X, P, H, Z, R)
 innov = Z - H * X;
